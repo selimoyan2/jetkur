@@ -245,7 +245,7 @@ export const AiContentMetaOptimizer: React.FC<AiContentMetaOptimizerProps> = ({
             <div className="flex items-center gap-4 text-xs text-slate-400 pt-1 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{config.companyName || "HızlıWeb İşletmesi"} ({config.sector || "Genel"})</span>
+                <span>{config.companyName || "JetKur İşletmesi"} ({config.sector || "Genel"})</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400" />

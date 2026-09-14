@@ -17,6 +17,7 @@ import { calculateLeadScore } from "./utils/leadScoring";
 import { dispatchLeadNotification } from "./utils/leadNotificationDispatcher";
 import { useAuth } from "./context/AuthContext";
 import { AuthModal } from "./components/auth/AuthModal";
+import { TrialGatekeeper } from "./components/TrialGatekeeper";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<PlatformView>("marketing");
@@ -29,13 +30,17 @@ export default function App() {
     closeAuthModal, 
     authModalInitialTab, 
     redirectAfterLoginView, 
-    setRedirectAfterLoginView 
+    setRedirectAfterLoginView,
+    isAuthenticated,
+    isAdmin,
+    isTeamMember,
+    openAuthModal
   } = useAuth();
   
   // Single source of truth for the active site
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     try {
-      const saved = localStorage.getItem("hizliweb_active_site_config");
+      const saved = localStorage.getItem("jetkur_active_site_config") || localStorage.getItem("hizliweb_active_site_config");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.companyName) {
@@ -133,6 +138,7 @@ export default function App() {
   // Keep active state saved and check daily automated backup
   useEffect(() => {
     try {
+      localStorage.setItem("jetkur_active_site_config", JSON.stringify(siteConfig));
       localStorage.setItem("hizliweb_active_site_config", JSON.stringify(siteConfig));
       checkAndCreateDailyBackup(siteConfig);
     } catch {
@@ -329,18 +335,18 @@ export default function App() {
         setCustomerDashboardTab("client-portal");
         setCurrentView("customer-panel");
       } else if (redirectAfterLoginView === "admin-auth" || redirectAfterLoginView === "user-auth") {
-        setCustomerDashboardTab("user-auth");
-        setCurrentView("customer-panel");
+        setCurrentView("admin-panel");
       } else {
         setCurrentView(redirectAfterLoginView as PlatformView);
       }
       setRedirectAfterLoginView(null);
     } else {
-      if (role === "client") {
-        setCustomerDashboardTab("client-portal");
-        setCurrentView("customer-panel");
+      if (role === "admin" || role === "team_member") {
+        // Superadmin & Team Members are redirected strictly to the distinct Admin Super Panel
+        setCurrentView("admin-panel");
       } else {
-        setCustomerDashboardTab("user-auth");
+        // Regular clients are redirected to their client order and document portal
+        setCustomerDashboardTab("client-portal");
         setCurrentView("customer-panel");
       }
     }
@@ -366,49 +372,93 @@ export default function App() {
 
       {/* Main View Router */}
       <main className="flex-1 w-full">
-        {/* 1. MARKETING HOMEPAGE (HızlıWeb.com.tr) */}
+        {/* 1. MARKETING HOMEPAGE (JetKur.com.tr) */}
         {currentView === "marketing" && (
           <MarketingLanding
-            onStartWizard={() => setCurrentView("wizard")}
-            onOpenCustomerPanel={() => setCurrentView("customer-panel")}
-            onOpenAdminPanel={() => setCurrentView("admin-panel")}
+            onStartWizard={() => {
+              if (!isAuthenticated) {
+                openAuthModal("register");
+              } else {
+                setCurrentView("wizard");
+              }
+            }}
+            onOpenCustomerPanel={() => {
+              if (!isAuthenticated) {
+                openAuthModal("register");
+              } else {
+                setCurrentView("customer-panel");
+              }
+            }}
+            onOpenAdminPanel={() => {
+              if (!isAuthenticated) {
+                openAuthModal("admin");
+              } else {
+                setCurrentView("admin-panel");
+              }
+            }}
             onOpenCatalog={() => setCurrentView("catalog")}
             onSelectTemplate={(templateId) => {
               const tpl = templates.find((t) => t.id === templateId) || templates[0];
               handleSelectTemplate(tpl);
-              setCurrentView("customer-panel");
+              if (!isAuthenticated) {
+                openAuthModal("register");
+              } else {
+                setCurrentView("customer-panel");
+              }
             }}
           />
         )}
 
         {/* 2. CUSTOMER ONBOARDING WIZARD */}
         {currentView === "wizard" && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <CustomerWizard onComplete={handleWizardComplete} />
-          </div>
+          !isAuthenticated ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="Akıllı Web Sitesi Sihirbazı" 
+            />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+              <CustomerWizard onComplete={handleWizardComplete} />
+            </div>
+          )
         )}
 
         {/* 3. CUSTOMER DASHBOARD (CMS & LEADS & PRODUCTS) */}
         {currentView === "customer-panel" && (
-          <CustomerDashboard
-            config={siteConfig}
-            onChange={setSiteConfig}
-            onPreview={() => setCurrentView("preview")}
-            onDeploy={() => setCurrentView("deploy")}
-            initialTab={customerDashboardTab}
-          />
+          !isAuthenticated ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="Müşteri Yönetim Paneli" 
+            />
+          ) : (
+            <CustomerDashboard
+              config={siteConfig}
+              onChange={setSiteConfig}
+              onPreview={() => setCurrentView("preview")}
+              onDeploy={() => setCurrentView("deploy")}
+              initialTab={customerDashboardTab}
+            />
+          )
         )}
 
         {/* 4. SUPER ADMIN PANEL (PLATFORM OWNER) */}
         {currentView === "admin-panel" && (
-          <AdminSuperPanel
-            currentConfig={siteConfig}
-            onImpersonateSite={(config) => {
-              setSiteConfig(config);
-              setCurrentView("customer-panel");
-            }}
-            onOpenAiFactory={() => setCurrentView("ai-factory")}
-          />
+          (!isAuthenticated || (!isAdmin && !isTeamMember)) ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="Süper Admin Paneli" 
+            />
+          ) : (
+            <AdminSuperPanel
+              currentConfig={siteConfig}
+              onImpersonateSite={(config) => {
+                setSiteConfig(config);
+                setCurrentView("customer-panel");
+              }}
+              onOpenAiFactory={() => setCurrentView("ai-factory")}
+              onOpenMarketing={() => setCurrentView("marketing")}
+            />
+          )
         )}
 
         {/* 5. LIVE PREVIEW FRAME (INTERACTIVE BROWSER) */}
@@ -425,37 +475,58 @@ export default function App() {
 
         {/* 6. STATIC DEPLOY & GLOBAL EDGE EXPORT */}
         {currentView === "deploy" && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <StaticDeployModal
-              config={siteConfig}
-              onClose={() => setCurrentView("preview")}
-              onOpenPreview={() => setCurrentView("preview")}
+          !isAuthenticated ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="Statik Dağıtım & Yayınlama Merkezi" 
             />
-          </div>
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+              <StaticDeployModal
+                config={siteConfig}
+                onClose={() => setCurrentView("preview")}
+                onOpenPreview={() => setCurrentView("preview")}
+              />
+            </div>
+          )
         )}
 
         {/* 7. STRATEGIC ANALYSIS & ARCHITECTURE COMPARISON */}
         {currentView === "strategy" && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <StrategicAnalysisView
-              siteConfig={siteConfig}
-              onUpdateSiteConfig={setSiteConfig}
-              onNavigateTab={(tab) => setCurrentView(tab as any)}
+          !isAuthenticated ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="Stratejik Analiz ve Pazar Raporu" 
             />
-          </div>
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+              <StrategicAnalysisView
+                siteConfig={siteConfig}
+                onUpdateSiteConfig={setSiteConfig}
+                onNavigateTab={(tab) => setCurrentView(tab as any)}
+              />
+            </div>
+          )
         )}
 
         {/* 8. AI TEMPLATE FACTORY */}
         {currentView === "ai-factory" && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <AiTemplateFactory
-              onAddCustomTemplate={handleAddCustomTemplate}
-              onSelectAndEdit={(tpl) => {
-                handleSelectTemplate(tpl);
-                setCurrentView("customer-panel");
-              }}
+          !isAuthenticated ? (
+            <TrialGatekeeper 
+              onBackToMarketing={() => setCurrentView("marketing")} 
+              targetViewName="AI Şablon Fabrikası" 
             />
-          </div>
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+              <AiTemplateFactory
+                onAddCustomTemplate={handleAddCustomTemplate}
+                onSelectAndEdit={(tpl) => {
+                  handleSelectTemplate(tpl);
+                  setCurrentView("customer-panel");
+                }}
+              />
+            </div>
+          )
         )}
 
         {/* 9. TEMPLATE CATALOG */}

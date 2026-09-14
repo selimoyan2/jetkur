@@ -143,7 +143,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
         body: JSON.stringify({
           niche: targetNiche,
           city: targetCity,
-          companyName: siteConfig?.companyName || "HızlıWeb İşletmesi",
+          companyName: siteConfig?.companyName || "JetKur İşletmesi",
           customQuery: queryStr
         })
       });
@@ -512,7 +512,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
             </div>
 
             <div className="p-4 sm:p-5">
-              <div className="text-xs text-slate-500 font-medium">HızlıWeb Mimarisi Üstünlüğü</div>
+              <div className="text-xs text-slate-500 font-medium">JetKur Mimarisi Üstünlüğü</div>
               <div className="text-sm sm:text-base font-bold text-emerald-600 mt-0.5">
                 0.02s Açılış ile #1 Sıra
               </div>
@@ -690,7 +690,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
                       <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
                         <div className="font-bold text-blue-900 flex items-center gap-1">
                           <Zap className="w-3 h-3 text-amber-500" />
-                          <span>HızlıWeb Aksiyon Tavsiyesi:</span>
+                          <span>JetKur Aksiyon Tavsiyesi:</span>
                         </div>
                         <p className="text-slate-700 leading-relaxed text-[11px]">
                           {trend.actionableInsight}
@@ -857,7 +857,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
                 <div>
                   <strong>Rakip Sitelerin Google Algoritması Karşısındaki Açıkları:</strong>
                   <p className="mt-0.5 text-amber-800">
-                    Sektörünüzdeki WordPress veya hazır şablon siteleri Google'ın Core Web Vitals ve yerel arama yönergelerine uymuyor. HızlıWeb bu açıkları sizin lehinize 1. sayfa avantajına çevirir.
+                    Sektörünüzdeki WordPress veya hazır şablon siteleri Google'ın Core Web Vitals ve yerel arama yönergelerine uymuyor. JetKur bu açıkları sizin lehinize 1. sayfa avantajına çevirir.
                   </p>
                 </div>
               </div>
@@ -895,7 +895,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
                       <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/70 space-y-1">
                         <div className="font-bold text-emerald-900 flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>HızlıWeb Mimarimizin Üstünlüğü:</span>
+                          <span>JetKur Mimarimizin Üstünlüğü:</span>
                         </div>
                         <p className="text-emerald-800 leading-relaxed font-medium">
                           {gap.ourAdvantage}

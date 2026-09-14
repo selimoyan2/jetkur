@@ -217,7 +217,10 @@ export async function registerNewUser(
     createdAt: new Date().toISOString().slice(0, 10),
     lastLoginAt: new Date().toISOString(),
     status: "active",
-    assignedOrdersCount: 0
+    assignedOrdersCount: 0,
+    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    isTrial: true,
+    planName: "14 Günlük Ücretsiz Deneme"
   };
 
   const updatedUsers = [newUser, ...users];

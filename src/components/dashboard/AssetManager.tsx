@@ -468,7 +468,7 @@ export const AssetManager: React.FC<AssetManagerProps> = ({
           assetCategory: aiCategory,
           style: aiStyle,
           aspectRatio: aiAspectRatio,
-          companyName: config.companyName || "HızlıWeb",
+          companyName: config.companyName || "JetKur",
           sector: config.sector || "Genel"
         })
       });
@@ -998,7 +998,7 @@ export const AssetManager: React.FC<AssetManagerProps> = ({
                   className="w-4 h-4 rounded-xs object-contain shrink-0"
                 />
                 <span className="text-xs font-bold text-slate-800 truncate">
-                  {config.companyName || "HızlıWeb"} | {config.sector || "Hizmetleri"}
+                  {config.companyName || "JetKur"} | {config.sector || "Hizmetleri"}
                 </span>
                 <span className="text-slate-400 text-xs ml-auto">×</span>
               </div>

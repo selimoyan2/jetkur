@@ -20,6 +20,7 @@ import {
   Download
 } from "lucide-react";
 import { SiteConfig } from "../../types";
+import { downloadProjectSourceZip } from "../../utils/projectZipDownloader";
 
 interface CoolifyDeploymentGuideProps {
   config: SiteConfig;
@@ -34,6 +35,17 @@ export const CoolifyDeploymentGuide: React.FC<CoolifyDeploymentGuideProps> = ({
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"coolify" | "dns" | "docker" | "env">("coolify");
+  const [downloadStatus, setDownloadStatus] = useState<"idle" | "downloading" | "success" | "error">("idle");
+
+  const handleDownload = async () => {
+    setDownloadStatus("downloading");
+    await downloadProjectSourceZip((status) => {
+      setDownloadStatus(status);
+      if (status === "success" || status === "error") {
+        setTimeout(() => setDownloadStatus("idle"), 4000);
+      }
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -178,15 +190,36 @@ VITE_ADMIN_EMAIL=admin@jetkur.com.tr
               </p>
             </div>
           </div>
-          <a
+          <button
             id="coolify-download-zip-btn"
-            href="/api/download-project-zip"
-            download="jetkur-com-tr-project.zip"
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center gap-2 transition-all cursor-pointer shrink-0"
+            type="button"
+            onClick={handleDownload}
+            disabled={downloadStatus === "downloading"}
+            className={`px-4 py-2 rounded-xl text-white text-xs font-bold shadow-md flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+              downloadStatus === "downloading"
+                ? "bg-indigo-800 cursor-wait opacity-90"
+                : downloadStatus === "success"
+                ? "bg-emerald-600 shadow-emerald-600/20"
+                : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20"
+            }`}
           >
-            <Download className="w-4 h-4 stroke-[2.5]" />
-            <span>jetkur-com-tr-project.zip İndir</span>
-          </a>
+            {downloadStatus === "downloading" ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                <span>Paketleniyor &amp; İndiriliyor...</span>
+              </>
+            ) : downloadStatus === "success" ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>ZIP Başarıyla İndirildi!</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 stroke-[2.5]" />
+                <span>jetkur-com-tr-project.zip İndir</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Tab Content */}

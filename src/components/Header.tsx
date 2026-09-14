@@ -13,10 +13,13 @@ import {
   X, 
   ChevronRight,
   Server,
-  Download
+  Clock,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { UserProfileMenu } from "./auth/UserProfileMenu";
+import { useAuth } from "../context/AuthContext";
 
 interface HeaderProps {
   currentView: PlatformView | string;
@@ -36,10 +39,26 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenClientPortalTab,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, isAdmin, isClient, user, openAuthModal } = useAuth();
 
   // Close mobile drawer on view switch
   const handleNavClick = (view: PlatformView) => {
     onViewChange(view);
+    setIsMobileMenuOpen(false);
+  };
+
+  // Scroll to public homepage section
+  const handlePublicScroll = (sectionId: string) => {
+    if (currentView !== "marketing") {
+      onViewChange("marketing");
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
     setIsMobileMenuOpen(false);
   };
 
@@ -73,59 +92,93 @@ export const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const navLinks: { 
+  // Public visitor navigation links (features, speed, packages)
+  const publicNavLinks = [
+    { id: "speed-benchmark", label: "0.02s Hız Mimarisi", icon: Zap },
+    { id: "timeline", label: "10 Dk Kurulum", icon: Clock },
+    { id: "pricing", label: "Paketler & Fiyat", icon: Sparkles },
+    { id: "templates", label: "Hazır Şablonlar", icon: LayoutDashboard },
+  ];
+
+  // Authenticated Member Navigation Links
+  const authenticatedNavLinks: { 
     view: PlatformView; 
     label: string; 
     mobileLabel: string; 
     subLabel: string; 
     badge?: string;
     icon: React.FC<{ className?: string }> 
-  }[] = [
-    { 
-      view: "marketing", 
-      label: "HızlıWeb", 
-      mobileLabel: "Ana Sayfa (Platform)", 
-      subLabel: "Platform tanıtımı, hız özellikleri ve paketler", 
-      icon: Globe 
-    },
-    { 
-      view: "wizard", 
-      label: "1. Akıllı Sihirbaz", 
-      mobileLabel: "1. Akıllı Sihirbaz", 
-      subLabel: "2 dakikada yapay zeka ile site kur", 
-      badge: "AI",
-      icon: Wand2 
-    },
-    { 
-      view: "customer-panel", 
-      label: "2. Müşteri Paneli", 
-      mobileLabel: "2. Müşteri Paneli (CMS)", 
-      subLabel: "İçerik, SEO, A/B testi ve işletme yönetimi", 
-      icon: LayoutDashboard 
-    },
-    { 
-      view: "admin-panel", 
-      label: "3. Yönetici (Admin)", 
-      mobileLabel: "3. Yönetici Paneli", 
-      subLabel: "SaaS motoru ve çoklu site yönetimi", 
-      icon: ShieldCheck 
-    },
-    { 
-      view: "preview", 
-      label: "Canlı Önizleme", 
-      mobileLabel: "Canlı Önizleme", 
-      subLabel: "Mobil, tablet ve masaüstü interaktif test", 
-      badge: "Canlı",
-      icon: Eye 
-    },
-    { 
-      view: "strategy", 
-      label: "Stratejik Analiz", 
-      mobileLabel: "Stratejik Analiz", 
-      subLabel: "Pazar ve SEO strateji raporu", 
-      icon: BookOpen 
-    },
-  ];
+  }[] = isAdmin
+    ? [
+        { 
+          view: "marketing", 
+          label: "Ana Sayfa", 
+          mobileLabel: "Ana Sayfa (Platform)", 
+          subLabel: "Platform tanıtımı ve vitrin", 
+          icon: Globe 
+        },
+        { 
+          view: "admin-panel", 
+          label: "👑 Süper Admin", 
+          mobileLabel: "Süper Admin Paneli", 
+          subLabel: "Müşteriler, lisanslar, paketler ve ana sayfa", 
+          badge: "Süper Admin",
+          icon: ShieldCheck 
+        },
+        { 
+          view: "customer-panel", 
+          label: "Müşteri Paneli", 
+          mobileLabel: "Müşteri Paneli (CMS)", 
+          subLabel: "İçerik, SEO ve işletme yönetimi", 
+          icon: LayoutDashboard 
+        },
+        { 
+          view: "preview", 
+          label: "Canlı Önizleme", 
+          mobileLabel: "Canlı Önizleme", 
+          subLabel: "Mobil ve masaüstü interaktif test", 
+          badge: "Canlı",
+          icon: Eye 
+        },
+        { 
+          view: "strategy", 
+          label: "Stratejik Analiz", 
+          mobileLabel: "Stratejik Analiz", 
+          subLabel: "Pazar ve SEO analiz raporu", 
+          icon: BookOpen 
+        },
+      ]
+    : [
+        { 
+          view: "marketing", 
+          label: "Ana Sayfa", 
+          mobileLabel: "Ana Sayfa", 
+          subLabel: "Platform vitrini", 
+          icon: Globe 
+        },
+        { 
+          view: "customer-panel", 
+          label: "Müşteri Yönetim Paneli", 
+          mobileLabel: "Yönetim Masası (CMS)", 
+          subLabel: "Web sitenizi düzenleyin ve yönetin", 
+          badge: user?.isTrial ? "14 Gün Deneme" : "Aktif",
+          icon: LayoutDashboard 
+        },
+        { 
+          view: "wizard", 
+          label: "Sitemi Düzenle", 
+          mobileLabel: "Akıllı Sihirbaz", 
+          subLabel: "Yapay zeka ile sitenizi güncelleyin", 
+          icon: Wand2 
+        },
+        { 
+          view: "preview", 
+          label: "Canlı Önizleme", 
+          mobileLabel: "Canlı Önizleme", 
+          subLabel: "Web sitenizi canlı test edin", 
+          icon: Eye 
+        },
+      ];
 
   return (
     <>
@@ -140,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none shrink-0"
               role="button"
               tabIndex={0}
-              aria-label="HızlıWeb Ana Sayfasına Git"
+              aria-label="JetKur Ana Sayfasına Git"
               onKeyDown={(e) => { if (e.key === "Enter") handleNavClick("marketing"); }}
             >
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
@@ -148,7 +201,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-lg sm:text-xl tracking-tight text-white">HızlıWeb</span>
+                  <span className="font-black text-lg sm:text-xl tracking-tight text-white">JetKur</span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-medium hidden sm:block truncate max-w-[200px] md:max-w-none">
                   Dünyanın En Hızlı Web Sitesi Altyapısı
@@ -156,44 +209,64 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* Desktop Navigation Links (Collapsed on mobile & tablet < lg) */}
-            <nav id="header-desktop-nav" aria-label="Ana Gezinme Menüsü" className="hidden lg:flex items-center gap-1.5 xl:gap-2">
-              {navLinks.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.view;
-                return (
-                  <button
-                    key={item.view}
-                    id={`header-desktop-nav-${item.view}`}
-                    onClick={() => handleNavClick(item.view)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isActive
-                        ? item.view === "wizard"
-                          ? "bg-amber-500 text-slate-950 shadow-md font-black"
-                          : item.view === "strategy"
-                          ? "bg-blue-900/60 text-blue-300 border border-blue-700/60 shadow-xs"
-                          : "bg-slate-800 text-amber-400 border border-slate-700 shadow-xs"
-                        : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    <span>{item.label}</span>
-                    {item.badge && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
-                        isActive ? "bg-slate-950/40 text-current" : "bg-amber-500/20 text-amber-400"
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+            {/* Desktop Navigation */}
+            {!isAuthenticated ? (
+              /* Public Visitor Navigation Links */
+              <nav id="header-public-desktop-nav" aria-label="Genel Gezinme Menüsü" className="hidden lg:flex items-center gap-1 xl:gap-2">
+                {publicNavLinks.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handlePublicScroll(item.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            ) : (
+              /* Authenticated Member Navigation Links */
+              <nav id="header-desktop-nav" aria-label="Üye Gezinme Menüsü" className="hidden lg:flex items-center gap-1.5 xl:gap-2">
+                {authenticatedNavLinks.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.view;
+                  return (
+                    <button
+                      key={item.view}
+                      id={`header-desktop-nav-${item.view}`}
+                      onClick={() => handleNavClick(item.view)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? item.view === "admin-panel"
+                            ? "bg-indigo-600 text-white shadow-md font-black"
+                            : item.view === "customer-panel"
+                            ? "bg-amber-500 text-slate-950 shadow-md font-black"
+                            : "bg-slate-800 text-amber-400 border border-slate-700 shadow-xs"
+                          : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{item.label}</span>
+                      {item.badge && (
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
+                          isActive ? "bg-slate-950/40 text-current" : "bg-amber-500/20 text-amber-400"
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            )}
 
             {/* Right Action Cluster & Mobile Hamburger Toggle */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Hostinger VPS + Coolify Guide Trigger */}
-              {onOpenCoolifyGuide && (
+              {/* If Authenticated as Admin: Coolify & Server tools */}
+              {isAuthenticated && isAdmin && onOpenCoolifyGuide && (
                 <button
                   type="button"
                   onClick={onOpenCoolifyGuide}
@@ -205,38 +278,39 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* User Authentication & Profile Menu */}
+              {/* User Authentication & Profile Menu ("Giriş" button or logged in dropdown) */}
               <UserProfileMenu 
                 onNavigateView={onViewChange} 
                 onOpenClientPortalTab={onOpenClientPortalTab}
               />
 
-              {/* Quick Publish Action Button */}
-              <button
-                id="header-quick-deploy-btn"
-                onClick={onQuickDeploy}
-                className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs shadow-md shadow-orange-500/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-                title="Statik Sayfaları Yayınla & Dağıt"
-              >
-                <Rocket className="w-3.5 h-3.5 text-slate-950 fill-current shrink-0" />
-                <span className="hidden sm:inline">Yayınla &amp; Kod Al</span>
-                <span className="sm:hidden">Yayınla</span>
-              </button>
+              {/* If Visitor: Prominent 14-Day Free Trial CTA Button */}
+              {!isAuthenticated ? (
+                <button
+                  id="header-start-trial-cta-btn"
+                  onClick={() => openAuthModal("register")}
+                  className="px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs shadow-md shadow-orange-500/25 flex items-center gap-1.5 transition-all hover:scale-105 cursor-pointer shrink-0"
+                  title="14 Günlük Ücretsiz Deneme Başlatın (Kredi Kartsız)"
+                >
+                  <Zap className="w-3.5 h-3.5 text-slate-950 fill-current shrink-0" />
+                  <span className="hidden sm:inline">14 Gün Ücretsiz Başlat</span>
+                  <span className="sm:hidden">14 Gün Dene</span>
+                </button>
+              ) : (
+                /* If Logged In: Quick Publish Action Button */
+                <button
+                  id="header-quick-deploy-btn"
+                  onClick={onQuickDeploy}
+                  className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs shadow-md shadow-orange-500/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                  title="Statik Sayfaları Yayınla & Dağıt"
+                >
+                  <Rocket className="w-3.5 h-3.5 text-slate-950 fill-current shrink-0" />
+                  <span className="hidden sm:inline">Yayınla &amp; Kod Al</span>
+                  <span className="sm:hidden">Yayınla</span>
+                </button>
+              )}
 
-              {/* Direct Full Project ZIP Download (GitHub / VPS) */}
-              <a
-                id="header-download-project-zip-btn"
-                href="/api/download-project-zip"
-                download="jetkur-com-tr-project.zip"
-                className="px-3 sm:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-                title="GitHub &amp; Hostinger VPS (Coolify) için Tüm Projeyi ZIP Olarak İndir"
-              >
-                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline">ZIP İndir</span>
-                <span className="sm:hidden">ZIP</span>
-              </a>
-
-              {/* Mobile Menu Hamburger Toggle Button (Displays on < lg screens) */}
+              {/* Mobile Menu Hamburger Toggle Button */}
               <button
                 id="header-mobile-hamburger-btn"
                 type="button"
@@ -295,9 +369,9 @@ export const Header: React.FC<HeaderProps> = ({
                     <Zap className="w-4 h-4 fill-current text-white" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-black text-white text-base tracking-tight leading-tight">HızlıWeb</div>
+                    <div className="font-black text-white text-base tracking-tight leading-tight">JetKur</div>
                     <div className="text-[10px] text-slate-400 font-medium truncate">
-                      {companyName ? `İşletme: ${companyName}` : "Ultra Hızlı Web Motoru"}
+                      {isAuthenticated && user ? `Kullanıcı: ${user.name}` : "Dünyanın En Hızlı Web Sitesi"}
                     </div>
                   </div>
                 </div>
@@ -316,108 +390,170 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Drawer Scrollable Navigation Links */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 overscroll-contain">
-                <div className="px-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                  <span>Platform Menüsü</span>
-                  <span className="text-[10px] text-amber-400 font-mono font-normal">6 Modül</span>
-                </div>
+                {!isAuthenticated ? (
+                  /* Public Visitor Mobile Links */
+                  <div className="space-y-3">
+                    <div className="px-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Keşfedin</span>
+                      <span className="text-[10px] text-amber-400 font-mono">0.02s Hız</span>
+                    </div>
 
-                {navLinks.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentView === item.view;
-                  return (
-                    <button
-                      key={item.view}
-                      id={`header-mobile-nav-${item.view}`}
-                      type="button"
-                      onClick={() => handleNavClick(item.view)}
-                      className={`w-full flex items-center justify-between p-3 rounded-2xl text-left transition-all cursor-pointer min-h-[52px] ${
-                        isActive
-                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm"
-                          : "text-slate-200 hover:bg-slate-800/80 hover:text-white border border-transparent"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                          isActive 
-                            ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20" 
-                            : "bg-slate-800 text-slate-400"
-                        }`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold leading-tight">{item.mobileLabel}</span>
-                            {item.badge && (
-                              <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-extrabold uppercase ${
-                                isActive 
-                                  ? "bg-amber-500/30 text-amber-300" 
-                                  : "bg-slate-800 text-slate-400"
-                              }`}>
-                                {item.badge}
-                              </span>
-                            )}
+                    {publicNavLinks.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handlePublicScroll(item.id)}
+                          className="w-full flex items-center justify-between p-3 rounded-2xl text-left bg-slate-800/40 hover:bg-slate-800 border border-slate-800/80 transition-all cursor-pointer min-h-[48px]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-200">{item.label}</span>
                           </div>
-                          <div className="text-[11px] text-slate-400 font-normal leading-tight mt-1 line-clamp-1">
-                            {item.subLabel}
-                          </div>
-                        </div>
+                          <ChevronRight className="w-4 h-4 text-slate-600" />
+                        </button>
+                      );
+                    })}
+
+                    {/* Value Callout Card inside Mobile Menu */}
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 mt-4">
+                      <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 fill-current" />
+                        <span>14 Gün Boyunca Ücretsiz Deneyin</span>
                       </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Kredi kartı gerekmez. E-posta ve şifrenizle 10 saniyede kayıt olarak web sitenizi hemen oluşturun.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Authenticated Member Mobile Links */
+                  <div className="space-y-2">
+                    <div className="px-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>{isAdmin ? "Yönetici Menüsü" : "Müşteri Menüsü"}</span>
+                      <span className="text-[10px] text-amber-400 font-mono font-normal">
+                        {user?.isTrial ? "14 Gün Deneme" : "Aktif"}
+                      </span>
+                    </div>
 
-                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
-                        isActive ? "text-amber-400 translate-x-0.5" : "text-slate-600"
-                      }`} />
-                    </button>
-                  );
-                })}
+                    {authenticatedNavLinks.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = currentView === item.view;
+                      return (
+                        <button
+                          key={item.view}
+                          id={`header-mobile-nav-${item.view}`}
+                          type="button"
+                          onClick={() => handleNavClick(item.view)}
+                          className={`w-full flex items-center justify-between p-3 rounded-2xl text-left transition-all cursor-pointer min-h-[52px] ${
+                            isActive
+                              ? "bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm"
+                              : "text-slate-200 hover:bg-slate-800/80 hover:text-white border border-transparent"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                              isActive 
+                                ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20" 
+                                : "bg-slate-800 text-slate-400"
+                            }`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold leading-tight">{item.mobileLabel}</span>
+                                {item.badge && (
+                                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-extrabold uppercase ${
+                                    isActive 
+                                      ? "bg-amber-500/30 text-amber-300" 
+                                      : "bg-slate-800 text-slate-400"
+                                  }`}>
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-normal leading-tight mt-1 line-clamp-1">
+                                {item.subLabel}
+                              </div>
+                            </div>
+                          </div>
+
+                          <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
+                            isActive ? "text-amber-400 translate-x-0.5" : "text-slate-600"
+                          }`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Drawer Bottom Actions & Platform Status */}
+              {/* Drawer Bottom Actions */}
               <div className="p-4 border-t border-slate-800 bg-slate-950/60 space-y-3 shrink-0">
-                {onOpenCoolifyGuide && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenCoolifyGuide();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full min-h-[40px] py-2.5 px-4 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Server className="w-4 h-4 text-indigo-400" />
-                    <span>Hostinger VPS + Coolify Rehberi (jetkur.com.tr)</span>
-                  </button>
+                {!isAuthenticated ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openAuthModal("register");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.99] text-slate-950 font-black text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4 fill-current text-slate-950 shrink-0" />
+                      <span>14 Günlük Ücretsiz Denemeyi Başlat</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openAuthModal("client");
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full min-h-[40px] py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700"
+                    >
+                      <span>Mevcut Hesabınızla Giriş Yapın</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {isAdmin && onOpenCoolifyGuide && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenCoolifyGuide();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full min-h-[40px] py-2.5 px-4 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Server className="w-4 h-4 text-indigo-400" />
+                        <span>Hostinger VPS + Coolify Rehberi</span>
+                      </button>
+                    )}
+
+                    <button
+                      id="header-mobile-drawer-deploy-btn"
+                      type="button"
+                      onClick={() => {
+                        onQuickDeploy();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.99] text-slate-950 font-black text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Rocket className="w-4 h-4 fill-current text-slate-950 shrink-0" />
+                      <span>Statik Web Sitesini Yayınla & İndir</span>
+                    </button>
+                  </>
                 )}
-
-                <button
-                  id="header-mobile-drawer-deploy-btn"
-                  type="button"
-                  onClick={() => {
-                    onQuickDeploy();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.99] text-slate-950 font-black text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <Rocket className="w-4 h-4 fill-current text-slate-950 shrink-0" />
-                  <span>Statik Web Sitesini Yayınla & İndir</span>
-                </button>
-
-                {/* Direct Project ZIP download for Mobile */}
-                <a
-                  id="header-mobile-drawer-zip-btn"
-                  href="/api/download-project-zip"
-                  download="jetkur-com-tr-project.zip"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full min-h-[42px] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <Download className="w-4 h-4 stroke-[2.5]" />
-                  <span>Tüm Projeyi ZIP Olarak İndir (GitHub / Coolify)</span>
-                </a>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Global Edge CDN Aktif</span>
+                    <span>Global Anycast CDN</span>
                   </div>
-                  <span className="font-mono text-slate-500">0.02s TTFB</span>
+                  <span className="font-mono text-amber-400 font-bold">0.02s Yanıt Hızı</span>
                 </div>
               </div>
 
@@ -428,3 +564,4 @@ export const Header: React.FC<HeaderProps> = ({
     </>
   );
 };
+

@@ -95,7 +95,7 @@ export const CustomDomainManager: React.FC<CustomDomainManagerProps> = ({
   };
 
   const handleRemoveDomain = () => {
-    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan HızlıWeb alt alan adına dönmek istediğinize emin misiniz?")) {
+    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan JetKur alt alan adına dönmek istediğinize emin misiniz?")) {
       return;
     }
     setDomainInput("");
@@ -244,7 +244,7 @@ Not: Kayıtlar girildikten sonra otomatik ücretsiz SSL (TLS 1.3) devreye girece
               <span className="text-amber-400 text-base font-normal">(.com, .com.tr, .net, vb.)</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Kendi satın aldığınız alan adınızı (örn. <strong>www.firmaadi.com</strong>) Cloudflare üzerinde HızlıWeb altyapısına bağlayın. 320+ küresel edge veri merkezi, otomatik ücretsiz SSL (TLS 1.3) ve 0 ms gecikmeli önbellek ağıyla sitenizi ışık hızında yayına alın.
+              Kendi satın aldığınız alan adınızı (örn. <strong>www.firmaadi.com</strong>) Cloudflare üzerinde JetKur altyapısına bağlayın. 320+ küresel edge veri merkezi, otomatik ücretsiz SSL (TLS 1.3) ve 0 ms gecikmeli önbellek ağıyla sitenizi ışık hızında yayına alın.
             </p>
           </div>
 
@@ -527,7 +527,7 @@ Not: Kayıtlar girildikten sonra otomatik ücretsiz SSL (TLS 1.3) devreye girece
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  HızlıWeb Ücretsiz Alt Alan Adı (Subdomain)
+                  JetKur Ücretsiz Alt Alan Adı (Subdomain)
                 </label>
                 <div className="flex items-center">
                   <input
@@ -962,7 +962,7 @@ Not: Kayıtlar girildikten sonra otomatik ücretsiz SSL (TLS 1.3) devreye girece
                     <li><strong>A Kaydı:</strong> Ad: <code>@</code>, Hedef: <code>104.21.68.99</code>, Proxy: <strong>Açık (Turuncu Bulut)</strong></li>
                   </ul>
                   <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
-                    ⚠️ Turuncu bulutun (Proxied) açık olması şarttır! Bu sayede ziyaretçileriniz HızlıWeb&apos;in 0.02 saniye edge yanıt hızından yararlanır.
+                    ⚠️ Turuncu bulutun (Proxied) açık olması şarttır! Bu sayede ziyaretçileriniz JetKur&apos;in 0.02 saniye edge yanıt hızından yararlanır.
                   </p>
                 </div>
               </div>

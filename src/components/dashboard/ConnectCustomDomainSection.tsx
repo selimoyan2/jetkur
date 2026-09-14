@@ -153,7 +153,7 @@ export const ConnectCustomDomainSection: React.FC<ConnectCustomDomainSectionProp
   };
 
   const handleRemoveDomain = () => {
-    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan HızlıWeb alt alan adına dönmek istediğinize emin misiniz?")) {
+    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan JetKur alt alan adına dönmek istediğinize emin misiniz?")) {
       return;
     }
     setDomainInput("");
@@ -561,7 +561,7 @@ TTL: Auto
                   Üretilen Siteyi Cloudflare CNAME ile 5 Adımda Bağlayın
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Web sitenizin statik kodları HızlıWeb Edge sunucularında derlenmiştir. Alan adınızı bağlamak için aşağıdaki spesifik adımları Cloudflare panelinizde eksiksiz uygulayın:
+                  Web sitenizin statik kodları JetKur Edge sunucularında derlenmiştir. Alan adınızı bağlamak için aşağıdaki spesifik adımları Cloudflare panelinizde eksiksiz uygulayın:
                 </p>
               </div>
 
@@ -685,7 +685,7 @@ TTL: Auto
                       <span>Proxy Durumu: Proxied (Turuncu Bulut ☁️) Seçilmelidir!</span>
                     </div>
                     <p className="text-[11px] text-amber-800 leading-relaxed">
-                      Cloudflare formunda <strong>Proxy status</strong> seçeneğini mutlaka <strong>&quot;Proxied&quot; (Turuncu Bulut)</strong> olarak bırakın. Turuncu bulut aktif olduğunda, HızlıWeb&apos;in 320+ şehirdeki küresel Anycast CDN önbelleği, DDoS koruması ve otomatik SSL sertifikası (TLS 1.3) devreye girer.
+                      Cloudflare formunda <strong>Proxy status</strong> seçeneğini mutlaka <strong>&quot;Proxied&quot; (Turuncu Bulut)</strong> olarak bırakın. Turuncu bulut aktif olduğunda, JetKur&apos;in 320+ şehirdeki küresel Anycast CDN önbelleği, DDoS koruması ve otomatik SSL sertifikası (TLS 1.3) devreye girer.
                     </p>
                   </div>
 
@@ -769,7 +769,7 @@ TTL: Auto
                     <li>
                       Şifreleme modunu mutlaka <strong>&quot;Full&quot;</strong> veya <strong>&quot;Full (Strict)&quot;</strong> olarak belirleyin.
                       <div className="mt-1 text-[11px] text-rose-700 bg-rose-50 p-2 rounded-lg border border-rose-200">
-                        🚫 <strong>UYARI:</strong> Asla <strong>&quot;Flexible&quot;</strong> seçmeyin! HızlıWeb statik motoru HTTPS üzerinden çalıştığı için Flexible modu <code>ERR_TOO_MANY_REDIRECTS</code> döngüsüne yol açar.
+                        🚫 <strong>UYARI:</strong> Asla <strong>&quot;Flexible&quot;</strong> seçmeyin! JetKur statik motoru HTTPS üzerinden çalıştığı için Flexible modu <code>ERR_TOO_MANY_REDIRECTS</code> döngüsüne yol açar.
                       </div>
                     </li>
                     <li>
@@ -975,7 +975,7 @@ TTL: Auto
               <div className="space-y-1">
                 <div className="font-bold">CNAME vs A Kaydı Notu:</div>
                 <p className="text-blue-800 leading-relaxed text-[11px]">
-                  Cloudflare üzerinde CNAME kaydı tanımlamak en güvenilir ve geleceğe dönük yöntemdir. HızlıWeb altyapısı sunucu IP adreslerini güncellese bile, CNAME kaydınız otomatik olarak güncel IP adreslerine yönlenir; sitenizde hiçbir kesinti yaşanmaz.
+                  Cloudflare üzerinde CNAME kaydı tanımlamak en güvenilir ve geleceğe dönük yöntemdir. JetKur altyapısı sunucu IP adreslerini güncellese bile, CNAME kaydınız otomatik olarak güncel IP adreslerine yönlenir; sitenizde hiçbir kesinti yaşanmaz.
                 </p>
               </div>
             </div>
@@ -1102,7 +1102,7 @@ TTL: Auto
               <span>www Olmadan (ornekfirma.com) Yazıldığında da Açılır mı?</span>
             </h4>
             <p className="text-slate-600 leading-relaxed text-xs">
-              Evet! Step 4&apos;te anlattığımız gibi Cloudflare üzerinde Name kısmına <code>@</code> girerek kök alan adı CNAME kaydı eklerseniz, Cloudflare CNAME Flattening teknolojisi sayesinde kök alan adınız da anında HızlıWeb sitenize yönlenir.
+              Evet! Step 4&apos;te anlattığımız gibi Cloudflare üzerinde Name kısmına <code>@</code> girerek kök alan adı CNAME kaydı eklerseniz, Cloudflare CNAME Flattening teknolojisi sayesinde kök alan adınız da anında JetKur sitenize yönlenir.
             </p>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { SiteConfig, GeneratedPageFile } from "../types";
 import { generateStaticHtml, generateAllSiteFiles } from "../utils/staticHtmlGenerator";
 import { slugify } from "../utils/url";
+import { downloadProjectSourceZip } from "../utils/projectZipDownloader";
 import JSZip from "jszip";
 import {
   Rocket,
@@ -36,6 +37,21 @@ export const StaticDeployModal: React.FC<StaticDeployModalProps> = ({
   const [activeCodeTab, setActiveCodeTab] = useState<string>("index.html");
   const [buildStep, setBuildStep] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
+  const [isDownloadingSource, setIsDownloadingSource] = useState(false);
+  const [sourceSuccess, setSourceSuccess] = useState(false);
+
+  const handleDownloadFullProject = async () => {
+    setIsDownloadingSource(true);
+    await downloadProjectSourceZip((status) => {
+      if (status === "success") {
+        setSourceSuccess(true);
+        setTimeout(() => setSourceSuccess(false), 3000);
+      }
+      if (status !== "downloading") {
+        setIsDownloadingSource(false);
+      }
+    });
+  };
 
   const isMulti = config.siteType === "multi-page";
   const allFiles: GeneratedPageFile[] = generateAllSiteFiles(config);
@@ -235,6 +251,34 @@ export const StaticDeployModal: React.FC<StaticDeployModalProps> = ({
               <span>index.html Olarak İndir</span>
             </button>
           )}
+
+          <button
+            onClick={handleDownloadFullProject}
+            disabled={isDownloadingSource}
+            className={`px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all ${
+              sourceSuccess 
+                ? "bg-emerald-600 text-white" 
+                : "bg-indigo-600 hover:bg-indigo-700 text-white"
+            }`}
+            title="Coolify &amp; Hostinger VPS İçin Full-Stack Projeyi (Dockerfile Dahil) İndir"
+          >
+            {isDownloadingSource ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                <span>İndiriliyor...</span>
+              </>
+            ) : sourceSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-white" />
+                <span>Proje ZIP İndirildi!</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 text-amber-300" />
+                <span>Full-Stack + Dockerfile ZIP İndir</span>
+              </>
+            )}
+          </button>
 
           <button
             onClick={() => handleCopy(currentFileContent)}

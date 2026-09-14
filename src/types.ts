@@ -1952,8 +1952,10 @@ export type AdminPanelTab =
   | "template-factory"
   | "sectors"
   | "client-sites"
-  | "edge-settings"
-  | "pricing-plans";
+  | "renewals"
+  | "pricing-plans"
+  | "homepage-manager"
+  | "edge-settings";
 
 // ==========================================
 // LEAD FORECASTING & SALES PROJECTION TYPES (D3.js)
@@ -2864,6 +2866,9 @@ export interface AuthUser {
   lastLoginAt: string;
   status: "active" | "suspended" | "pending";
   assignedOrdersCount?: number;
+  trialEndsAt?: string;
+  isTrial?: boolean;
+  planName?: string;
 }
 
 export interface AuthCredentials {

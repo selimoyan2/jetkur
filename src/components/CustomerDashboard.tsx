@@ -1230,7 +1230,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
-              HızlıWeb Yönetim Masası (Gelişmiş Stüdyo)
+              JetKur Yönetim Masası (Gelişmiş Stüdyo)
             </span>
             <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300 font-mono border border-slate-700">
               {config.siteType === "multi-page" ? "Çok Sayfalı Site" : "Tek Sayfa Landing"}
@@ -6146,7 +6146,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   <div className="flex items-center gap-2">
                     <PackageCheck className="w-5 h-5 text-amber-500" />
                     <h2 className="text-lg font-bold text-slate-900">
-                      HızlıWeb 3 Kademeli Lisans Modeli
+                      JetKur 3 Kademeli Lisans Modeli
                     </h2>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
@@ -6226,14 +6226,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     <span>Global Edge DNS & Özel Alan Adı Özeti</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Sitenizi HızlıWeb alt alan adı veya kendi <strong>.com.tr</strong> alan adınız üzerinden 0 ms gecikmeyle yayınlayın.
+                    Sitenizi JetKur alt alan adı veya kendi <strong>.com.tr</strong> alan adınız üzerinden 0 ms gecikmeyle yayınlayın.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      Ücretsiz HızlıWeb Alt Alan Adı (Subdomain)
+                      Ücretsiz JetKur Alt Alan Adı (Subdomain)
                     </label>
                     <div className="flex items-center">
                       <input

@@ -156,7 +156,7 @@ export const AutomatedDnsSetupGuide: React.FC<AutomatedDnsSetupGuideProps> = ({
 
   // Remove custom domain
   const handleRemoveDomain = () => {
-    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan HızlıWeb alt alan adına dönmek istediğinize emin misiniz?")) {
+    if (!window.confirm("Özel alan adınızı kaldırmak ve varsayılan JetKur alt alan adına dönmek istediğinize emin misiniz?")) {
       return;
     }
     setDomainInput("");
@@ -180,7 +180,7 @@ export const AutomatedDnsSetupGuide: React.FC<AutomatedDnsSetupGuideProps> = ({
 Alan Adı: ${activeDomain}
 Kök (Apex) Alan Adı: ${rootApexDomain}
 WWW Alan Adı: ${wwwDomain}
-HızlıWeb Bulut Örneği: ${pointsToTarget}
+JetKur Bulut Örneği: ${pointsToTarget}
 Oluşturulma Tarihi: ${new Date().toLocaleDateString("tr-TR")}
 
 [1. CNAME KAYDI - Web Trafiği (ZORUNLU / ÖNERİLEN)]
@@ -228,7 +228,7 @@ Asla "Flexible" seçilmemelidir.
   // Download BIND RFC 1035 Standard Zone file
   const handleDownloadZoneFile = () => {
     const zoneContent = `; BIND Zone file for ${rootApexDomain}
-; Generated automatically by HizliWeb Cloudflare DNS Setup Guide
+; Generated automatically by JetKur Cloudflare DNS Setup Guide
 ; Date: ${new Date().toISOString()}
 $ORIGIN ${rootApexDomain}.
 $TTL 3600
@@ -248,7 +248,7 @@ $TTL 3600
 ; Primary CNAME Record for WWW
 www     IN      CNAME   ${pointsToTarget}.
 
-; HizliWeb Ownership Verification TXT Record
+; JetKur Ownership Verification TXT Record
 _hizliweb-verify IN  TXT  "${verificationToken}"
 `;
 
@@ -321,7 +321,7 @@ TXT,_hizliweb-verify,${verificationToken},Auto,false
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Kendi özel alan adınızı (örn. <strong>{activeDomain}</strong>) HızlıWeb bulut örneğinize bağlayın. Aşağıdaki spesifik <strong>CNAME</strong> ve <strong>A kayıtlarını</strong> alan adı sağlayıcınıza ekleyerek 320+ Cloudflare Edge noktasından 0 ms gecikmeyle yayın yapın.
+              Kendi özel alan adınızı (örn. <strong>{activeDomain}</strong>) JetKur bulut örneğinize bağlayın. Aşağıdaki spesifik <strong>CNAME</strong> ve <strong>A kayıtlarını</strong> alan adı sağlayıcınıza ekleyerek 320+ Cloudflare Edge noktasından 0 ms gecikmeyle yayın yapın.
             </p>
           </div>
 
@@ -586,7 +586,7 @@ TXT,_hizliweb-verify,${verificationToken},Auto,false
                     {pointsToTarget}
                   </div>
                   <div className="text-[10px] text-slate-400 font-sans font-normal">
-                    HızlıWeb Edge Dağıtım Örneği
+                    JetKur Edge Dağıtım Örneği
                   </div>
                 </td>
                 <td className="px-4 py-4 font-sans">
@@ -1257,7 +1257,7 @@ TXT,_hizliweb-verify,${verificationToken},Auto,false
               <span>Hata: Çakışan A veya CNAME Kayıtları</span>
             </div>
             <p className="text-slate-600 leading-relaxed text-[11px]">
-              Alan adınızda önceden kalma eski hosting A kayıtları veya park sayfası kayıtları varsa yenileriyle çakışır. Eski <code>www</code> ve <code>@</code> kayıtlarını silip sadece yukarıdaki HızlıWeb kayıtlarını bırakınız.
+              Alan adınızda önceden kalma eski hosting A kayıtları veya park sayfası kayıtları varsa yenileriyle çakışır. Eski <code>www</code> ve <code>@</code> kayıtlarını silip sadece yukarıdaki JetKur kayıtlarını bırakınız.
             </p>
           </div>
 

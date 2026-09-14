@@ -40,26 +40,15 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center">
         <button
           type="button"
           onClick={() => openAuthModal("client")}
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-400 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-          title="Müşteri Portali Girişi"
+          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-white border border-slate-700 hover:border-amber-500/40 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs group"
+          title="Kullanıcı ve Yönetici Girişi"
         >
-          <Truck className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Müşteri Girişi</span>
-          <span className="sm:hidden">Giriş</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => openAuthModal("admin")}
-          className="px-3 py-1.5 rounded-xl bg-indigo-900/60 hover:bg-indigo-900/90 text-indigo-200 border border-indigo-700/60 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-          title="Yönetici & Personel Girişi"
-        >
-          <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden md:inline">Yönetici Girişi</span>
+          <User className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span>Giriş</span>
         </button>
       </div>
     );
@@ -136,13 +125,25 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    onNavigateView("admin-panel");
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-700/50 text-indigo-200 hover:text-white flex items-center gap-2 transition-colors cursor-pointer font-bold"
+                >
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>👑 Süper Admin Paneli</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
                     onNavigateView("customer-panel");
                     setIsOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                  <span>Yönetim Paneli (CMS)</span>
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  <span>Site Düzenleme (CMS)</span>
                 </button>
 
                 <button

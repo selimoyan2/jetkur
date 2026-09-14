@@ -684,7 +684,7 @@ export const CustomerWizard: React.FC<CustomerWizardProps> = ({
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-slate-900 mb-1">
-                  1. Ücretsiz HızlıWeb Alan Adı (0 Ayar)
+                  1. Ücretsiz JetKur Alan Adı (0 Ayar)
                 </h3>
                 <p className="text-xs text-slate-600 mb-4">
                   DNS veya sunucu ayarı beklemeden saniyeler içinde SSL sertifikalı olarak yayına girer.
@@ -974,7 +974,7 @@ export const CustomerWizard: React.FC<CustomerWizardProps> = ({
 
             {paymentMethod === "transfer" && (
               <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-300 text-xs text-blue-900 space-y-1">
-                <div className="font-bold">HızlıWeb Bilişim A.Ş. Garanti BBVA IBAN:</div>
+                <div className="font-bold">JetKur Bilişim A.Ş. Garanti BBVA IBAN:</div>
                 <div className="font-mono font-bold text-blue-950">TR33 0006 2000 0001 2345 6789 01</div>
                 <div className="text-[11px] text-blue-700">Açıklamaya firma adınızı ({companyName || "Firma"}) yazmanız yeterlidir.</div>
               </div>
