@@ -1,0 +1,2888 @@
+export interface ColorPalette {
+  id: string;
+  name: string;
+  primary: string;
+  primaryDark: string;
+  secondary: string;
+  accent: string;
+  text: string;
+  bg: string;
+}
+
+export interface ServiceItem {
+  id: string;
+  title: string;
+  slug?: string;
+  desc: string;
+  longContent?: string; // Rich Text HTML for dedicated service page
+  icon?: string;
+  price?: string;
+  longDesc?: string;
+  features?: string[];
+  image?: string;
+  bannerImage?: string;
+  ogImage?: string; // Custom OpenGraph social share image
+  imageAlt?: string;
+  altText?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robots?: string;
+  schemaType?: string;
+  specs?: { label: string; value: string }[];
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface ProductItem {
+  id: string;
+  title: string;
+  slug?: string;
+  category: string;
+  price: string;
+  oldPrice?: string;
+  description: string; // rich text HTML
+  shortDescription?: string;
+  featuredImage?: string; // Main primary featured image
+  image?: string;
+  images: string[];
+  imageAlt?: string;
+  altText?: string;
+  ogImage?: string; // Custom OpenGraph social share image
+  badge?: string;
+  inStock: boolean;
+  specs?: { label: string; value: string }[];
+  whatsappMessage?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robots?: string;
+  schemaType?: string;
+  vatRate?: number; // Ürüne özel KDV oranı (boş ise mağaza varsayılanı)
+  priceIncludesVat?: boolean; // Ürüne özel KDV dahil/hariç durumu (boş ise mağaza varsayılanı)
+  taxExempt?: boolean; // KDV'den muaf mı?
+}
+
+export interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface BlogPostItem {
+  id: string;
+  title: string;
+  slug: string;
+  categoryIds?: string[]; // multi-category support
+  category?: string;
+  categories?: string[];
+  excerpt: string;
+  content: string; // rich text HTML
+  readTime: string;
+  date: string;
+  author: string;
+  coverImage?: string;
+  image?: string;
+  imageAlt?: string;
+  altText?: string;
+  ogImage?: string; // Custom OpenGraph social share image
+  tags: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robots?: string;
+  schemaType?: string;
+}
+
+// ==========================================
+// AI-DRIVEN CONTENT CALENDAR TYPES
+// ==========================================
+export type ContentCalendarStatus = "suggested" | "scheduled" | "draft" | "published";
+export type ContentCalendarFormat = "guide" | "comparison" | "pricing" | "tips" | "case_study" | "local_seo";
+export type ContentCalendarIntent = "commercial" | "informational" | "transactional" | "navigational";
+
+export interface ContentCalendarItem {
+  id: string;
+  title: string;
+  suggestedSlug?: string;
+  focusKeyword: string;
+  secondaryKeywords?: string[];
+  scheduledDate: string; // YYYY-MM-DD
+  optimalHour: string; // e.g. "10:30"
+  timeSlotLabel: string; // e.g. "Sabah Masaüstü Zirvesi (10:00 - 12:00)"
+  trafficReasoning: string; // Direct correlation to Real-time Traffic engine peak hours & low bounce rates
+  peakMetrics: {
+    hourlyVisitors: number;
+    bounceRate: number; // percentage (e.g. 17.8)
+    deviceFocus: "desktop" | "mobile" | "balanced";
+    peakHour: string; // e.g. "10:00"
+  };
+  contentType: ContentCalendarFormat;
+  searchIntent: ContentCalendarIntent;
+  targetAudience: string;
+  expectedTrafficGain: string; // e.g. "+380 Ziyaretçi / Ay"
+  estimatedReadTime: string; // e.g. "5 dk okuma"
+  status: ContentCalendarStatus;
+  priority: "high" | "medium" | "standard";
+  blogPostId?: string; // ID of linked blog post in config.blog.items if published/drafted
+  outlinePoints?: string[];
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface CustomPageItem {
+  id: string;
+  title: string;
+  slug: string;
+  content: string; // rich text HTML
+  bannerImage?: string;
+  ogImage?: string; // Custom OpenGraph social share image
+  isNavVisible: boolean;
+  seoTitle?: string;
+  metaDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robots?: string;
+  schemaType?: string;
+}
+
+export type FormFieldType =
+  | "text"
+  | "textarea"
+  | "select"
+  | "checkbox"
+  | "file"
+  | "radio"
+  | "email"
+  | "tel"
+  | "number"
+  | "date";
+
+export interface FormFieldConfig {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[]; // Dropdown veya Radio için seçenek listesi
+  allowedFileTypes?: string; // Dosya yükleme için izin verilen uzantılar (örn: .pdf, .jpg, .png)
+  maxFileSizeMb?: number; // Maksimum dosya boyutu (MB)
+  helpText?: string;
+  defaultValue?: string | boolean;
+  width?: "full" | "half";
+  isSystem?: boolean; // Çekirdek alan işareti (ad soyad, telefon vb.)
+}
+
+export interface LeadThankYouEmailConfig {
+  enabled: boolean; // Yeni gelen form taleplerine otomatik teşekkür e-postası gönder
+  requireEmail: boolean; // Kullanıcının e-posta adresini formda zorunlu tutarak yakala
+  subject: string; // E-posta konu başlığı ({firma}, {isim}, {hizmet}, {tarih})
+  body: string; // E-posta gövde metni (Zengin HTML veya biçimlendirilmiş metin)
+  senderName?: string; // Gönderen Adı (Örn: "Yıldız Oto Kurtarma Müşteri Destek")
+  replyToEmail?: string; // Yanıtlanacak e-posta adresi
+  sendCopyNotification?: boolean; // Şirket yetkilisine de bir kopya bildirimi gönder
+  includeDetailsSummary?: boolean; // E-postanın altına doldurulan form verilerinin özetini ekle
+  smtpStatus?: "active" | "simulated";
+  theme?: "clean" | "navy" | "emerald" | "amber" | "indigo";
+  customFooterNote?: string;
+  ctaButtonText?: string;
+  ctaButtonType?: "phone" | "whatsapp" | "website";
+  // Gecikme & Doğal Takip Zamanlayıcısı (Natural Follow-Up Delay Timer)
+  delayMinutes?: number; // 0 = Anında / Gecikmesiz, 5 = 5 dk, 15 = 15 dk, 30 = 30 dk, vb.
+  delayMode?: "instant" | "preset" | "custom"; // Zamanlama tercihi
+  delayRandomWindow?: boolean; // Doğal insan varyasyonu (±1-3 dk rastgele sapma ile robotik görünümü engeller)
+  businessHoursOnly?: boolean; // Yalnızca mesai saatleri içinde gönder (mesai dışı gelenler ertesi sabah iletilir)
+  businessHoursStart?: string; // Örn: "09:00"
+  businessHoursEnd?: string; // Örn: "19:00"
+}
+
+export interface EmailAuditLogEntry {
+  id: string; // msg_... or audit_...
+  leadId: string;
+  leadName: string;
+  recipientEmail: string;
+  recipientPhone?: string;
+  serviceOrProduct?: string;
+  subject: string;
+  triggerType: "autoresponder" | "followup" | "notification" | "manual_resend" | "test";
+  status: "delivered" | "pending" | "failed";
+  timestamp: string;
+  scheduledFor?: string;
+  sentAt?: string;
+  delayMinutes?: number;
+  failureReason?: string;
+  messageId: string;
+  smtpResponse?: string;
+  latencyMs?: number;
+  ipAddress?: string;
+  tlsVersion?: string;
+}
+
+export interface CustomFormConfig {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  submitButtonText: string;
+  successMessage: string;
+  redirectWhatsAppAfterSubmit?: boolean;
+  notifyEmail?: string;
+  fields: FormFieldConfig[];
+  thankYouEmail?: LeadThankYouEmailConfig;
+}
+
+export type LeadTagColor =
+  | "rose"
+  | "amber"
+  | "emerald"
+  | "sky"
+  | "indigo"
+  | "purple"
+  | "teal"
+  | "orange"
+  | "pink"
+  | "blue"
+  | "violet"
+  | "slate";
+
+export interface LeadCustomTag {
+  id: string;
+  name: string;
+  color: LeadTagColor | string;
+  description?: string;
+  createdAt?: string;
+}
+
+export type LeadTimelineEventType =
+  | "form_submission" // İlk web formu başvurusu
+  | "call"            // Telefon görüşmesi
+  | "whatsapp"        // WhatsApp iletişimi
+  | "email"           // E-posta gönderimi / yanıtı
+  | "meeting"         // Yüz yüze görüşme veya saha keşfi
+  | "note"            // Dahili özel not
+  | "status_change"   // Pipeline aşama değişikliği
+  | "quote"           // Fiyat teklifi sunumu / revizyonu
+  | "deal_closed"     // Satış / anlaşma tamamlandı
+  | "score"           // Lead scoring / öncelik puanı
+  | "archive"         // Arşivleme işlemi
+  | "system";         // Sistem / bildirim olayı
+
+export interface LeadTimelineEntry {
+  id: string;
+  type: LeadTimelineEventType;
+  date: string; // "DD.MM.YYYY HH:mm" veya "Bugün 14:30" veya ISO string
+  title: string;
+  description: string;
+  author?: string; // "Müşteri", "Sistem", "Operatör", "Satış Danışmanı", "Yönetici"
+  duration?: string; // Görüşme süresi (örn: "4 dk", "12 dk")
+  outcome?: string; // Sonuç durumu (örn: "Ulaşıldı", "Meşgul", "Teklif Gönderildi", "Randevu Alındı")
+  dealValue?: number;
+  statusFrom?: FormLead["status"];
+  statusTo?: FormLead["status"];
+  pinned?: boolean;
+  attachmentName?: string;
+}
+
+export interface FormLead {
+  id: string;
+  date: string;
+  name: string;
+  phone: string;
+  email?: string;
+  serviceOrProduct: string;
+  message: string;
+  sourcePage: string;
+  status: "new" | "contacted" | "offered" | "closed" | "archived";
+  isRead?: boolean; // Okundu / İncelendi durumu (false ise okunmamış/yeni işlem bekleyen bildirim)
+  heroVariant?: "A" | "B";
+  acquisitionChannel?: "organic" | "ads" | "social" | "direct" | "referral"; // Edinme kanalı (Organik SEO, Google Reklamları, Sosyal Medya vb.)
+  dealValue?: number; // Revenue/Value in TRY (₺) for completed or offered deals
+  dealNotes?: string;
+  privateNotes?: string; // Private / internal observations about this lead (Dahili özel notlar)
+  completedAt?: string;
+  archivedAt?: string; // ISO date string when lead was moved to archive
+  archivedReason?: string; // Reason why lead was archived (e.g. 30+ gün işlem yapılmadığı için otomatik arşivlendi)
+  createdAt?: string; // ISO timestamp of creation
+  lastActivityAt?: string; // ISO timestamp of last interaction/status update
+  customFields?: Record<string, any>;
+  attachments?: {
+    name: string;
+    size?: number;
+    type?: string;
+    dataUrl?: string;
+  }[];
+  thankYouEmailSent?: boolean;
+  thankYouEmailSentAt?: string;
+  thankYouEmailStatus?: "delivered" | "queued" | "pending" | "failed" | "skipped";
+  thankYouEmailScheduledFor?: string; // Planlanan gönderim zamanı (örn: "14:45 (Bugün)")
+  thankYouEmailDelayMinutes?: number; // Zamanlayıcı gecikme dakikası
+  thankYouEmailFailureReason?: string; // Hata nedeni (SMTP hatası, geçersiz adres vb.)
+  thankYouEmailSubject?: string;
+  thankYouEmailRenderedBody?: string;
+  tags?: string[]; // Custom CRM organization tags (e.g. VIP, Acil, Kurumsal, Sıcak Takip)
+  customTags?: LeadCustomTag[]; // Custom color-coded labels/tags saved directly within this lead object
+  leadScore?: number; // Lead scoring puanı (0-100)
+  leadScorePriority?: "high" | "medium" | "low"; // Öncelik düzeyi
+  leadScoreReasons?: string[]; // Puanlama faktörleri ve açıklamaları
+  timeline?: LeadTimelineEntry[]; // Kronolojik iletişim ve özel notlar zaman çizelgesi
+}
+
+export interface FaqItem {
+  id: string;
+  q: string; // Question
+  a: string; // Answer
+  question?: string; // Friendly alias
+  answer?: string; // Friendly alias
+  category?: string; // Category or topic
+  isOpenDefault?: boolean;
+}
+
+export interface FaqSectionConfig {
+  enabled: boolean;
+  badge: string;
+  title: string;
+  subtitle: string;
+  items: FaqItem[];
+  layout?: "single-column" | "two-columns";
+  accordionStyle?: "modern" | "bordered" | "separated" | "minimal";
+  allowMultipleOpen?: boolean;
+  categories?: string[];
+  showSearch?: boolean;
+}
+
+export interface TestimonialItem {
+  id: string;
+  name: string;
+  role: string;
+  comment: string;
+  rating: number;
+  avatar?: string;
+  avatarAlt?: string;
+  altText?: string;
+  date?: string;
+  verified?: boolean;
+  company?: string;
+}
+
+export interface NewsletterSubscriber {
+  id: string;
+  email: string;
+  name?: string;
+  subscribedAt: string;
+  status: "active" | "unsubscribed";
+  source?: string;
+  tags?: string[];
+  lastInteractionAt?: string;
+  lastInteractionType?: string;
+  interactionCount?: number;
+  welcomeEmailSent?: boolean;
+  welcomeEmailSentAt?: string;
+  welcomeEmailStatus?: "delivered" | "opened" | "clicked" | "pending";
+  conversionStatus?: "lead" | "customer" | "prospect";
+  totalValue?: number;
+}
+
+export interface NewsletterConfig {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  buttonText?: string;
+  placeholder?: string;
+  successMessage?: string;
+  privacyNote?: string;
+  displayLocation?: "footer" | "section" | "both";
+}
+
+export interface GalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  imageUrl: string;
+  altText?: string;
+  imageAlt?: string;
+  caption?: string;
+  aspectRatio?: "auto" | "square" | "portrait" | "landscape";
+}
+
+export type AssetCategory =
+  | "logo"
+  | "favicon"
+  | "icon"
+  | "banner"
+  | "product_service"
+  | "social_og"
+  | "gallery"
+  | "general";
+
+export interface SiteAsset {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  url: string;
+  usedIn: string[];
+  dimensions?: string;
+  fileType?: string;
+  createdWith?: "ai-imagen" | "upload" | "preset" | "system";
+  prompt?: string;
+  createdAt?: string;
+}
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  desc?: string;
+  features: string[];
+  highlighted?: boolean;
+  popular?: boolean;
+  cta: string;
+  siteLimit: number; // 1, 3, or 10
+  badge?: string;
+}
+
+export interface HeroSlide {
+  id: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  ctaPrimaryText: string;
+  ctaPrimaryLink: string;
+  ctaSecondaryText: string;
+  ctaSecondaryLink: string;
+  bgImage: string;
+}
+
+export interface HeroVariantConfig {
+  id: "A" | "B" | string;
+  label: string; // e.g. "Varyasyon A (Kontrol)" or "Varyasyon B (Aciliyet & İndirim)"
+  badge: string;
+  title: string;
+  subtitle: string;
+  ctaPrimaryText: string;
+  ctaPrimaryLink: string;
+  ctaSecondaryText: string;
+  ctaSecondaryLink: string;
+  bgImage: string;
+  stats?: { label: string; value: string }[];
+  views?: number;
+  clicks?: number;
+  leads?: number;
+}
+
+export interface AbTestExperiment {
+  id?: string;
+  name?: string;
+  testName?: string;
+  enabled: boolean;
+  status: "active" | "paused" | "completed";
+  trafficSplit: number; // e.g. 50 (% assigned to Variant A, 100 - trafficSplit to Variant B)
+  startDate?: string;
+  startedAt?: string;
+  endDate?: string;
+  endedAt?: string;
+  winnerVariant?: "A" | "B" | null;
+  winningVariant?: "A" | "B" | null;
+  variationA: HeroVariantConfig;
+  variationB: HeroVariantConfig;
+  stats?: {
+    variantA: {
+      views: number;
+      clicks?: number;
+      leads: number;
+    };
+    variantB: {
+      views: number;
+      clicks?: number;
+      leads: number;
+    };
+    history?: {
+      date: string;
+      viewsA: number;
+      clicksA?: number;
+      leadsA: number;
+      viewsB: number;
+      clicksB?: number;
+      leadsB: number;
+    }[];
+  };
+}
+
+export interface HeaderNavItem {
+  id: string;
+  label: string;
+  target: string; // 'home', 'about', 'services', 'catalog', 'blog', 'contact', or custom slug
+  visible: boolean;
+  order: number;
+}
+
+export interface SocialMediaLinks {
+  instagram?: string;
+  linkedin?: string;
+  twitter?: string;
+  facebook?: string;
+  youtube?: string;
+  showInHeader?: boolean;
+  showInFooter?: boolean;
+}
+
+export type SocialPlatform = "instagram" | "facebook" | "linkedin" | "twitter" | "whatsapp";
+
+export type SocialPostStatus = "queued" | "published" | "draft" | "cancelled";
+
+export interface ScheduledSocialPost {
+  id: string;
+  title: string; // Business update headline or topic
+  content: string; // The social post caption / body copy
+  platforms: SocialPlatform[]; // Platforms targeted
+  scheduledDate: string; // YYYY-MM-DD
+  scheduledTime: string; // HH:mm
+  scheduledTimestamp?: number; // Epoch timestamp for sorting & automated publishing
+  status: SocialPostStatus;
+  
+  // Direct Product Link Integration
+  productId?: string;
+  productTitle?: string;
+  productSlug?: string;
+  productUrl?: string; // Direct link to product
+  productPrice?: string;
+  productImage?: string;
+  callToAction?: string; // e.g. "Ürünü İncele & Sipariş Ver"
+  includeUtmTags?: boolean;
+  
+  // Additional details
+  hashtags?: string[];
+  imageAttachment?: string;
+  publishedAt?: string;
+  publishedPostUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+  notes?: string;
+}
+
+export interface SocialSchedulerConfig {
+  enabled: boolean;
+  autoPublishSimulation: boolean;
+  posts: ScheduledSocialPost[];
+}
+
+// Social Media Live Feed Integration (Instagram & X/Twitter)
+export type SocialFeedPlatform = "instagram" | "twitter";
+export type SocialFeedLayout = "grid" | "carousel" | "masonry";
+
+export interface SocialFeedPost {
+  id: string;
+  platform: SocialFeedPlatform;
+  authorName: string;
+  authorHandle: string; // e.g. "@acme_official" or "@hizliweb"
+  authorAvatar?: string;
+  isVerified?: boolean;
+  content: string; // Caption or tweet text
+  mediaUrl?: string; // Photo / video thumbnail image
+  mediaType?: "image" | "video" | "carousel";
+  timestamp: string; // e.g. "2 saat önce", "Dün", "18 Mayıs"
+  likesCount?: number;
+  commentsCount?: number;
+  retweetsCount?: number;
+  postUrl: string; // Direct link to original post on instagram.com or x.com
+  pinned?: boolean;
+  hashtags?: string[];
+}
+
+export interface SocialMediaFeedConfig {
+  enabled: boolean;
+  badge: string; // e.g. "Canlı Sosyal Akış"
+  title: string; // e.g. "Instagram & X'te Bizi Takip Edin"
+  subtitle: string; // e.g. "En güncel çalışmalarımız, teslimatlarımız ve sektör yenilikleri sosyal medya hesaplarımızda."
+  activePlatforms: SocialFeedPlatform[];
+  layout: SocialFeedLayout; // "grid" | "carousel" | "masonry"
+  postsLimit: number; // e.g. 6, 8, 12
+  showEngagement: boolean; // Show likes, comments, retweets
+  showCaptions: boolean; // Show text captions under media
+  showPlatformBadges: boolean; // Show Instagram gradient / X black badge
+  instagramHandle?: string; // e.g. "yildizotokurtarma"
+  twitterHandle?: string; // e.g. "yildizkurtarma"
+  instagramProfileUrl?: string;
+  twitterProfileUrl?: string;
+  instagramFollowers?: string; // e.g. "14.2K"
+  twitterFollowers?: string; // e.g. "8.5K"
+  posts: SocialFeedPost[];
+  autoSyncInterval?: "hourly" | "daily" | "manual";
+  lastSyncedAt?: string;
+}
+
+// Client Access Portal Types
+export type ClientOrderStatus = "pending" | "in_progress" | "in_transit" | "completed" | "cancelled";
+
+export interface ClientOrderTimelineItem {
+  id: string;
+  date: string;
+  title: string;
+  description: string;
+  status: "completed" | "current" | "upcoming";
+}
+
+export interface ClientOrder {
+  id: string;
+  orderNumber: string;
+  title: string;
+  serviceOrProduct: string;
+  amount: string;
+  status: ClientOrderStatus;
+  startDate: string;
+  estimatedCompletionDate: string;
+  completedDate?: string;
+  notes?: string;
+  timeline?: ClientOrderTimelineItem[];
+}
+
+export type ClientDocumentCategory = "contract" | "invoice" | "spec" | "report" | "other";
+
+export interface ClientDocument {
+  id: string;
+  title: string;
+  category: ClientDocumentCategory;
+  fileType: "pdf" | "docx" | "xlsx" | "image";
+  fileSize: string;
+  uploadDate: string;
+  fileUrl?: string;
+  downloadCount?: number;
+  isPublicToClient: boolean;
+  description?: string;
+}
+
+export interface PortalClient {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  password: string; // Secure client login credential
+  phone: string;
+  status: "active" | "suspended" | "pending";
+  createdDate: string;
+  lastLogin?: string;
+  orders: ClientOrder[];
+  documents: ClientDocument[];
+  notes?: string;
+}
+
+export interface ClientAccessPortalConfig {
+  enabled: boolean;
+  portalTitle: string;
+  portalWelcomeMessage: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  allowClientDownloads: boolean;
+  requirePasswordChangeOnFirstLogin: boolean;
+  clients: PortalClient[];
+}
+
+export interface HeaderConfig {
+  logoType: "icon" | "image";
+  logoImage?: string;
+  logoHeight?: number; // e.g. 48px
+  logoWidth?: number; // e.g. 180px or 0 for auto
+  logoAspectRatio?: "auto" | "1/1" | "16/9" | "3/1" | "4/1";
+  logoObjectFit?: "contain" | "cover" | "scale-down";
+  showTextAlongsideLogo?: boolean; // If false when logoType is image, only image logo is shown without duplicate text
+  showPhoneButton: boolean;
+  phoneButtonText: string;
+  showWhatsappButton: boolean;
+  whatsappButtonText: string;
+  showQuoteButton: boolean;
+  quoteButtonText: string;
+  navItems: HeaderNavItem[];
+  showSocials?: boolean;
+}
+
+export interface GeneratedPageFile {
+  filename: string; // e.g. "index.html", "kurumsal.html", "hizmetler.html", "hizmet-oto-kurtarma.html", "_headers"
+  fileName?: string;
+  title: string;
+  type: "home" | "page" | "service-list" | "service-detail" | "catalog" | "product-detail" | "blog-list" | "blog-detail" | "contact" | "other";
+  html: string;
+  content?: string;
+  slug: string;
+  description: string;
+}
+
+export interface FooterConfig {
+  aboutText: string;
+  showSocials: boolean;
+  instagram?: string;
+  facebook?: string;
+  linkedin?: string;
+  twitter?: string;
+  youtube?: string;
+  copyrightText: string;
+  column1Title: string;
+  column2Title: string;
+}
+
+export type SolutionType = "corporate" | "association" | "candidate" | "ecommerce" | "portfolio";
+
+export interface ThemeTemplate {
+  id: string;
+  name: string;
+  sector: string;
+  category: string;
+  solutionType?: SolutionType;
+  description: string;
+  badge?: string;
+  icon: string;
+  coverImage: string;
+  demoUrl?: string;
+  siteTypePreference?: "single-page" | "multi-page" | "both";
+  defaultColors: ColorPalette;
+  defaultData: Partial<SiteConfig>;
+}
+
+export type SiteStructureType = "single-page" | "multi-page";
+
+export interface CloudflareDeployment {
+  subdomain: string;
+  customDomain?: string;
+  status: "idle" | "building" | "deployed" | "error";
+  deployedUrl: string;
+  lastDeployedAt?: string;
+  sslActive: boolean;
+  edgeRegionsCount: number;
+  pageSpeedScore: number;
+  dnsRecords: {
+    type: "A" | "CNAME" | "TXT";
+    name: string;
+    content: string;
+    proxyStatus: boolean;
+    status: "verified" | "pending";
+  }[];
+  nameservers?: string[];
+  sslMode?: "flexible" | "full" | "strict";
+  alwaysUseHttps?: boolean;
+  dnsPropagationStatus?: "verified" | "propagating" | "unconfigured";
+}
+
+export interface HomepageSectionConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface JsonLdSchemaConfig {
+  enabled: boolean; // Global master toggle for schema injection
+  autoInjectLocalBusiness: boolean; // Inject LocalBusiness/Organization schema
+  autoInjectProducts: boolean; // Inject Product / ItemList schema
+  autoInjectFaq: boolean; // Inject FAQPage schema from website faqs
+  autoInjectBreadcrumbs: boolean; // Inject BreadcrumbList schema
+  autoInjectWebSite: boolean; // Inject WebSite with SearchAction schema
+  businessType?: string; // Schema.org specific type (LocalBusiness, AutoRepair, Dentist, etc.)
+  priceRange?: string; // e.g. "₺₺", "₺₺₺"
+  currency?: string; // e.g. "TRY"
+  taxId?: string; // Vergi / Mersis Numarası
+  foundingDate?: string; // Kuruluş Yılı
+  founder?: string; // Kurucu
+  areaServed?: string; // Hizmet Verilen Bölge (örn: İstanbul veya Tüm Türkiye)
+  latitude?: string; // Geo Latitude (Enlem)
+  longitude?: string; // Geo Longitude (Boylam)
+  paymentAccepted?: string[]; // Nakit, Kredi Kartı, Banka Havalesi / EFT vb.
+  aggregateRatingValue?: number; // e.g. 4.9
+  aggregateReviewCount?: number; // e.g. 128
+  customJsonLd?: string; // Optional custom user-defined JSON-LD snippet
+
+  // Local SEO specific fields
+  postalCode?: string;
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  addressCountry?: string;
+  telephone?: string;
+  departmentPhone?: string;
+  openingHoursRaw?: string;
+  openingHoursSchedule?: Array<{
+    dayOfWeek: string[];
+    opens: string;
+    closes: string;
+    closed?: boolean;
+  }>;
+  syncWithSiteConfig?: boolean;
+}
+
+export interface SiteConfig {
+  id: string;
+  templateId: string;
+  solutionType: SolutionType;
+  siteType: SiteStructureType; // Single page vs Multi page
+  companyName: string;
+  sector: string;
+  slogan: string;
+  city: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  googleMapsEmbed?: string;
+  workingHours: string;
+  customDomain?: string;
+  
+  // Theme styling
+  palette: ColorPalette;
+  fontFamily: string;
+  borderRadius: string;
+
+  // Header & Navigation Builder
+  header: HeaderConfig;
+
+  // Footer Builder
+  footer: FooterConfig;
+
+  // Social Media Links (Instagram, LinkedIn, Twitter/X in Header & Footer)
+  socialMedia?: SocialMediaLinks;
+
+  // Social Media Live Feed Integration (Instagram & X/Twitter Posts directly on landing page)
+  socialFeed?: SocialMediaFeedConfig;
+
+  // Social Media Post Scheduler (Automated queued posts with direct product links)
+  socialScheduler?: SocialSchedulerConfig;
+
+  // Client Access Portal (Client secure login credentials, order status & project documents)
+  clientPortal?: ClientAccessPortalConfig;
+
+  // Homepage Section Builder & Ordering
+  homepageSections: HomepageSectionConfig[];
+
+  // Hero & Slider Section
+  hero: {
+    badge: string;
+    title: string;
+    subtitle: string;
+    ctaPrimaryText: string;
+    ctaPrimaryLink: string;
+    ctaSecondaryText: string;
+    ctaSecondaryLink: string;
+    bgImage: string;
+    bgImageAlt?: string;
+    logoAlt?: string;
+    slides?: HeroSlide[];
+    stats: { label: string; value: string }[];
+  };
+
+  // Multi-Page & Content Modules
+  pages: CustomPageItem[];
+  
+  products: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    ctaButtonText: string;
+    categories?: ProductCategory[];
+    items: ProductItem[];
+    contactForm?: CustomFormConfig;
+  };
+
+  blogCategories?: BlogCategory[];
+  blog: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    categories?: BlogCategory[];
+    items: BlogPostItem[];
+  };
+
+  // Leads & Forms from website
+  leads: FormLead[];
+  leadTagDefinitions?: LeadCustomTag[]; // Custom color-coded labels/tags registered across site
+
+  // Cloudflare & Domain
+  cloudflare: CloudflareDeployment;
+
+  about: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    content: string; // rich text HTML
+    yearsExperience: string;
+    completedProjects: string;
+    bullets: string[];
+    image: string;
+    imageAlt?: string;
+    altText?: string;
+  };
+
+  services: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    items: ServiceItem[];
+  };
+
+  whyUs: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    items: { id: string; title: string; desc: string; icon: string }[];
+  };
+
+  gallery: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    items: GalleryItem[];
+    layout?: "masonry" | "grid";
+    columns?: 2 | 3 | 4;
+    enableLightbox?: boolean;
+    categories?: string[];
+  };
+
+  pricing: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    items: PricingPlan[];
+  };
+
+  testimonials: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    items: TestimonialItem[];
+    showRatingStats?: boolean;
+    googleRatingBadge?: boolean;
+  };
+
+  faqs: FaqSectionConfig;
+  faq?: FaqSectionConfig;
+
+  contact: {
+    enabled: boolean;
+    badge: string;
+    title: string;
+    subtitle: string;
+    showMap: boolean;
+    showForm: boolean;
+  };
+
+  // Newsletter & Email Marketing
+  newsletter?: NewsletterConfig;
+  subscribers?: NewsletterSubscriber[];
+
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+    keywords: string;
+    author: string;
+    schemaType: string;
+    ogImage?: string;
+    canonicalUrl?: string;
+    googleSearchConsoleTag?: string;
+    twitterHandle?: string;
+    robots?: string;
+    imageAltMap?: Record<string, string>;
+    schemaConfig?: JsonLdSchemaConfig;
+  };
+
+  // Central Visual Asset & Logo/Favicon Management
+  favicon?: string;
+  customAssets?: SiteAsset[];
+
+  // Individual Page SEO Overrides & Canonical URL Registry
+  pageSeoOverrides?: Record<string, PageSeoOverrideItem>;
+
+  // WhatsApp Floating Chat Widget Configuration
+  whatsappWidget?: WhatsAppWidgetConfig;
+
+  // Vergi & KDV Fiyatlandırma Yönetimi
+  taxPricing?: TaxPricingConfig;
+
+  // Dinamik Form Yönetimi (Açılır menüler, Onay kutuları, Dosya yükleme)
+  customForm?: CustomFormConfig;
+
+  // Site Kataloğu İletişim & Özel Teklif Formu ("Contact Us" with Custom Fields)
+  catalogContactForm?: CustomFormConfig;
+
+  // Otomatik 'Teşekkürler' E-Postası (Autoresponder) & E-Posta Yakalama
+  leadThankYouEmail?: LeadThankYouEmailConfig;
+  emailAuditLogs?: EmailAuditLogEntry[];
+
+  // Dil Ayarları & Çoklu Dil Yönetimi (i18n)
+  languages?: MultiLanguageConfig;
+
+  // A/B Testi: Hero Varyasyonları & Form Dönüşüm Takibi
+  abTesting?: AbTestExperiment;
+
+  // Medya Kütüphanesi & Cloudflare Edge Görsel Optimizasyonu
+  mediaLibrary?: MediaLibraryItem[];
+
+  // Web Güvenlik Denetimi, AI Açık Taraması & Güvenlik Başlıkları
+  securityConfig?: SecurityConfig;
+
+  // Yüksek Öncelikli Talep Bildirimleri (Slack & E-posta) ve Lead Puanlama
+  leadNotifications?: LeadNotificationsConfig;
+
+  // İnaktif Müşteri Taleplerini Otomatik Arşivleme Ayarı (30+ gün kuralı)
+  leadAutoArchive?: LeadAutoArchiveConfig;
+
+  // 0.02s Hedefi Performans Optimizasyon Ayarları
+  performanceOptimizations?: PerformanceOptimizationSettings;
+
+  // Lead Otomasyon Kuralları (Skora, Kaynağa ve İletişim Kanalına Göre Otomatik Aksiyonlar)
+  leadAutomations?: LeadAutomationConfig;
+
+  // Pazarlama Otomasyonu: E-Bülten Kaynak Analizi & Otomatik Hoş Geldin E-Postası
+  marketingAutomation?: MarketingAutomationConfig;
+
+  // Pazarlama Kaynak Dağılımı (Marketing Source Attribution) & ROI Optimizasyonu (D3.js)
+  marketingAttribution?: MarketingAttributionConfig;
+
+  // Popüler CRM Servisleri (HubSpot, Salesforce, Zoho, Pipedrive, Webhook) Entegrasyon Ayarları
+  crmIntegrations?: CrmIntegrationConfig;
+
+  // SEO Düzeltme Paneli Sonuçları & İlerleme Bildirim Sistemi (Rank Tracker & Notification Feed)
+  seoProgressNotifications?: SeoProgressNotificationConfig;
+
+  // Otomatik JSON-LD Schema.org Yapılandırılmış Veri Motoru (LocalBusiness, Product, FAQ)
+  schemaConfig?: JsonLdSchemaConfig;
+
+  // Performans Kritik Uyarı Sistemi (Dönüşüm Düşüşü & Trafik Anomali Dedektörü)
+  performanceAlerts?: PerformanceAlertSettings;
+
+  // SEO Health Score Otomatik Günlük Denetim Aracı & Tek Tıkla Onarım Kuyruğu
+  seoAuditConfig?: SeoAutomatedAuditConfig;
+
+  // AI Pricing Intelligence (Historical Conversion Data & Competitive Tier Optimization)
+  pricingIntelligence?: PricingIntelligenceData;
+}
+
+// ==========================================
+// PAZARLAMA OTOMASYONU & E-BÜLTEN HOŞ GELDİN TİPLERİ
+// ==========================================
+export interface NewsletterWelcomeEmailConfig {
+  enabled: boolean;
+  senderName: string; // e.g. "Yıldız Oto Kurtarma Ekibi"
+  senderEmail: string; // e.g. "bulten@yildizotokurtarma.com.tr"
+  replyToEmail?: string;
+  triggerEvent: "on_subscribe";
+  sourceFilter: string[]; // ["all"] or specific sources like ["Footer Formu", "Ana Sayfa Teklif Formu", "Hızlı Teklif Modülü"]
+  sendDelayMinutes: number; // 0 for instant, 5, 15, 60
+  subject: string;
+  preheader?: string;
+  heading: string;
+  bodyText: string;
+  offerDiscountCode?: string; // e.g. "HOSGELDIN10"
+  offerDiscountPercent?: number; // e.g. 10
+  discountExpiryDays?: number; // e.g. 14
+  ctaButtonText: string;
+  ctaButtonUrl: string;
+  includeSocialLinks?: boolean;
+  includeUnsubscribeLink?: boolean;
+  accentColor?: string; // e.g. "#4f46e5"
+}
+
+export interface MarketingAutomationExecutionLog {
+  id: string;
+  subscriberId: string;
+  subscriberEmail: string;
+  subscriberName?: string;
+  source: string;
+  sentAt: string;
+  status: "delivered" | "opened" | "clicked" | "failed";
+  subject: string;
+  openRateTracked?: boolean;
+  clickUrl?: string;
+  discountCodeUsed?: boolean;
+}
+
+export interface MarketingAutomationConfig {
+  enabled: boolean;
+  welcomeEmail: NewsletterWelcomeEmailConfig;
+  executionLogs: MarketingAutomationExecutionLog[];
+  autoTagSubscribers?: boolean;
+  defaultTags?: string[];
+}
+
+export interface NewsletterSourceAttribution {
+  sourceName: string;
+  totalSubscribers: number;
+  activeSubscribers: number;
+  conversionRate: number; // % converted to customer or qualified lead
+  convertedLeadsCount: number;
+  totalRevenueGenerated: number;
+  avgOrderValue: number;
+  isTopPerformer?: boolean;
+  badge?: string;
+  growthRate?: string;
+  welcomeEmailDeliveryRate: number;
+  avgDecisionMinutes: number;
+}
+
+export type LeadAcquisitionSource = "organic" | "ads" | "social" | "direct" | "referral" | "all";
+export type LeadCommunicationChannel = "form" | "whatsapp" | "phone" | "email" | "all";
+
+export interface LeadAutomationCondition {
+  // Skor Kriteri
+  scoreFilterType: "any" | "gte" | "lte" | "tier"; // gte: >= minScore, lte: <= maxScore, tier: high/medium/low
+  minScore?: number; // Varsayılan eşik örn. 70
+  maxScore?: number; // Varsayılan eşik örn. 40
+  scoreTier?: "high" | "medium" | "low"; // high (70-100), medium (40-69), low (0-39)
+
+  // Edinme Kaynağı (Organik SEO, Google Reklamları, Sosyal Medya vb.)
+  sources: LeadAcquisitionSource[];
+
+  // İletişim Kanalı (Form, WhatsApp, Telefon Araması vb.)
+  channels: LeadCommunicationChannel[];
+
+  // İlave Filtreler (Opsiyonel)
+  minDealValue?: number; // Minimum bütçe / ciro eşiği
+  keywords?: string[]; // Mesaj veya hizmette aranan anahtar kelimeler
+}
+
+export interface LeadAutomationActionConfig {
+  // 1. CRM'e Aktar / Etiketle / Temsilciye Ata
+  crm: {
+    enabled: boolean;
+    tagsToAdd: string[]; // e.g. ["🔥 VIP Sıcak Lead", "Google Ads Dönüşümü"]
+    updateStatus?: "new" | "contacted" | "offered" | "closed" | "none";
+    assignedAgent?: string; // e.g. "Kıdemli Satış Uzmanı", "7/24 Nöbetçi Ekip"
+    internalNote?: string; // Otomatik eklenen dahili not
+    markUrgent?: boolean;
+  };
+
+  // 2. Özel E-posta Tetikle (Müşteriye Karşılama veya Ekibe Bilgilendirme)
+  email: {
+    enabled: boolean;
+    recipientType: "lead" | "staff" | "both";
+    staffEmails?: string; // e.g. "satis@hizliweb.com"
+    subjectTemplate: string; // e.g. "Talebiniz Alındı: {service}"
+    bodyTemplate: string; // E-posta şablon metni ({customer_name}, {service}, {score} vb.)
+    sendBrochureAttachment?: boolean;
+  };
+
+  // 3. Yöneticiye Bildirim Gönder (Slack, E-posta, Anlık Panel Uyarısı)
+  notification: {
+    enabled: boolean;
+    channels: ("email" | "slack" | "in_app")[];
+    managerEmails: string; // e.g. "yonetici@sirket.com"
+    slackChannel?: string; // e.g. "#leads-urgent"
+    alertTitle: string; // e.g. "🚨 Yeni Yüksek Öncelikli Lead Uyarısı"
+    includeFullDetails: boolean;
+  };
+
+  // 4. Harici Webhook / Entegrasyon (Zapier, Make, Harici CRM)
+  webhook?: {
+    enabled: boolean;
+    url: string;
+    secretToken?: string;
+  };
+}
+
+export interface LeadAutomationRule {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  createdAt: string;
+  lastTriggeredAt?: string;
+  triggerCount: number;
+  conditions: LeadAutomationCondition;
+  actions: LeadAutomationActionConfig;
+}
+
+export interface LeadAutomationExecutionLog {
+  id: string;
+  timestamp: string;
+  ruleId: string;
+  ruleName: string;
+  leadId: string;
+  leadName: string;
+  leadScore: number;
+  leadSource: string;
+  leadChannel: string;
+  actionsExecuted: string[];
+  status: "success" | "warning" | "failed";
+  details?: string;
+}
+
+export interface LeadAutomationConfig {
+  enabled: boolean;
+  autoTriggerOnNewLead: boolean;
+  rules: LeadAutomationRule[];
+  executionLogs: LeadAutomationExecutionLog[];
+}
+
+export interface LeadAutoArchiveConfig {
+  enabled: boolean; // default: true
+  daysInactive: number; // default: 30 days
+  targetStatuses: ("new" | "contacted")[]; // default: ["new", "contacted"]
+  autoTag?: string; // e.g. "30+ Gün İnaktif"
+  notifyOnArchive?: boolean; // default: true
+  lastRunAt?: string; // ISO date string when auto-archive last executed
+  totalArchivedCount?: number; // cumulative count of auto-archived leads
+}
+
+export interface SlackNotificationConfig {
+  enabled: boolean;
+  webhookUrl: string; // e.g. "https://hooks.slack.com/services/..."
+  channelName?: string; // e.g. "#leads-alerts"
+  botName?: string; // e.g. "HızlıWeb CRM Bot"
+  customMessageTemplate?: string; // Markdown template with placeholders
+}
+
+export interface EmailLeadNotificationConfig {
+  enabled: boolean;
+  recipientEmails: string; // Comma-separated emails: "sales@firm.com, manager@firm.com"
+  subjectTemplate?: string; // Subject with {customer_name}, {score}, {service}
+  senderName?: string; // e.g. "HızlıWeb Lead Alert"
+}
+
+export interface LeadScoringConfig {
+  minScoreForHighPriority: number; // default 70 (0-100)
+  highDealValueThreshold: number; // default 2500 TL
+  urgentKeywords: string[]; // default ["acil", "hemen", "bugün", "fiyat", "teklif", "bütçe", "kurumsal", "filo", "randevu"]
+  highPriorityTags: string[]; // default ["VIP", "Acil", "Kurumsal", "Yüksek Bütçe", "Sıcak Takip"]
+  requirePhoneForHighPriority?: boolean; // default true
+}
+
+export interface LeadNotificationLog {
+  id: string;
+  timestamp: string; // ISO or formatted date
+  leadId: string;
+  customerName: string;
+  phone?: string;
+  service: string;
+  score: number;
+  priority: "high" | "medium" | "low";
+  channel: "slack" | "email" | "both";
+  status: "sent" | "simulated" | "failed";
+  details: string;
+  reasons: string[];
+}
+
+export interface LeadNotificationsConfig {
+  enabled: boolean;
+  notifyOnlyHighPriority: boolean; // true: only score >= threshold triggers alerts; false: all leads
+  slack: SlackNotificationConfig;
+  email: EmailLeadNotificationConfig;
+  scoring: LeadScoringConfig;
+  history?: LeadNotificationLog[];
+}
+
+export interface PerformanceOptimizationSettings {
+  webpAutoConversion: boolean; // Cloudflare Polish WebP / AVIF
+  avifAutoConversion?: boolean; // Modern next-gen AVIF compression
+  generateOptimizedThumbnails?: boolean; // Multi-size responsive thumbnails (120w, 320w, 640w, 1080w)
+  enforceExplicitImageDimensions?: boolean; // Prevent CLS by reserving width/height & aspect-ratio
+  lazyLoadImages: boolean; // native loading="lazy" on all below-fold assets
+  fontDisplaySwap: boolean; // font-display: swap + preconnect to Google/Bunny Fonts
+  criticalCssInlining: boolean; // Inline critical above-fold CSS
+  htmlMinification: boolean; // Whitespace & comment stripping
+  brotliCompression: boolean; // Brotli level 11 + Zstandard compression
+  http3Quic: boolean; // HTTP/3 QUIC 0-RTT handshakes
+  earlyHints103: boolean; // 103 Early Hints preloading critical assets
+  zeroRenderBlocking: boolean; // Defer non-critical JS/CSS
+  edgeCacheTtlDays: number; // Cloudflare Edge Browser Cache TTL (e.g. 365 days)
+}
+
+export interface SecurityHeaderItem {
+  name: string;
+  recommendedValue: string;
+  currentValue?: string;
+  status: "pass" | "warning" | "fail";
+  description: string;
+  severity: "critical" | "high" | "medium" | "low";
+  fixAction?: string;
+}
+
+export interface SecurityVulnerability {
+  id: string;
+  title: string;
+  category: "headers" | "ssl" | "form_protection" | "xss_injection" | "information_disclosure" | "ddos_edge";
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  description: string;
+  impact: string;
+  recommendation: string;
+  status: "open" | "resolved" | "mitigated";
+  autoFixAvailable: boolean;
+}
+
+export interface SecurityAuditResult {
+  scanDate: string;
+  targetDomain: string;
+  overallScore: number; // 0-100
+  grade: "A+" | "A" | "B" | "C" | "D" | "F";
+  summary: string;
+  categoryScores: {
+    headers: number;
+    ssl: number;
+    forms: number;
+    disclosure: number;
+    edge: number;
+  };
+  headersAudit: SecurityHeaderItem[];
+  vulnerabilities: SecurityVulnerability[];
+  autoHardened: boolean;
+  recommendations: string[];
+}
+
+export interface SecurityConfig {
+  enabled: boolean;
+  lastAudit?: SecurityAuditResult;
+  enforceHsts?: boolean;
+  enableCsp?: boolean;
+  enableXFrameOptions?: boolean;
+  enableContentTypeNosniff?: boolean;
+  enableReferrerPolicy?: boolean;
+  enablePermissionsPolicy?: boolean;
+  formHoneypotProtection?: boolean;
+  formRateLimiting?: boolean;
+  blockBadBots?: boolean;
+  hideServerSignature?: boolean;
+}
+
+// ==========================================
+// PERFORMANS KRİTİK UYARI SİSTEMİ (ANOMALİ DEDEKTÖRÜ)
+// ==========================================
+export type PerformanceAnomalySeverity = "critical" | "warning" | "info";
+
+export type PerformanceAnomalyType = 
+  | "conversion_rate_drop" 
+  | "traffic_source_drop" 
+  | "bot_spam_surge" 
+  | "mobile_conversion_disparity" 
+  | "ttfb_edge_spike";
+
+export interface PerformanceCriticalAlert {
+  id: string;
+  type: PerformanceAnomalyType;
+  severity: PerformanceAnomalySeverity;
+  title: string;
+  description: string;
+  metricName: string;
+  baselineValue: string; // e.g. "%14.6" or "1,450 / gün"
+  currentValue: string;  // e.g. "%2.1" or "620 / gün"
+  percentageChange: number; // e.g. -85.6 or -57.2
+  detectedAt: string;
+  affectedPageOrSource: string; // e.g. "İletişim Formu (/iletisim)" or "Google Organik Arama"
+  rootCauses: string[];
+  recommendedFixAction: string;
+  actionButtonText: string;
+  actionTab?: CustomerPanelTab;
+  isResolved?: boolean;
+  isDismissed?: boolean;
+  estimatedLostLeadsOrRevenue?: string;
+  autoFixAvailable?: boolean;
+}
+
+export interface PerformanceAlertSettings {
+  isEnabled: boolean;
+  conversionDropThresholdPercent: number; // default: 30 (%)
+  trafficDropThresholdPercent: number; // default: 25 (%)
+  notifyEmail: boolean;
+  notifySmsOrWhatsApp: boolean;
+  notifyInAppToast: boolean;
+  emailRecipient?: string;
+  phoneRecipient?: string;
+  lastAnomalyCheckTimestamp?: string;
+}
+
+// ==========================================
+// SEO HEALTH SCORE OTOMATİK DENETİM AYARLARI
+// ==========================================
+export interface SeoAutomatedAuditConfig {
+  isDailyScanEnabled: boolean;
+  lastDailyScanDate?: string;
+  lastCalculatedScore?: number;
+  autoFixQueueMode?: "manual" | "auto_apply";
+  ignoredRuleIds?: string[];
+  scanScope?: {
+    checkBrokenLinks: boolean;
+    checkMissingMetaDescriptions: boolean;
+    checkImageAltText: boolean;
+  };
+}
+
+export interface MediaVariant {
+  label: string; // e.g. "Thumb (300w)", "Mobile (640w)", "Tablet (1080w)", "Desktop (1920w)"
+  width: number;
+  height: number;
+  sizeBytes: number;
+  url: string;
+}
+
+export interface MediaLibraryItem {
+  id: string;
+  name: string;
+  originalName: string;
+  url: string; // primary optimized WebP/JPEG data URL or CDN URL
+  thumbnailUrl?: string;
+  avifUrl?: string; // High-compression AVIF format data URL or CDN URL
+  webpUrl?: string; // Universally compatible WebP format data URL or CDN URL
+  originalSize: number; // in bytes
+  compressedSize: number; // in bytes
+  savedBytes: number;
+  savingsPercentage: number;
+  width: number;
+  height: number;
+  aspectRatio?: string; // e.g. "16 / 9" for CLS layout stability
+  format: "webp" | "jpeg" | "png" | "avif" | "svg";
+  category: "hero" | "product" | "gallery" | "service" | "blog" | "logo" | "general";
+  uploadedAt: string;
+  cloudflareEdgeUrl?: string;
+  edgePolishStatus?: "applied" | "lossy" | "lossless" | "webp_auto";
+  variants?: MediaVariant[];
+  altText?: string;
+  tags?: string[];
+  usedIn?: string[];
+  coreWebVitals?: {
+    lcpPotential: boolean;
+    lcpMsSaved: number;
+    clsSafe: boolean;
+    recommendedLoading: "lazy" | "eager";
+    recommendedFetchPriority: "high" | "auto" | "low";
+  };
+  aiOptimization?: {
+    suggestedAlt: string;
+    recommendedFormat: "avif" | "webp" | "svg";
+    qualityAssessment: string;
+    potentialSavingsPercent: number;
+  };
+}
+
+export interface LanguageDefinition {
+  code: string; // "tr", "en", "de", "ar", "fr", "ru"
+  name: string; // "Türkçe", "İngilizce", "Almanca", "Arapça"
+  nativeName: string; // "Türkçe", "English", "Deutsch", "العربية"
+  flag: string; // "🇹🇷", "🇬🇧", "🇩🇪", "🇸🇦"
+  direction: "ltr" | "rtl"; // RTL for Arabic
+  enabled: boolean;
+  isDefault?: boolean;
+}
+
+export interface SiteTranslations {
+  companyName?: string;
+  slogan?: string;
+  city?: string;
+  workingHours?: string;
+  aboutTitle?: string;
+  aboutContent?: string;
+  aboutBadge?: string;
+  heroBadge?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroCtaPrimary?: string;
+  heroCtaSecondary?: string;
+  servicesTitle?: string;
+  servicesSubtitle?: string;
+  servicesBadge?: string;
+  productsTitle?: string;
+  productsSubtitle?: string;
+  productsBadge?: string;
+  galleryTitle?: string;
+  gallerySubtitle?: string;
+  galleryBadge?: string;
+  testimonialsTitle?: string;
+  testimonialsSubtitle?: string;
+  testimonialsBadge?: string;
+  faqsTitle?: string;
+  faqsSubtitle?: string;
+  faqsBadge?: string;
+  contactTitle?: string;
+  contactSubtitle?: string;
+  contactBadge?: string;
+  footerRights?: string;
+
+  // Navigation Items
+  navHome?: string;
+  navAbout?: string;
+  navServices?: string;
+  navCatalog?: string;
+  navGallery?: string;
+  navBlog?: string;
+  navContact?: string;
+  phoneBtn?: string;
+  whatsappBtn?: string;
+  quoteBtn?: string;
+
+  // Dynamic Item-level maps
+  services?: Record<string, { title: string; desc: string; longContent?: string }>;
+  products?: Record<string, { title: string; description: string; shortDescription?: string; badge?: string }>;
+  faqs?: Record<string, { q: string; a: string }>;
+  pages?: Record<string, { title: string; content: string }>;
+
+  // General UI labels
+  ui?: Record<string, string>;
+}
+
+export interface MultiLanguageConfig {
+  enabled: boolean;
+  defaultLanguage: string; // e.g. "tr"
+  activeLanguages: LanguageDefinition[];
+  translations: Record<string, SiteTranslations>;
+  switcherPosition: "header-right" | "header-nav" | "floating-bottom" | "both";
+  switcherStyle: "dropdown" | "pills" | "flags-only" | "compact-select";
+  autoDetectBrowserLanguage: boolean;
+  enableRtlForArabic: boolean;
+}
+
+export interface TaxPricingConfig {
+  enabled: boolean;
+  defaultVatRate: number; // e.g. 20 (%20), 10 (%10), 1 (%1), 0 (%0)
+  priceIncludesVat: boolean; // true = Fiyatlar KDV Dahildir, false = Fiyatlar KDV Hariçtir (+KDV eklenir)
+  displayVatBadge: boolean; // Sitede "(KDV Dahil)" veya "(+KDV)" rozeti gösterilsin mi?
+  displayTaxBreakdown: boolean; // Ürün detay sayfasında matrah ve KDV tutarı dökümü tablosu gösterilsin mi?
+  roundingMethod?: "standard" | "ceil" | "exact"; // Yuvarlama biçimi
+  vatExemptNotice?: string; // Muafiyet veya genel fatura bilgilendirme notu
+  currencySymbol?: string; // "₺", "$", "€" vb.
+  currencyPosition?: "suffix" | "prefix"; // "1.250 ₺" vs "₺1.250"
+  customRates?: number[]; // [20, 10, 1, 0]
+}
+
+export interface WhatsAppWidgetConfig {
+  enabled: boolean;
+  phoneNumber: string; // Business WhatsApp phone number, e.g. "905320000000" or "+90 532 000 00 00"
+  position?: "bottom-right" | "bottom-left";
+  buttonStyle?: "floating-pill" | "floating-circle";
+  buttonText?: string; // e.g. "WhatsApp İle Yazın"
+  defaultMessage?: string; // Pre-filled initial greeting message
+  agentName?: string; // e.g. "Müşteri Temsilcisi"
+  agentSubtitle?: string; // e.g. "Genellikle anında yanıt verir"
+  popupEnabled?: boolean; // Interactive chat bubble popup card
+  callToAction?: string; // e.g. "Merhaba 👋 Size nasıl yardımcı olabiliriz?"
+  showBadgeDot?: boolean; // Green pulsing online dot
+}
+
+export interface QuickStartDesignSet {
+  id: string;
+  name: string;
+  sector: string;
+  tagline: string;
+  badge: string;
+  description: string;
+  icon: string;
+  previewGradient: string;
+  fontFamily: string;
+  fontName: string;
+  borderRadius: string;
+  spacingDensity: "compact" | "balanced" | "spacious";
+  siteType: SiteStructureType;
+  palette: ColorPalette;
+  headerStyle: {
+    showPhoneButton: boolean;
+    phoneButtonText: string;
+    showWhatsappButton: boolean;
+    whatsappButtonText: string;
+    showQuoteButton: boolean;
+    quoteButtonText: string;
+  };
+  heroPreset: {
+    badge: string;
+    ctaPrimaryText: string;
+    ctaSecondaryText: string;
+  };
+  recommendedSections: {
+    id: string;
+    name: string;
+    enabled: boolean;
+    order: number;
+  }[];
+}
+
+export type PlatformView =
+  | "marketing"
+  | "wizard"
+  | "customer-panel"
+  | "admin-panel"
+  | "preview"
+  | "deploy"
+  | "strategy"
+  | "ai-factory"
+  | "catalog";
+
+// ==========================================
+// INDIVIDUAL PAGE SEO & CANONICAL REGISTRY TYPES
+// ==========================================
+export interface PageSeoOverrideItem {
+  canonicalUrl?: string;
+  isCustomCanonical?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  keywords?: string;
+  ogImage?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robots?: string;
+  schemaType?: string;
+  twitterCard?: "summary_large_image" | "summary";
+  lastModified?: string;
+}
+
+export interface IndividualPageSeoMeta {
+  pageId: string; // e.g. "page-home", "page-about", "page-contact", "service-123", "product-123", "blog-123", "page-123"
+  pageTitle: string;
+  pageType: "home" | "about" | "contact" | "services-index" | "service" | "catalog-index" | "product" | "blog-index" | "blog-post" | "custom-page";
+  slug: string;
+  fullUrl: string;
+  metaTitle: string;
+  metaDescription: string;
+  keywords: string;
+  canonicalUrl: string;
+  isCustomCanonical: boolean;
+  ogImage: string;
+  ogTitle: string;
+  ogDescription: string;
+  robots: string;
+  schemaType: string;
+  twitterCard: "summary_large_image" | "summary";
+  lastModified?: string;
+}
+
+export type CustomerPanelTab =
+  | "general"
+  | "asset-manager"
+  | "media-library"
+  | "ai-image-optimizer"
+  | "social-media"
+  | "social-feed"
+  | "social-scheduler"
+  | "social-post-scheduler"
+  | "seo"
+  | "seo-heatmap"
+  | "seo-opportunities"
+  | "seo-opportunity-alerts"
+  | "page-seo"
+  | "seo-health"
+  | "seo-auditor"
+  | "meta-auditor"
+  | "seo-content-optimizer"
+  | "ai-content-meta-optimizer"
+  | "schema-generator"
+  | "local-seo-schema"
+  | "seo-progress"
+  | "seo-notifications"
+  | "services"
+  | "testimonials"
+  | "catalog"
+  | "gallery"
+  | "faqs"
+  | "blog"
+  | "ai-blog-engine"
+  | "pages"
+  | "design-structure"
+  | "design-presets"
+  | "leads"
+  | "client-portal"
+  | "client-access-portal"
+  | "form-management"
+  | "email-automation"
+  | "email-automation-settings"
+  | "email-automations"
+  | "automated-responses"
+  | "automated-response-history"
+  | "newsletter"
+  | "notifications"
+  | "performance"
+  | "site-health"
+  | "site-health-performance"
+  | "hosting-package"
+  | "ai-writer"
+  | "header-nav"
+  | "homepage-builder"
+  | "footer"
+  | "site-type"
+  | "connect-custom-domain"
+  | "cloudflare-domain"
+  | "custom-domain"
+  | "domain-management"
+  | "design"
+  | "backups"
+  | "qr-code"
+  | "whatsapp-chat"
+  | "performance-analytics"
+  | "tax-pricing"
+  | "ab-testing"
+  | "languages"
+  | "media-library"
+  | "security-audit"
+  | "automated-dns"
+  | "performance-monitor"
+  | "lead-insights"
+  | "lead-automations"
+  | "lead-mapping"
+  | "customer-journey"
+  | "journey-mapping"
+  | "marketing-automation"
+  | "marketing-attribution"
+  | "attribution"
+  | "lead-forecasting"
+  | "system-logs"
+  | "system-log"
+  | "competitive-seo"
+  | "realtime-traffic"
+  | "performance-forecaster"
+  | "pricing-intelligence"
+  | "ai-pricing"
+  | "global-seo"
+  | "ai-global-seo"
+  | "catalog-contact"
+  | "crm-integration"
+  | "bulk-seo-export"
+  | "seo-bulk-export"
+  | "performance-trends"
+  | "advanced-performance-trends"
+  | "user-auth"
+  | "user-management"
+  | "coolify-deployment"
+  | "vps-deployment";
+
+// ==========================================
+// MARKETING SOURCE ATTRIBUTION & ROI TYPES (D3.js)
+// ==========================================
+export type MarketingSourceKey = "ads" | "organic" | "social" | "direct" | "referral";
+
+export interface ChannelAttributionRecommendation {
+  action: "increase_budget" | "maintain" | "optimize_bids" | "reallocate";
+  title: string;
+  summary: string;
+  budgetShiftSuggestion: number; // Suggested delta in budget (₺)
+}
+
+export interface ChannelAttributionData {
+  id: MarketingSourceKey;
+  name: string;
+  shortName: string;
+  description: string;
+  category: "paid" | "earned" | "owned";
+  spend: number; // in TRY (₺)
+  budgetAllocationPercent: number; // % of total marketing spend
+  visitors: number;
+  leads: number;
+  closedDeals: number;
+  revenue: number; // in TRY (₺)
+  conversionRate: number; // (leads / visitors) * 100
+  salesConversionRate: number; // (closedDeals / leads) * 100
+  roi: number; // ((revenue - spend) / spend) * 100
+  cpl: number; // spend / leads (Cost per Lead ₺)
+  cpc: number; // spend / visitors (Cost per Click ₺)
+  roas: number; // revenue / spend (e.g. 4.2x)
+  averageDealValue: number; // revenue / closedDeals ₺
+  efficiencyTier: "scale" | "leader" | "optimize" | "review";
+  recommendation: ChannelAttributionRecommendation;
+  color: string;
+  gradientColors: [string, string];
+  bgLight: string;
+  borderLight: string;
+  textColor: string;
+}
+
+export interface MarketingAttributionConfig {
+  enabled: boolean;
+  attributionModel: "last_touch" | "first_touch" | "linear" | "time_decay";
+  timeRange: "7d" | "30d" | "90d" | "all";
+  customSpend: Record<MarketingSourceKey, number>;
+  targetCplThreshold?: number;
+  targetMinRoi?: number;
+}
+
+// ==========================================
+// LEAD MAPPING & CUSTOMER JOURNEY TYPES (D3.js)
+// ==========================================
+export type JourneyStageKey =
+  | "touchpoint"
+  | "landing"
+  | "engagement"
+  | "intent"
+  | "conversion";
+
+export interface JourneyStageMeta {
+  key: JourneyStageKey;
+  title: string;
+  subtitle: string;
+  order: number;
+  color: string;
+}
+
+export interface JourneyNode {
+  id: string;
+  stage: JourneyStageKey;
+  name: string;
+  shortName: string;
+  channel?: "organic" | "ads" | "social" | "direct" | "referral";
+  visitors: number;
+  conversions: number;
+  conversionRate: number; // e.g. 28.4%
+  dropOffRate: number;
+  avgDealValue?: number;
+  iconName?: string;
+  color: string;
+  badge?: string;
+  isTopChannel?: boolean;
+}
+
+export interface JourneyLink {
+  id: string;
+  source: string;
+  target: string;
+  visitors: number;
+  conversions: number;
+  conversionRate: number;
+  value: number; // Flow thickness representation
+  channel: "organic" | "ads" | "social" | "direct" | "referral";
+  isHighConverting?: boolean;
+}
+
+export interface TopJourneyPath {
+  id: string;
+  name: string;
+  channel: "organic" | "ads" | "social" | "direct" | "referral";
+  channelLabel: string;
+  steps: {
+    stage: JourneyStageKey;
+    name: string;
+  }[];
+  visitors: number;
+  conversions: number;
+  conversionRate: number;
+  totalRevenue: number;
+  avgDuration: string;
+  efficiencyScore: number;
+  isWinner?: boolean;
+  highlightColor?: string;
+}
+
+export interface ChannelEffectiveness {
+  channel: "organic" | "ads" | "social" | "direct" | "referral";
+  label: string;
+  shortLabel: string;
+  description: string;
+  color: string;
+  visitors: number;
+  conversions: number;
+  conversionRate: number;
+  dropOffRate: number;
+  avgDealValue: number;
+  totalRevenue: number;
+  avgDuration: string;
+  roiEstimate: number; // e.g. 480%
+  topLandingPage: string;
+  badge: string;
+  badgeType: "gold" | "silver" | "bronze" | "standard";
+  isWinner: boolean;
+}
+
+export interface IndividualLeadJourney {
+  id: string;
+  leadId: string;
+  leadName: string;
+  serviceOrProduct: string;
+  channel: "organic" | "ads" | "social" | "direct" | "referral";
+  dealValue: number;
+  status: "new" | "contacted" | "offered" | "closed" | "archived";
+  date: string;
+  score?: number;
+  totalDuration: string;
+  steps: {
+    stage: JourneyStageKey;
+    title: string;
+    timestamp: string;
+    description: string;
+    isKeyMoment?: boolean;
+  }[];
+  outcome: string;
+  isHighValue?: boolean;
+}
+
+export interface JourneyDropOffPoint {
+  id: string;
+  stage: JourneyStageKey;
+  stepName: string;
+  location: string;
+  channel?: "organic" | "ads" | "social" | "direct" | "referral" | "all";
+  dropOffRate: number; // e.g. 38.5 (%)
+  droppedVisitors: number;
+  totalVisitors: number;
+  retainedVisitors: number;
+  severity: "critical" | "high" | "medium";
+  frictionReason: string;
+  detailedAnalysis: string;
+  lostRevenueEstimate: number; // e.g. 145000 (₺)
+  recommendedFix: string;
+  quickActionTab?: string;
+  quickActionLabel?: string;
+}
+
+export interface FunnelStageWithDropOff {
+  stageKey: JourneyStageKey;
+  stageName: string;
+  stageOrder: number;
+  color: string;
+  visitors: number;
+  retentionRate: number; // % of total initial visitors
+  dropOffCount: number;
+  dropOffRate: number; // % of visitors who reached this stage and left
+  lostRevenueEstimate: number;
+  primaryDropOffReason: string;
+  topDropOffAction: string;
+}
+
+export type AdminPanelTab =
+  | "overview"
+  | "template-factory"
+  | "sectors"
+  | "client-sites"
+  | "edge-settings"
+  | "pricing-plans";
+
+// ==========================================
+// LEAD FORECASTING & SALES PROJECTION TYPES (D3.js)
+// ==========================================
+export interface DailyForecastPoint {
+  dayIndex: number; // 1 to 30
+  date: Date;
+  dateKey: string; // "YYYY-MM-DD"
+  displayDate: string; // "8 Eyl", "9 Eyl"
+  fullDisplayDate: string; // "8 Eylül 2026, Salı"
+  dayOfWeek: string; // "Pzt", "Sal", "Çar", ...
+  isWeekend: boolean;
+  expectedDailyLeads: number;
+  expectedDailyWonDeals: number;
+  expectedDailyRevenue: number;
+  cumulativeLeads: number;
+  cumulativeWonDeals: number;
+  cumulativeRevenue: number;
+  // Confidence interval bounds (Optimistic vs Conservative)
+  minRevenue: number;
+  maxRevenue: number;
+  minCumulativeRevenue: number;
+  maxCumulativeRevenue: number;
+  minLeads: number;
+  maxLeads: number;
+  minCumulativeLeads: number;
+  maxCumulativeLeads: number;
+}
+
+export interface WeeklyForecastMilestone {
+  weekNumber: number; // 1, 2, 3, 4
+  weekLabel: string; // "1. Hafta (1-7 Gün)"
+  dateRangeLabel: string; // "8 Eyl - 14 Eyl"
+  expectedLeads: number;
+  expectedWonDeals: number;
+  expectedRevenue: number;
+  cumulativeRevenueAtEnd: number;
+  shareOfTotalRevenue: number; // e.g. 24.5%
+}
+
+export interface ChannelForecastContribution {
+  channel: "organic" | "ads" | "social" | "direct" | "referral";
+  channelLabel: string;
+  expectedLeads: number;
+  expectedWonDeals: number;
+  expectedRevenue: number;
+  sharePercentage: number;
+  conversionRate: number;
+  color: string;
+}
+
+export interface ForecastSimulationConfig {
+  conversionRateModifier: number; // e.g. -10 to +25 (percentage points)
+  trafficMultiplier: number; // e.g. 0.5 to 2.0 (1.0 = normal baseline)
+  dealValueMultiplier: number; // e.g. 0.5 to 2.0 (1.0 = normal baseline)
+  scenario: "realistic" | "optimistic" | "conservative" | "custom";
+}
+
+export interface ForecastSummary {
+  totalExpectedLeads: number;
+  totalExpectedWonDeals: number;
+  totalExpectedRevenue: number;
+  effectiveConversionRate: number;
+  effectiveAvgDealValue: number;
+  confidenceRange: {
+    minRevenue: number;
+    maxRevenue: number;
+    minLeads: number;
+    maxLeads: number;
+    minWonDeals: number;
+    maxWonDeals: number;
+  };
+  historicalMetrics: {
+    totalLeads: number;
+    closedLeads: number;
+    offeredLeads: number;
+    contactedLeads: number;
+    newLeads: number;
+    actualConversionRate: number;
+    avgDealValue: number;
+    totalHistoricalRevenue: number;
+    dailyVelocity: number;
+  };
+  dailyPoints: DailyForecastPoint[];
+  weeklyMilestones: WeeklyForecastMilestone[];
+  channelContributions: ChannelForecastContribution[];
+  growthRecommendations: string[];
+}
+
+export type SystemLogStatus = "success" | "warning" | "error";
+export type SystemLogBackupType = "daily_auto" | "manual" | "pre_restore" | "health_check";
+
+export interface SystemBackupLog {
+  id: string;
+  timestamp: number;
+  dateFormatted: string; // e.g. "7 Eylül 2026, 03:00"
+  dateString: string; // "YYYY-MM-DD"
+  timeString: string; // "03:00:15"
+  relativeTime: string; // e.g. "Bugün 03:00", "Dün 03:00"
+  backupType: SystemLogBackupType;
+  status: SystemLogStatus;
+  statusText: string; // e.g. "Başarılı (Doğrulandı)"
+  statusMessage: string;
+  fileSizeBytes: number;
+  fileSizeKb: number;
+  fileSizeFormatted: string; // e.g. "84.6 KB"
+  backupId?: string;
+  durationMs: number;
+  checksum: string; // e.g. "sha256:7f9a12c4..."
+  verified: boolean;
+  trigger: string; // e.g. "Zamanlanmış Günlük Görev (03:00)", "Günlük İlk Oturum Tetikleyicisi"
+  metadata: {
+    pageCount: number;
+    servicesCount: number;
+    productsCount: number;
+    leadsCount: number;
+    companyName: string;
+    siteId?: string;
+  };
+  retentionPolicy?: string; // e.g. "30 Günlük Otomatik Saklama"
+}
+
+export interface SystemLogStats {
+  totalLogs: number;
+  totalDailyAuto: number;
+  successCount: number;
+  warningCount: number;
+  errorCount: number;
+  successRate: number; // e.g. 100
+  totalStorageBytes: number;
+  totalStorageKb: number;
+  avgFileSizeKb: number;
+  lastBackupDate?: string;
+  lastBackupStatus?: SystemLogStatus;
+  nextScheduledBackup: string;
+}
+
+// ==========================================
+// POPÜLER CRM ENTEGRASYON TİPLERİ (HubSpot, Salesforce, Zoho, Pipedrive, Webhook)
+// ==========================================
+export type CrmProviderType = "hubspot" | "salesforce" | "zoho" | "pipedrive" | "webhook";
+
+export interface CrmServiceSetting {
+  enabled: boolean;
+  apiKey?: string; // Private App Token, Access Token or API Key
+  portalId?: string; // e.g. HubSpot Portal ID or Salesforce Org ID
+  instanceUrl?: string; // e.g. https://api.hubapi.com or https://company.my.salesforce.com
+  pipelineId?: string; // Target pipeline / stage
+  dealStage?: string; // Default stage
+  autoSyncNewLeads?: boolean; // Automatically push new incoming leads on arrival
+  environment?: "production" | "sandbox"; // Live vs Sandbox mode
+  lastSyncAt?: string;
+  status: "connected" | "disconnected" | "error" | "testing";
+  statusMessage?: string;
+  webhookUrl?: string;
+  customHeaders?: string;
+  fieldMappings?: {
+    nameField?: string;
+    emailField?: string;
+    phoneField?: string;
+    messageField?: string;
+    dealValueField?: string;
+    serviceField?: string;
+  };
+}
+
+export interface CrmSyncLog {
+  id: string;
+  timestamp: string;
+  provider: CrmProviderType;
+  leadId: string;
+  leadName: string;
+  leadEmail?: string;
+  status: "success" | "error" | "pending";
+  httpStatusCode?: number;
+  responseMessage: string;
+  externalRecordId?: string; // e.g. "hs-contact-941829" or "sf-lead-00Q5g0001"
+  payloadSnippet?: string;
+}
+
+export interface CrmIntegrationConfig {
+  activeProvider: CrmProviderType;
+  globalAutoSync: boolean;
+  services: {
+    hubspot: CrmServiceSetting;
+    salesforce: CrmServiceSetting;
+    zoho: CrmServiceSetting;
+    pipedrive: CrmServiceSetting;
+    webhook: CrmServiceSetting;
+  };
+  syncLogs: CrmSyncLog[];
+}
+
+// ==========================================
+// SEO İLERLEME BİLDİRİM SİSTEMİ TİPLERİ (RANK TRACKER & PROGRESS NOTIFICATIONS)
+// ==========================================
+
+export interface SeoKeywordRankShift {
+  keyword: string;
+  previousRank: number;
+  currentRank: number;
+  rankChange: number; // pozitif değer yükselişi temsil eder (+8 sıra vb.)
+  monthlySearchVolume: number;
+  difficulty: "Düşük" | "Orta" | "Yüksek";
+  serpFeatures?: string[]; // e.g. ["Öne Çıkan Snippet", "Yerel Harita Paketi", "Site Bağlantıları"]
+}
+
+export interface SeoProgressNotificationLog {
+  id: string;
+  timestamp: string; // ISO string
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  clusterId: string;
+  clusterTitle: string;
+  actionType: "h1_optimization" | "meta_optimization" | "batch_remediation" | "regional_page_created" | "manual_edit";
+  actionDescription: string;
+  keywords: SeoKeywordRankShift[];
+  previousAverageRank: number;
+  currentAverageRank: number;
+  rankImprovement: number; // e.g. +8.5
+  estimatedTrafficGrowth: number; // e.g. +380 ziyaret/ay
+  estimatedMonthlyRevenueGain: number; // e.g. +₺4.250/ay
+  status: "pending_crawl" | "crawled" | "indexed" | "ranking_boosted" | "top_3";
+  isRead: boolean;
+  alertLevel: "milestone" | "top_3" | "first_page" | "standard";
+  googleBotCrawlTime?: string;
+  simulatedDaysAfterFix: number; // 2. gün, 5. gün, 10. gün vb.
+  serpPreviewSnippet?: {
+    title: string;
+    url: string;
+    description: string;
+  };
+}
+
+export interface SeoProgressNotificationConfig {
+  enabled: boolean;
+  soundEnabled: boolean;
+  notifyOnFirstPage: boolean; // 1. sayfaya çıkınca bildirim
+  notifyOnTop3: boolean; // İlk 3'e girince acil bildirim
+  notifyOnTrafficMilestone: boolean; // +250/500 ziyaret artışında bildirim
+  minRankJumpThreshold: number; // Min kaç sıra yükselince bildirim tetiklensin (varsayılan: 2)
+  emailAlerts: {
+    enabled: boolean;
+    recipientEmail: string;
+  };
+  webhookAlerts: {
+    enabled: boolean;
+    webhookUrl: string;
+    slackFormat: boolean;
+  };
+  logs: SeoProgressNotificationLog[];
+}
+
+// ==========================================
+// AI-POWERED SEO CONTENT OPTIMIZER TYPES
+// ==========================================
+export interface SeoTitleVariation {
+  id: string;
+  variationType: "local_dominance" | "high_conversion" | "urgent_action" | "authority_trust" | "offer_benefit";
+  label: string;
+  title: string;
+  charCount: number;
+  pixelWidth: number;
+  ctrScore: number;
+  intent: string;
+  embeddedKeywords: string[];
+  reason: string;
+}
+
+export interface SeoDescriptionVariation {
+  id: string;
+  variationType: "local_dominance" | "high_conversion" | "urgent_action" | "authority_trust" | "offer_benefit";
+  label: string;
+  description: string;
+  charCount: number;
+  pixelWidth: number;
+  ctrScore: number;
+  intent: string;
+  callToAction: string;
+  embeddedKeywords: string[];
+  reason: string;
+}
+
+export interface SeoKeywordItem {
+  keyword: string;
+  monthlySearchVolume: string;
+  difficulty: "Kolay" | "Orta" | "Rekabetçi";
+  intent: string;
+  relevance: number;
+}
+
+export interface SeoContentOptimizerData {
+  industry: string;
+  industryInsights: {
+    searchBehavior: string;
+    highValueKeywords: string[];
+    recommendedFocus: string;
+  };
+  titleVariations: SeoTitleVariation[];
+  descriptionVariations: SeoDescriptionVariation[];
+  keywordSuggestions: SeoKeywordItem[];
+  contentTips: string[];
+}
+
+// ==========================================
+// COMPETITIVE SEO INSIGHT & SEARCH GROUNDING TYPES
+// ==========================================
+
+export interface CompetitorContentMetric {
+  id: string;
+  name: string;
+  domain: string;
+  rank: number;
+  visibilityScore: number; // 0-100
+  avgWordCount: number;
+  indexedPages: number;
+  topKeywordReach: number;
+  speedScore: number;
+  schemaScore: number;
+  backlinkSignals: "Güçlü" | "Orta" | "Zayıf";
+  contentVelocity: "Haftalık 3+" | "Haftalık 1-2" | "Aylık" | "Düşük";
+  keyStrengths: string[];
+  weaknesses: string[];
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
+export interface CompetitiveMetaSuggestion {
+  id: string;
+  pageType: "homepage" | "service" | "blog";
+  pageName: string;
+  currentUserTitle: string;
+  currentUserDescription: string;
+  topCompetitorTitle: string;
+  topCompetitorDescription: string;
+  recommendedTitle: string;
+  recommendedDescription: string;
+  expectedCtrBoost: string;
+  reasoning: string;
+  targetKeywords: string[];
+}
+
+export interface MissingHighImpactKeyword {
+  id: string;
+  keyword: string;
+  searchIntent: "Ticari" | "Bilgilendirici" | "Acil / Yerel" | "İşlemsel";
+  searchVolume: string;
+  difficulty: number; // 0-100
+  competitorsTargeting: string[];
+  estimatedTrafficGain: string;
+  suggestedAction: string;
+  recommendedContentType: "blog" | "service" | "faq" | "homepage";
+  actionableDraftTitle: string;
+}
+
+export interface CompetitiveRadarMetric {
+  metric: string;
+  userScore: number;
+  comp1Score: number;
+  comp2Score: number;
+  comp3Score: number;
+  fullMark: number;
+}
+
+export interface GroundingSourceItem {
+  title: string;
+  uri: string;
+}
+
+export interface SearchGroundingMeta {
+  query: string;
+  sources: GroundingSourceItem[];
+}
+
+export interface TacticalQuickWin {
+  id: string;
+  title: string;
+  impact: "Yüksek" | "Kritik" | "Orta";
+  effort: "Kolay" | "Orta" | "Planlı";
+  description: string;
+  actionType: "blog" | "keywords" | "schema" | "speed";
+  targetCompetitor?: string;
+}
+
+export interface CompetitiveSeoInsightData {
+  analyzedAt: string;
+  sector: string;
+  city: string;
+  domain: string;
+  summary: string;
+  userMetrics: {
+    visibilityScore: number;
+    avgWordCount: number;
+    indexedPages: number;
+    topKeywordReach: number;
+    speedScore: number;
+    schemaScore: number;
+  };
+  competitors: CompetitorContentMetric[];
+  missingKeywords: MissingHighImpactKeyword[];
+  radarComparison: CompetitiveRadarMetric[];
+  searchGroundingSources: SearchGroundingMeta[];
+  tacticalQuickWins: TacticalQuickWin[];
+  metaSuggestions?: CompetitiveMetaSuggestion[];
+}
+
+// ==========================================
+// AI CONTENT META-OPTIMIZER TYPES
+// ==========================================
+
+export interface ReadabilityMetrics {
+  score: number; // 0-100 (Ateşman Türkçe Okunabilirlik İndeksi)
+  level: "Çok Kolay" | "Kolay / Akıcı" | "Orta Anlaşılır" | "Ağır / Akademik" | "Çok Zor";
+  avgWordsPerSentence: number;
+  avgSyllablesPerWord: number;
+  totalWords: number;
+  totalSentences: number;
+  totalSyllables: number;
+  gradeLevel: string;
+}
+
+export interface KeywordDensityItem {
+  keyword: string;
+  count: number;
+  density: number; // 0-100 percentage
+  status: "ideal" | "low" | "high" | "missing";
+  type: "primary" | "secondary" | "local" | "lsi";
+  searchIntent?: string;
+  recommendedCount: number;
+}
+
+export interface ContentSectionOptimization {
+  id: string;
+  sectionKey: "hero" | "about" | "service" | "blog" | "meta" | "features";
+  sectionName: string;
+  targetField: string; // path in siteConfig, e.g. "hero.subtitle"
+  originalText: string;
+  optimizedText: string;
+  beforeReadability: ReadabilityMetrics;
+  afterReadability: ReadabilityMetrics;
+  beforeDensity: {
+    overallDensity: number;
+    keywords: KeywordDensityItem[];
+  };
+  afterDensity: {
+    overallDensity: number;
+    keywords: KeywordDensityItem[];
+  };
+  injectedKeywords: string[];
+  readabilityImprovements: string[];
+  status: "pending" | "applied" | "rejected";
+}
+
+export interface AiContentMetaOptimizerReport {
+  scannedAt: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  overallScoreBefore: number; // 0-100
+  overallScoreAfter: number; // 0-100
+  overallReadabilityBefore: ReadabilityMetrics;
+  overallReadabilityAfter: ReadabilityMetrics;
+  overallKeywordDensityBefore: number;
+  overallKeywordDensityAfter: number;
+  sections: ContentSectionOptimization[];
+  sitewideKeywordStrategy: {
+    primaryTargetKeywords: string[];
+    localKeywords: string[];
+    lsiKeywords: string[];
+    topRecommendations: string[];
+  };
+  isLiveGemini?: boolean;
+}
+
+// ==========================================
+// FUTURE PERFORMANCE FORECASTER & 30-DAY PREDICTOR (D3.js)
+// ==========================================
+
+export type ForecastingScenario = "realistic" | "optimistic" | "pessimistic";
+
+export interface DailyForecastDataPoint {
+  date: string; // "YYYY-MM-DD"
+  formattedDate: string; // "12 Eyl", "13 Eyl"
+  dayIndex: number; // -29 to 0 for historical, 1 to 30 for forecast
+  isForecast: boolean;
+  dayOfWeek: string; // "Pzt", "Sal", "Çar", etc.
+  visitors: number;
+  visitorsLowerBound: number; // 80% CI
+  visitorsUpperBound: number; // 80% CI
+  conversions: number; // inquiries, calls, WhatsApp, lead forms
+  conversionsLowerBound: number;
+  conversionsUpperBound: number;
+  conversionRate: number; // e.g. 4.2 (%)
+  estimatedRevenue: number; // In TL (based on average deal value)
+  notes?: string;
+}
+
+export interface ForecastingSimulationParams {
+  trafficGrowthRate: number; // percentage (-20 to +80)
+  conversionMultiplier: number; // multiplier (0.8x to 2.5x)
+  averageDealValue: number; // in TL (e.g. 1500)
+  confidenceLevel: number; // percentage (e.g. 80, 90)
+  scenario: ForecastingScenario;
+}
+
+export interface ForecastingInsight {
+  id: string;
+  type: "opportunity" | "warning" | "milestone";
+  title: string;
+  description: string;
+  potentialImpact: string;
+  actionRecommendation: string;
+}
+
+export interface ChannelGrowthProjection {
+  channel: string;
+  channelKey: "organic" | "direct" | "social" | "whatsapp" | "ads";
+  currentMonthlyVisitors: number;
+  projectedMonthlyVisitors: number;
+  growthPercent: number;
+  color: string;
+}
+
+export interface FuturePerformanceForecasterReport {
+  generatedAt: string;
+  scenario: ForecastingScenario;
+  params: ForecastingSimulationParams;
+  historicalTotalVisitors30d: number;
+  historicalTotalConversions30d: number;
+  historicalAvgConversionRate: number;
+  historicalTotalRevenue30d: number;
+  projectedTotalVisitors30d: number;
+  projectedTotalConversions30d: number;
+  projectedAvgConversionRate: number;
+  projectedTotalRevenue30d: number;
+  netVisitorGrowthPercent: number;
+  netConversionGrowthPercent: number;
+  netRevenueGrowthPercent: number;
+  forecastConfidenceScore: number; // 0-100 (e.g. 92)
+  timeSeriesData: DailyForecastDataPoint[];
+  insights: ForecastingInsight[];
+  channelBreakdown: ChannelGrowthProjection[];
+}
+
+// ==========================================
+// AI PRICING INTELLIGENCE & TIER OPTIMIZATION TYPES
+// ==========================================
+export type PricingTierLevel = "starter" | "pro" | "enterprise";
+export type PriceModelType = "fixed" | "starting_at" | "hourly" | "custom_quote" | "monthly_retainer";
+
+export interface PricingTierRecommendation {
+  id: string; // e.g. "tier-starter", "tier-pro", "tier-enterprise"
+  name: string; // e.g. "Temel Paket", "Standart / En Çok Tercih Edilen", "Premium / Kurumsal"
+  level: PricingTierLevel;
+  badge?: string; // e.g. "En Popüler", "En Çok Tercih Edilen", "Bütçe Dostu", "Yüksek Dönüşüm"
+  price: number; // in TRY (₺)
+  priceFormatted: string; // e.g. "₺1.850"
+  originalPriceNumeric?: number;
+  originalPriceFormatted?: string;
+  periodLabel: string; // e.g. "başlayan fiyatla", "iş başı", "aylık", "seferlik"
+  targetAudience: string; // e.g. "Bireysel ve Acil Çözüm Arayanlar"
+  description: string;
+  features: string[]; // List of bundled features/guarantees
+  excludedFeatures?: string[];
+  
+  // Analytics & Conversion Projection
+  currentConversionRate?: number; // e.g. 4.2 (%)
+  projectedConversionRate: number; // e.g. 7.6 (%)
+  conversionUpliftPercent: number; // e.g. +42 (%)
+  estimatedMonthlyLeads: number; // e.g. 24 talep
+  estimatedMonthlyRevenue: number; // in TRY, e.g. 44.400
+  
+  // Competitor & Elasticity Benchmark
+  marketBenchmark: {
+    minPrice: number;
+    medianPrice: number;
+    maxPrice: number;
+    positioningVsMarket: "budget" | "competitive" | "premium"; // e.g. -15% vs market, median, +20%
+    differenceFromMarketMedianPercent: number; // e.g. -8%
+  };
+  
+  // Behavioral Psychological Strategy
+  psychologyTactic: {
+    title: string; // e.g. "Decoy Effect (Tuzak Seçenek) & Çıpalama"
+    rationale: string;
+    trigger: "anchoring" | "charm_pricing" | "loss_aversion" | "risk_reversal" | "scarcity";
+  };
+  
+  popular?: boolean;
+  highlighted?: boolean;
+  ctaText?: string;
+}
+
+export interface ServiceSpecificPricingSuggestion {
+  serviceId: string;
+  serviceTitle: string;
+  currentPrice: string; // e.g. "₺1.200" or "Fiyat Sorunuz"
+  currentPriceNumeric?: number;
+  suggestedOptimalPrice: number;
+  suggestedPriceFormatted: string;
+  priceModel: PriceModelType;
+  competitorMedianPrice: number;
+  priceElasticity: "low" | "medium" | "high"; // low: price increases don't hurt conversion; high: sensitive
+  elasticityScore: number; // 0.1 to 1.0
+  recommendedAction: "increase" | "decrease" | "introduce_transparency" | "bundle";
+  reasoning: string;
+  conversionImpact: string; // e.g. "+%32 Daha Fazla Form Talebi"
+  suggestedFeatures?: string[];
+}
+
+export interface CompetitorPriceBenchmarkItem {
+  id: string;
+  competitorName: string;
+  tierName: string;
+  priceFormatted: string;
+  priceNumeric: number;
+  source: string; // e.g. "Google SERP / Yerel Piyasa Analizi"
+  positioning: "budget" | "standard" | "premium";
+  includedHighlights: string[];
+}
+
+export interface PricingElasticityPoint {
+  priceMultiplier: number; // 0.6, 0.8, 1.0, 1.2, 1.4, 1.6
+  priceTRY: number;
+  projectedConversionRate: number; // %
+  projectedMonthlyLeads: number;
+  projectedMonthlyRevenue: number; // TRY
+  isSweetSpot?: boolean;
+}
+
+export interface PricingIntelligenceData {
+  analyzedAt: string;
+  sector: string;
+  city: string;
+  historicalLeadsAnalyzed: number;
+  historicalWinRatePercent: number;
+  historicalAvgDealValue: number;
+  overallPriceSensitivity: "low" | "moderate" | "high";
+  sweetSpotPriceIndex: number;
+  
+  // Executive Summary & AI Insight
+  executiveSummary: string;
+  primaryConversionBottleneck: string;
+  expectedOverallUpliftPercent: number; // e.g. +36%
+  projectedMonthlyRevenueIncreaseTRY: number; // e.g. +28.500 ₺
+  
+  // Suggested 3-Tier Catalog Package
+  recommendedTiers: PricingTierRecommendation[];
+  
+  // Service-by-service specific optimal pricing
+  servicePricingSuggestions: ServiceSpecificPricingSuggestion[];
+  
+  // Competitor Pricing Landscape
+  competitorBenchmarks: CompetitorPriceBenchmarkItem[];
+  
+  // Elasticity Simulation Curve (D3.js / SVG)
+  elasticityCurve: PricingElasticityPoint[];
+  
+  // Actionable Rollout Plan
+  implementationSteps: {
+    stepNumber: number;
+    title: string;
+    description: string;
+    estimatedImpact: string;
+    urgency: "high" | "medium" | "low";
+  }[];
+  
+  isAiGenerated?: boolean;
+}
+
+// ==========================================
+// AI GLOBAL SEO AGENT TYPES (GEO-LOCATION & SEARCH GROUNDING)
+// ==========================================
+
+export type MarketTier = "domestic" | "international";
+export type RegionalSearchIntent = "commercial" | "transactional" | "informational" | "local_navigational";
+export type RegionalTrendStatus = "rising" | "breakthrough" | "stable" | "seasonal";
+
+export interface TargetMarketRegion {
+  id: string;
+  name: string;
+  countryCode: string; // e.g. "TR", "DE", "GB", "US", "AE"
+  flag: string; // Emoji flag e.g. "🇹🇷", "🇩🇪"
+  language: string; // e.g. "tr", "de", "en", "ar"
+  languageLabel: string;
+  searchEngine: string; // e.g. "Google.com.tr", "Google.de", "Google.co.uk"
+  tier: MarketTier;
+  selected: boolean;
+  cityOrArea?: string;
+  monthlyMarketVolumeEstimate?: string;
+}
+
+export interface RegionalKeywordVariation {
+  id: string;
+  keyword: string; // Localized search query in local vernacular
+  originalBaseKeyword: string;
+  targetMarketId: string;
+  targetMarketName: string;
+  countryCode: string;
+  language: string;
+  searchIntent: RegionalSearchIntent;
+  searchVolumeIndex: number; // 0-100 score
+  searchVolumeDisplay: string; // e.g. "4.8K / ay"
+  trendStatus: RegionalTrendStatus;
+  trendGrowthPercent: number; // e.g. +68
+  competitionDifficulty: number; // 0-100 (e.g. 32)
+  difficultyLabel: "Düşük" | "Orta" | "Yüksek" | "Kritik";
+  serpFeatures: string[]; // e.g. ["Local Pack", "People Also Ask", "Featured Snippet"]
+  vernacularNote: string; // Local dialect / colloquial search habit nuance
+  recommendedMetaTitle: string;
+  recommendedMetaDescription: string;
+  suggestedPageSlug: string;
+  localizedH1: string;
+  appliedToSiteConfig?: boolean;
+}
+
+export interface GeoMarketAnalysis {
+  marketId: string;
+  marketName: string;
+  countryCode: string;
+  flag: string;
+  language: string;
+  languageLabel: string;
+  searchEngine: string;
+  currentVisibilityScore: number; // 0-100
+  potentialVisibilityScore: number; // 0-100
+  marketOpportunityScore: number; // 0-100
+  topTrends: {
+    query: string;
+    volumeEstimate: string;
+    spikeReason: string;
+    relevanceScore: number;
+    trendType: "breakthrough" | "steady_growth" | "seasonal_peak";
+  }[];
+  culturalSearchHabits: string[]; // Nuances like trust seals, formal vs informal language, local directory habits
+  localizedCompetitorSignals: {
+    competitorDomain: string;
+    estimatedMarketShare: number; // percentage
+    dominantKeywords: string[];
+    vulnerability: string;
+  }[];
+  hreflangCode: string; // e.g. "tr-TR", "de-DE", "en-GB", "en-US"
+  recommendedAction: string;
+  regionalLandingPageSuggestion: {
+    title: string;
+    slug: string;
+    metaTitle: string;
+    metaDescription: string;
+    introParagraph: string;
+    keySellingPoints: string[];
+  };
+}
+
+export interface GlobalSeoGroundingSource {
+  query: string;
+  sources: {
+    title: string;
+    uri: string;
+  }[];
+}
+
+export interface GlobalSeoAgentReport {
+  id: string;
+  analyzedAt: string;
+  industry: string;
+  companyName: string;
+  baseCity: string;
+  totalMarketsAnalyzed: number;
+  overallGlobalReachScore: number; // 0-100
+  executiveStrategicSummary: string;
+  targetMarkets: GeoMarketAnalysis[];
+  regionalKeywords: RegionalKeywordVariation[];
+  searchGroundingSources: GlobalSeoGroundingSource[];
+  macroGeoTrends: {
+    title: string;
+    region: string;
+    growth: string;
+    impact: "high" | "medium" | "neutral";
+    description: string;
+  }[];
+  multilingualSeoChecklist: {
+    item: string;
+    status: "ready" | "needs_action" | "optimized";
+    detail: string;
+  }[];
+  isGroundingLive?: boolean;
+}
+
+// ==========================================
+// ADVANCED SITE PERFORMANCE TRENDS (90-DAY ROLLING WINDOW & D3.js)
+// ==========================================
+
+export type CoreWebVitalMetricKey = "lcp" | "inp" | "cls" | "ttfb" | "fcp" | "healthScore";
+
+export type PerformanceTrendGranularity = "daily" | "7d_ma" | "14d_ma";
+
+export type RollingWindowDays = 30 | 60 | 90;
+
+export interface PerformanceMilestoneEvent {
+  id: string;
+  dayOffset: number; // e.g. -74 (days ago)
+  date: string; // YYYY-MM-DD
+  title: string;
+  category: "infrastructure" | "optimization" | "network" | "deployment";
+  description: string;
+  impactMetric: string;
+  impactDelta: string;
+}
+
+export interface DailyPerformanceTrendDataPoint {
+  date: string; // YYYY-MM-DD
+  formattedDate: string; // e.g. "12 Haz"
+  dayIndex: number; // -89 to 0 (0 is today)
+  
+  // Core Web Vitals
+  lcp: number; // Largest Contentful Paint (seconds, e.g., 1.15)
+  inp: number; // Interaction to Next Paint (ms, e.g., 72)
+  cls: number; // Cumulative Layout Shift (unitless, e.g., 0.02)
+  ttfb: number; // Time to First Byte (ms, e.g., 28)
+  fcp: number; // First Contentful Paint (seconds, e.g., 0.65)
+  
+  // Rolling Moving Averages (calculated)
+  lcp_ma?: number;
+  inp_ma?: number;
+  cls_ma?: number;
+  ttfb_ma?: number;
+  fcp_ma?: number;
+  
+  // Visitor Metrics
+  bounceRate: number; // Percentage (e.g., 23.8)
+  bounceRate_ma?: number;
+  dailyVisitors: number;
+  avgSessionDurationSec: number;
+  pagesPerSession: number;
+  
+  // Infrastructure Health
+  healthScore: number; // 0 - 100
+  healthScore_ma?: number;
+  cwvPassStatus: "pass" | "needs-improvement" | "fail";
+  
+  // Milestone if any occurred on this day
+  milestone?: PerformanceMilestoneEvent;
+}
+
+export interface CoreVitalCorrelationInsight {
+  metricKey: CoreWebVitalMetricKey;
+  metricLabel: string;
+  unit: string;
+  pearsonR: number; // Correlation with bounce rate (-1 to 1)
+  direction: "positive" | "negative";
+  elasticityStatement: string; // e.g., "Every 0.5s drop in LCP reduced bounce rate by 5.2%"
+  googleTargetThreshold: number;
+  isMeetingGoogleTarget: boolean;
+  currentValue: number;
+  initialValue: number;
+  totalChangePercent: number;
+  verdict: "critical_driver" | "moderate_driver" | "stable";
+}
+
+export interface PerformanceTrendsSummary {
+  periodDays: number;
+  startDate: string;
+  endDate: string;
+  overallHealthScoreCurrent: number;
+  overallHealthScoreInitial: number;
+  healthDeltaPercent: number;
+  
+  lcpCurrent: number;
+  lcpInitial: number;
+  lcpDeltaPercent: number;
+  
+  bounceRateCurrent: number;
+  bounceRateInitial: number;
+  bounceRateDeltaPercent: number;
+  
+  inpCurrent: number;
+  inpInitial: number;
+  inpDeltaPercent: number;
+  
+  clsCurrent: number;
+  clsInitial: number;
+  clsDeltaPercent: number;
+  
+  ttfbCurrent: number;
+  ttfbInitial: number;
+  ttfbDeltaPercent: number;
+  
+  totalMilestones: number;
+  googleCwvPassRate: number; // e.g. 100%
+  primaryCorrelationDriver: string;
+}
+
+// ==========================================
+// AUTHENTICATION & MULTI-PORTAL USER TYPES
+// ==========================================
+export type UserRole = "admin" | "team_member" | "client";
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  companyName?: string;
+  avatar?: string;
+  createdAt: string;
+  lastLoginAt: string;
+  status: "active" | "suspended" | "pending";
+  assignedOrdersCount?: number;
+}
+
+export interface AuthCredentials {
+  email: string;
+  password?: string;
+}
+
+export interface AuthRegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  companyName?: string;
+  role: UserRole;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  token: string;
+  expiresAt: string;
+}
+

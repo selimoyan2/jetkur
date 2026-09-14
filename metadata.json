@@ -1,0 +1,6 @@
+{
+  "name": "HızlıWeb - Dünyanın En Hızlı Web Sitesi Altyapısı",
+  "description": "Ultra hızlı Global Anycast Edge CDN üzerinde çalışan; AI Global SEO Agent (Google Search Grounding ile Çoklu Pazar & Bölgesel Trend Analizi), AI Fiyatlandırma Zekası (AI Pricing Intelligence & 3-Tier Paket Öneri Motoru), D3.js Gelecek Performans Tahmincisi, AI Content Meta-Optimizer, SEO Health Score Günlük Otomatik Denetim Aracı, D3.js Gerçek Zamanlı Trafik, Competitive SEO Insight ve Akıllı KOBİ Web Sitesi Platformu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
