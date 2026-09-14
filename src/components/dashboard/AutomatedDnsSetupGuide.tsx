@@ -23,6 +23,7 @@ import {
   Network,
   AlertTriangle,
   ArrowUpRight,
+  Cloud,
   CheckSquare
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ interface AutomatedDnsSetupGuideProps {
   onChange: (newConfig: SiteConfig) => void;
   onPreview?: () => void;
   onNavigateToDomainManager?: () => void;
+  onNavigateToEdgeGuide?: () => void;
 }
 
 interface EdgeTestNode {
@@ -45,7 +47,8 @@ export const AutomatedDnsSetupGuide: React.FC<AutomatedDnsSetupGuideProps> = ({
   config,
   onChange,
   onPreview,
-  onNavigateToDomainManager
+  onNavigateToDomainManager,
+  onNavigateToEdgeGuide
 }) => {
   const currentCustomDomain = config.cloudflare?.customDomain || "";
   const currentSubdomain = config.cloudflare?.subdomain || "sirket";
@@ -1044,6 +1047,19 @@ TXT,_hizliweb-verify,${verificationToken},Auto,false
                 </li>
                 <li>İşlem tamamlandı! Cloudflare üzerinde yayılım ortalama <strong>1-2 dakika</strong> içinde tamamlanır.</li>
               </ol>
+
+              {onNavigateToEdgeGuide && (
+                <div className="pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={onNavigateToEdgeGuide}
+                    className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/30 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Cloud className="w-4 h-4 text-amber-600" />
+                    <span>Cloudflare Edge API, Zone ID &amp; Otomatik Dağıtım Rehberini Aç</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

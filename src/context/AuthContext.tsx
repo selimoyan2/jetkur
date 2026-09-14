@@ -17,8 +17,8 @@ interface AuthContextType {
   register: (payload: AuthRegisterPayload) => Promise<{ success: boolean; user?: AuthUser; error?: string }>;
   logout: () => void;
   isAuthModalOpen: boolean;
-  authModalInitialTab: "client" | "admin" | "register";
-  openAuthModal: (tab?: "client" | "admin" | "register", redirectView?: string) => void;
+  authModalInitialTab: "client" | "admin" | "register" | "login";
+  openAuthModal: (tab?: "client" | "admin" | "register" | "login", redirectView?: string) => void;
   closeAuthModal: () => void;
   redirectAfterLoginView: string | null;
   setRedirectAfterLoginView: (view: string | null) => void;
@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalInitialTab, setAuthModalInitialTab] = useState<"client" | "admin" | "register">("client");
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<"client" | "admin" | "register" | "login">("login");
   const [redirectAfterLoginView, setRedirectAfterLoginView] = useState<string | null>(null);
 
   // Sync across tabs & custom events
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const openAuthModal = (tab: "client" | "admin" | "register" = "client", redirectView?: string) => {
+  const openAuthModal = (tab: "client" | "admin" | "register" | "login" = "login", redirectView?: string) => {
     setAuthModalInitialTab(tab);
     if (redirectView) {
       setRedirectAfterLoginView(redirectView);

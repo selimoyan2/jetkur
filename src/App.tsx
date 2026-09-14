@@ -486,6 +486,7 @@ export default function App() {
                 config={siteConfig}
                 onClose={() => setCurrentView("preview")}
                 onOpenPreview={() => setCurrentView("preview")}
+                onConfigChange={setSiteConfig}
               />
             </div>
           )

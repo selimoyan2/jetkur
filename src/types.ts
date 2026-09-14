@@ -777,6 +777,15 @@ export interface CloudflareDeployment {
   sslMode?: "flexible" | "full" | "strict";
   alwaysUseHttps?: boolean;
   dnsPropagationStatus?: "verified" | "propagating" | "unconfigured";
+  apiConfig?: {
+    accountId?: string;
+    apiToken?: string;
+    zoneId?: string;
+    projectName?: string;
+    targetType?: "pages" | "workers-sites";
+    autoPushEnabled?: boolean;
+    lastApiCheckAt?: string;
+  };
 }
 
 export interface HomepageSectionConfig {
@@ -1247,7 +1256,7 @@ export interface SlackNotificationConfig {
   enabled: boolean;
   webhookUrl: string; // e.g. "https://hooks.slack.com/services/..."
   channelName?: string; // e.g. "#leads-alerts"
-  botName?: string; // e.g. "HızlıWeb CRM Bot"
+  botName?: string; // e.g. "JetKur CRM Bot"
   customMessageTemplate?: string; // Markdown template with placeholders
 }
 
@@ -1255,7 +1264,7 @@ export interface EmailLeadNotificationConfig {
   enabled: boolean;
   recipientEmails: string; // Comma-separated emails: "sales@firm.com, manager@firm.com"
   subjectTemplate?: string; // Subject with {customer_name}, {score}, {service}
-  senderName?: string; // e.g. "HızlıWeb Lead Alert"
+  senderName?: string; // e.g. "JetKur Lead Alert"
 }
 
 export interface LeadScoringConfig {
@@ -1727,6 +1736,7 @@ export type CustomerPanelTab =
   | "media-library"
   | "security-audit"
   | "automated-dns"
+  | "cloudflare-edge-guide"
   | "performance-monitor"
   | "lead-insights"
   | "lead-automations"
@@ -2868,7 +2878,10 @@ export interface AuthUser {
   assignedOrdersCount?: number;
   trialEndsAt?: string;
   isTrial?: boolean;
+  trialExpired?: boolean;
   planName?: string;
+  createdSitesCount?: number;
+  maxAllowedSites?: number;
 }
 
 export interface AuthCredentials {

@@ -11,12 +11,11 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ArrowRight, 
-  ShieldCheck, 
   Sparkles, 
   KeyRound, 
-  HelpCircle,
-  Truck,
-  Users
+  Clock,
+  Zap,
+  Globe
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { requestPasswordReset } from "../../utils/authStorage";
@@ -24,21 +23,24 @@ import { requestPasswordReset } from "../../utils/authStorage";
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "client" | "admin" | "register";
+  initialTab?: "client" | "admin" | "register" | "login";
   onSuccessRedirect?: (role: "admin" | "team_member" | "client") => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  initialTab = "client",
+  initialTab = "login",
   onSuccessRedirect
 }) => {
   const { login, register } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"client" | "admin" | "register">(initialTab);
+  // Unified two-tab mode: "login" or "register"
+  const [activeTab, setActiveTab] = useState<"login" | "register">(
+    initialTab === "register" ? "register" : "login"
+  );
   
-  // Form fields
+  // Form fields (clean, no pre-filled test values)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -56,25 +58,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotResult, setForgotResult] = useState<{ message: string; tempPass?: string } | null>(null);
 
-  // Reset tab on open
+  // Reset tab and fields on open
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
+      setActiveTab(initialTab === "register" ? "register" : "login");
       setErrorMsg(null);
       setSuccessMsg(null);
       setIsForgotPassword(false);
       setForgotResult(null);
-      // Pre-fill email depending on tab
-      if (initialTab === "admin") {
-        setEmail("admin@jetkur.com.tr");
-        setPassword("jetkur2026");
-      } else if (initialTab === "client") {
-        setEmail("musteri@jetkur.com.tr");
-        setPassword("musteri2026");
-      } else {
-        setEmail("");
-        setPassword("");
-      }
+      setEmail("");
+      setPassword("");
+      setName("");
+      setPhone("");
+      setCompanyName("");
     }
   }, [isOpen, initialTab]);
 
@@ -91,24 +87,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1-Click Fast Fill for quick testing
-  const handleQuickAutofill = (role: "admin" | "client" | "team") => {
-    setErrorMsg(null);
-    if (role === "admin") {
-      setActiveTab("admin");
-      setEmail("admin@jetkur.com.tr");
-      setPassword("jetkur2026");
-    } else if (role === "client") {
-      setActiveTab("client");
-      setEmail("musteri@jetkur.com.tr");
-      setPassword("musteri2026");
-    } else {
-      setActiveTab("admin");
-      setEmail("ekip@jetkur.com.tr");
-      setPassword("ekip2026");
-    }
-  };
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -123,12 +101,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           if (onSuccessRedirect) {
             onSuccessRedirect(res.user.role);
           }
-        }, 600);
+        }, 500);
       } else {
-        setErrorMsg(res.error || "Giriş yapılamadı. Lütfen bilgilerinizi kontrol edin.");
+        setErrorMsg(res.error || "Giriş yapılamadı. Lütfen e-posta ve şifrenizi kontrol edin.");
       }
     } catch {
-      setErrorMsg("Bir hata oluştu. Lütfen tekrar deneyin.");
+      setErrorMsg("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
     } finally {
       setIsLoading(false);
     }
@@ -146,22 +124,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         password,
         phone,
         companyName,
-        role: "client" // Public self-registration is client role
+        role: "client"
       });
 
       if (res.success && res.user) {
-        setSuccessMsg(`Hesabınız başarıyla oluşturuldu! Hoş geldiniz ${res.user.name}.`);
+        setSuccessMsg("14 Günlük Ücretsiz Deneme Hesabınız Oluşturuldu! Panele yönlendiriliyorsunuz...");
         setTimeout(() => {
           onClose();
           if (onSuccessRedirect) {
             onSuccessRedirect("client");
           }
-        }, 600);
+        }, 700);
       } else {
-        setErrorMsg(res.error || "Kayıt işlemi tamamlanamadı.");
+        setErrorMsg(res.error || "Kayıt işlemi gerçekleştirilemedi.");
       }
     } catch {
-      setErrorMsg("Bir hata oluştu. Lütfen tekrar deneyin.");
+      setErrorMsg("Kayıt sırasında bir hata oluştu. Lütfen bilgilerinizi kontrol edip tekrar deneyin.");
     } finally {
       setIsLoading(false);
     }
@@ -169,175 +147,131 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
+    if (!forgotEmail) {
+      setErrorMsg("Lütfen kayıtlı e-posta adresinizi yazın.");
+      return;
+    }
     setIsLoading(true);
-
+    setErrorMsg(null);
     try {
-      const res = await requestPasswordReset(forgotEmail || email);
+      const res = await requestPasswordReset(forgotEmail);
       if (res.success) {
-        setForgotResult({ message: res.message, tempPass: res.tempPass });
+        setForgotResult(res);
       } else {
         setErrorMsg(res.message);
       }
     } catch {
-      setErrorMsg("Şifre sıfırlama işlemi sırasında bir sorun oluştu.");
+      setErrorMsg("Şifre sıfırlama talebi iletilemedi.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div 
-      id="jetkur-auth-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        id="jetkur-auth-modal-card"
-        className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white p-6 relative">
+        <div className="p-6 bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white relative">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-            aria-label="Kapat"
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title="Kapat (ESC)"
           >
             <X className="w-4 h-4" />
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-md shadow-amber-500/20">
-              <ShieldCheck className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+              {activeTab === "register" ? (
+                <Sparkles className="w-5 h-5" />
+              ) : (
+                <KeyRound className="w-5 h-5" />
+              )}
             </div>
             <div>
-              <div className="text-[10px] uppercase font-bold tracking-widest text-amber-400">
-                JetKur Güvenli Kimlik Doğrulama
-              </div>
-              <h2 className="text-lg font-extrabold text-white mt-0.5">
+              <h3 className="text-lg font-black text-white">
                 {isForgotPassword 
-                  ? "Şifremi Unuttum" 
+                  ? "Şifre Sıfırlama" 
                   : activeTab === "register" 
-                  ? "Yeni Müşteri Hesabı Oluştur" 
-                  : activeTab === "admin" 
-                  ? "Yönetici & Personel Girişi" 
-                  : "Müşteri Portali Girişi"}
-              </h2>
+                  ? "14 Gün Ücretsiz Başlayın" 
+                  : "JetKur Giriş Yap"}
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                {isForgotPassword
+                  ? "Kayıtlı e-posta adresinize geçici şifre oluşturulacaktır."
+                  : activeTab === "register"
+                  ? "Kredi kartı gerekmez • 1 Adet 0.02s Web Sitesi • Anında Kurulum"
+                  : "Yönetim paneline ve web sitenize erişmek için giriş yapın."}
+              </p>
             </div>
           </div>
-
-          <p className="text-xs text-slate-300 mt-2">
-            {isForgotPassword
-              ? "Kayıtlı e-posta adresinize tek kullanımlık geçici şifre oluşturulacaktır."
-              : activeTab === "register"
-              ? "Siparişlerinizi takip etmek, teklif almak ve belgeleri görüntülemek için kayıt olun."
-              : activeTab === "admin"
-              ? "JetKur CMS, site içerikleri, SEO ve müşteri taleplerini yönetmek için giriş yapın."
-              : "Sipariş durumunuzu, sevk irsaliyelerini ve proje faturalarınızı inceleyin."}
-          </p>
-
-          {/* Quick Demo Pre-fill Badges */}
-          {!isForgotPassword && (
-            <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center gap-1.5 text-[10px]">
-              <span className="text-slate-400 font-semibold mr-1">Hızlı Doldur (Test):</span>
-              <button
-                type="button"
-                onClick={() => handleQuickAutofill("admin")}
-                className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-amber-300 font-bold transition-colors cursor-pointer"
-              >
-                Admin (Yönetici)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAutofill("client")}
-                className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-300 font-bold transition-colors cursor-pointer"
-              >
-                Müşteri (Ahmet Y.)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAutofill("team")}
-                className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-indigo-300 font-bold transition-colors cursor-pointer"
-              >
-                Operasyon
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Modal Tab Switcher */}
+        {/* Modal Tab Switcher: Sadece Giriş ve Kayıt */}
         {!isForgotPassword && (
-          <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1 text-xs font-bold">
+          <div className="flex border-b border-slate-200 bg-slate-100/90 p-1.5 gap-1.5 text-xs font-bold">
             <button
               type="button"
+              id="auth-modal-tab-login"
               onClick={() => {
-                setActiveTab("client");
+                setActiveTab("login");
                 setErrorMsg(null);
+                setSuccessMsg(null);
               }}
-              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === "client"
-                  ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+              className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === "login"
+                  ? "bg-white text-slate-900 shadow-sm border border-slate-200 font-black"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Truck className="w-3.5 h-3.5 text-amber-600" />
-              <span>Müşteri Girişi</span>
+              <KeyRound className={`w-4 h-4 ${activeTab === "login" ? "text-amber-500" : "text-slate-400"}`} />
+              <span>Giriş Yap</span>
             </button>
 
             <button
               type="button"
-              onClick={() => {
-                setActiveTab("admin");
-                setErrorMsg(null);
-              }}
-              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === "admin"
-                  ? "bg-white text-slate-900 shadow-xs border border-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Yönetici &amp; Ekip</span>
-            </button>
-
-            <button
-              type="button"
+              id="auth-modal-tab-register"
               onClick={() => {
                 setActiveTab("register");
                 setErrorMsg(null);
+                setSuccessMsg(null);
               }}
-              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === "register"
-                  ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                  ? "bg-white text-slate-900 shadow-sm border border-slate-200 font-black"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Kayıt Ol</span>
+              <Sparkles className={`w-4 h-4 ${activeTab === "register" ? "text-amber-500" : "text-slate-400"}`} />
+              <span>Kayıt Ol (14 Gün Deneme)</span>
             </button>
           </div>
         )}
 
-        {/* Feedback alerts */}
-        <div className="p-6 space-y-4">
+        {/* Feedback Alerts */}
+        <div className="px-6 pt-4">
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-start gap-2 animate-in fade-in">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs flex items-start gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="leading-relaxed">{errorMsg}</div>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-start gap-2 animate-in fade-in">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-start gap-2 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div className="leading-relaxed font-semibold">{successMsg}</div>
             </div>
           )}
+        </div>
 
-          {/* FORGOT PASSWORD VIEW */}
+        {/* Form Body with Scroll */}
+        <div className="p-6 overflow-y-auto space-y-4">
+          {/* 1. FORGOT PASSWORD VIEW */}
           {isForgotPassword ? (
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
               {forgotResult ? (
@@ -350,9 +284,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {forgotResult.message}
                   </p>
                   {forgotResult.tempPass && (
-                    <div className="p-2.5 bg-white border border-emerald-300 rounded-xl text-xs font-mono text-slate-900 flex items-center justify-between">
-                      <span className="text-slate-500">Geçici Şifreniz:</span>
-                      <strong className="text-indigo-600 font-bold">{forgotResult.tempPass}</strong>
+                    <div className="p-3 bg-white border border-emerald-300 rounded-xl">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Geçici Şifreniz</div>
+                      <div className="font-mono text-sm font-black text-slate-900 select-all mt-0.5">
+                        {forgotResult.tempPass}
+                      </div>
                     </div>
                   )}
                   <button
@@ -360,28 +296,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onClick={() => {
                       setIsForgotPassword(false);
                       setForgotResult(null);
-                      if (forgotResult.tempPass) setPassword(forgotResult.tempPass);
+                      setActiveTab("login");
                     }}
-                    className="w-full mt-2 py-2 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer mt-2"
                   >
                     Giriş Ekranına Dön
                   </button>
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Kayıtlı E-posta Adresiniz *
-                    </label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Kayıtlı E-posta Adresiniz</label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
                         type="email"
                         required
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="ad@jetkur.com.tr veya musteri@..."
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        placeholder="adiniz@sirketiniz.com"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -392,239 +326,234 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onClick={() => setIsForgotPassword(false)}
                       className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
                     >
-                      ← Geri Dön
+                      ← Vazgeç ve Giriş Yap
                     </button>
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                      className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                     >
-                      <span>{isLoading ? "Gönderiliyor..." : "Sıfırlama Bağlantısı Gönder"}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      {isLoading ? "Gönderiliyor..." : "Geçici Şifre Gönder"}
                     </button>
                   </div>
                 </>
               )}
             </form>
-          ) : activeTab === "register" ? (
-            /* REGISTRATION FORM */
-            <form onSubmit={handleRegisterSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Adınız ve Soyadınız *
-                </label>
+          ) : activeTab === "login" ? (
+            /* 2. UNIFIED LOGIN FORM */
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">E-posta Adresi</label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Örn: Mehmet Özkan"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  E-posta Adresiniz *
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
                     required
+                    id="login-email-input"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="ornek@sirketiniz.com"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Telefon Numarası
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="0532 000 00 00"
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Firma Unvanı (Varsa)
-                  </label>
-                  <div className="relative">
-                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Firma Ltd."
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Şifre Belirleyin (En az 6 karakter) *
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2 rounded-xl border border-slate-300 text-xs font-mono text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20 disabled:opacity-50"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>{isLoading ? "Hesap Oluşturuluyor..." : "Kayıt Ol ve Giriş Yap"}</span>
-                </button>
-              </div>
-
-              <div className="text-center pt-1 text-[11px] text-slate-500">
-                Zaten bir hesabınız var mı?{" "}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("client")}
-                  className="font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
-                >
-                  Giriş Yap
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* LOGIN FORM (CLIENT OR ADMIN) */
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  E-posta Adresi *
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={activeTab === "admin" ? "admin@jetkur.com.tr" : "musteri@jetkur.com.tr"}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    Şifre *
-                  </label>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Şifre</label>
                   <button
                     type="button"
                     onClick={() => {
-                      setForgotEmail(email);
                       setIsForgotPassword(true);
-                      setErrorMsg(null);
+                      setForgotEmail(email);
                     }}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    className="text-[11px] font-semibold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
                   >
                     Şifremi Unuttum?
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
+                    id="login-password-input"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="pt-2">
+              <button
+                type="submit"
+                id="login-submit-btn"
+                disabled={isLoading}
+                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                {isLoading ? (
+                  <span>Giriş Yapılıyor...</span>
+                ) : (
+                  <>
+                    <span>Giriş Yap</span>
+                    <ArrowRight className="w-4 h-4 text-amber-400" />
+                  </>
+                )}
+              </button>
+
+              <div className="pt-2 text-center">
+                <span className="text-xs text-slate-500">Hesabınız yok mu? </span>
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={`w-full py-3 px-4 rounded-xl text-white font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50 ${
-                    activeTab === "admin"
-                      ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20"
-                      : "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
-                  }`}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("register");
+                    setErrorMsg(null);
+                  }}
+                  className="text-xs font-bold text-amber-600 hover:underline cursor-pointer"
                 >
-                  <KeyRound className="w-4 h-4" />
-                  <span>
-                    {isLoading
-                      ? "Kontrol Ediliyor..."
-                      : activeTab === "admin"
-                      ? "Yönetici Paneline Güvenli Giriş Yap"
-                      : "Müşteri Portaline Giriş Yap"}
-                  </span>
+                  14 Gün Ücretsiz Başlayın →
                 </button>
               </div>
+            </form>
+          ) : (
+            /* 3. REGISTER FORM (14-DAY TRIAL, 1 WEBSITE QUOTA) */
+            <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+              {/* Value Banner */}
+              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-[11px] text-amber-900 leading-relaxed">
+                  <strong>14 Gün Tam Erişim Denemesi:</strong> Kredi kartı gerekmez. Hesabınızla <strong>1 adet web sitesi</strong> oluşturup 0.02s hızında Cloudflare Anycast üzerinde test edebilirsiniz.
+                </div>
+              </div>
 
-              {activeTab === "client" && (
-                <div className="text-center pt-2 text-[11px] text-slate-500">
-                  Henüz müşteri hesabınız yok mu?{" "}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Ad Soyad *</label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      id="register-name-input"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Adınız Soyadınız"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Telefon Numarası</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      id="register-phone-input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="05XX XXX XX XX"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">İşletme / Şirket Adı</label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    id="register-company-input"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Örn: Anadolu Dış Ticaret Ltd."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">E-posta Adresi *</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    id="register-email-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="ornek@sirketiniz.com"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Şifre Belirleyin * (En az 6 karakter)</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    id="register-password-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-9 pr-10 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-xs font-medium outline-none transition-all font-mono"
+                  />
                   <button
                     type="button"
-                    onClick={() => setActiveTab("register")}
-                    className="font-bold text-emerald-600 hover:text-emerald-700 underline cursor-pointer"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
-                    Hemen Kayıt Olun
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              )}
+              </div>
+
+              <button
+                type="submit"
+                id="register-submit-btn"
+                disabled={isLoading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 active:scale-[0.99] text-slate-950 text-xs font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 mt-2"
+              >
+                {isLoading ? (
+                  <span>Hesap Oluşturuluyor...</span>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 fill-current" />
+                    <span>14 Günlük Denemeyi Başlat (Ücretsiz)</span>
+                  </>
+                )}
+              </button>
+
+              <div className="pt-1 text-center">
+                <span className="text-xs text-slate-500">Zaten bir hesabınız var mı? </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("login");
+                    setErrorMsg(null);
+                  }}
+                  className="text-xs font-bold text-slate-800 hover:underline cursor-pointer"
+                >
+                  Giriş Yap →
+                </button>
+              </div>
             </form>
           )}
-
-          {/* Security Notice */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>256-Bit SSL Şifreli Oturum</span>
-            </span>
-            <span className="font-mono text-slate-500">jetkur.com.tr</span>
-          </div>
         </div>
       </div>
     </div>

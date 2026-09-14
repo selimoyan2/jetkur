@@ -19,6 +19,18 @@ const DEFAULT_SEED_USERS: AuthUser[] = [
     assignedOrdersCount: 28
   },
   {
+    id: "user-admin-selim",
+    name: "Selim Oyan (Süper Yönetici)",
+    email: "selimoyan@gmail.com",
+    role: "admin",
+    phone: "0532 100 00 00",
+    companyName: "JetKur Teknoloji",
+    createdAt: "2026-01-01",
+    lastLoginAt: new Date().toISOString(),
+    status: "active",
+    assignedOrdersCount: 10
+  },
+  {
     id: "user-team-1",
     name: "Operasyon & Destek Ekibi",
     email: "ekip@jetkur.com.tr",
@@ -40,12 +52,25 @@ const DEFAULT_SEED_USERS: AuthUser[] = [
     createdAt: "2026-02-01",
     lastLoginAt: new Date().toISOString(),
     status: "active",
-    assignedOrdersCount: 4
+    assignedOrdersCount: 4,
+    isTrial: true,
+    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    planName: "14 Günlük Ücretsiz Deneme",
+    createdSitesCount: 1,
+    maxAllowedSites: 1,
+    trialExpired: false
   }
 ];
 
+export const SUPER_ADMIN_CREDENTIALS = {
+  email: "admin@jetkur.com.tr",
+  ownerEmail: "selimoyan@gmail.com",
+  password: "JetKur2026!Admin"
+};
+
 const DEFAULT_PASSWORDS: Record<string, string> = {
-  "admin@jetkur.com.tr": "jetkur2026",
+  "admin@jetkur.com.tr": "JetKur2026!Admin",
+  "selimoyan@gmail.com": "JetKur2026!Admin",
   "ekip@jetkur.com.tr": "ekip2026",
   "musteri@jetkur.com.tr": "musteri2026"
 };
@@ -55,8 +80,16 @@ export function getRegisteredUsers(): AuthUser[] {
   try {
     const raw = localStorage.getItem(AUTH_USERS_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
+      let parsed: AuthUser[] = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Ensure superadmins exist
+        const hasAdmin = parsed.some(u => u.email.toLowerCase() === "admin@jetkur.com.tr");
+        const hasSelim = parsed.some(u => u.email.toLowerCase() === "selimoyan@gmail.com");
+        if (!hasAdmin || !hasSelim) {
+          if (!hasAdmin) parsed.unshift(DEFAULT_SEED_USERS[0]);
+          if (!hasSelim) parsed.unshift(DEFAULT_SEED_USERS[1]);
+          localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(parsed));
+        }
         return parsed;
       }
     }
@@ -75,15 +108,20 @@ export function getRegisteredUsers(): AuthUser[] {
 
 // Internal helper to get passwords
 function getStoredPasswords(): Record<string, string> {
+  let passwords: Record<string, string> = { ...DEFAULT_PASSWORDS };
   try {
     const raw = localStorage.getItem(AUTH_PASSWORDS_KEY);
     if (raw) {
-      return { ...DEFAULT_PASSWORDS, ...JSON.parse(raw) };
+      passwords = { ...DEFAULT_PASSWORDS, ...JSON.parse(raw) };
     }
+    // Always force updated production admin passwords
+    passwords["admin@jetkur.com.tr"] = "JetKur2026!Admin";
+    passwords["selimoyan@gmail.com"] = "JetKur2026!Admin";
+    localStorage.setItem(AUTH_PASSWORDS_KEY, JSON.stringify(passwords));
   } catch {
     // ignore
   }
-  return DEFAULT_PASSWORDS;
+  return passwords;
 }
 
 // Get active session
@@ -220,7 +258,10 @@ export async function registerNewUser(
     assignedOrdersCount: 0,
     trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     isTrial: true,
-    planName: "14 Günlük Ücretsiz Deneme"
+    trialExpired: false,
+    planName: "14 Günlük Ücretsiz Deneme",
+    createdSitesCount: 1,
+    maxAllowedSites: 1
   };
 
   const updatedUsers = [newUser, ...users];
@@ -291,4 +332,93 @@ export async function requestPasswordReset(
     message: `${cleanEmail} adresine şifre sıfırlama bağlantısı ve geçici şifreniz gönderildi.`,
     tempPass: tempPassword
   };
+}
+
+export interface TrialStatusInfo {
+  isTrial: boolean;
+  isExpired: boolean;
+  daysRemaining: number;
+  maxAllowedSites: number;
+  createdSitesCount: number;
+  canCreateMoreSites: boolean;
+  trialEndsAt: string;
+}
+
+export function checkTrialStatus(user: AuthUser | null): TrialStatusInfo {
+  if (!user) {
+    return {
+      isTrial: false,
+      isExpired: false,
+      daysRemaining: 14,
+      maxAllowedSites: 1,
+      createdSitesCount: 1,
+      canCreateMoreSites: false,
+      trialEndsAt: ""
+    };
+  }
+
+  // Superadmins or non-trial paid plans
+  if (user.role === "admin" || user.role === "team_member" || user.isTrial === false) {
+    return {
+      isTrial: false,
+      isExpired: false,
+      daysRemaining: 365,
+      maxAllowedSites: 999,
+      createdSitesCount: user.createdSitesCount || 1,
+      canCreateMoreSites: true,
+      trialEndsAt: user.trialEndsAt || "2099-12-31"
+    };
+  }
+
+  const trialEnds = user.trialEndsAt ? new Date(user.trialEndsAt).getTime() : Date.now() + 14 * 86400000;
+  const now = Date.now();
+  const diffMs = trialEnds - now;
+  const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  
+  // Either date has passed or explicitly marked expired
+  const isExpired = user.trialExpired === true || daysRemaining <= 0;
+  const maxAllowed = user.maxAllowedSites ?? 1;
+  const created = user.createdSitesCount ?? 1;
+
+  return {
+    isTrial: true,
+    isExpired,
+    daysRemaining,
+    maxAllowedSites: maxAllowed,
+    createdSitesCount: created,
+    canCreateMoreSites: !isExpired && created < maxAllowed,
+    trialEndsAt: user.trialEndsAt || new Date(trialEnds).toISOString().slice(0, 10)
+  };
+}
+
+export function toggleTrialExpiredSimulation(userId?: string, simulateExpired?: boolean): AuthUser | null {
+  const session = getActiveSession();
+  const targetId = userId || session?.user?.id;
+  if (!targetId) return null;
+
+  const users = getRegisteredUsers();
+  const idx = users.findIndex(u => u.id === targetId);
+  if (idx === -1) return null;
+
+  const user = users[idx];
+  const nextExpired = simulateExpired !== undefined ? simulateExpired : !Boolean(user.trialExpired);
+  user.trialExpired = nextExpired;
+  if (nextExpired) {
+    user.trialEndsAt = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
+  } else {
+    user.trialEndsAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  users[idx] = user;
+  try {
+    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+    if (session && session.user.id === targetId) {
+      session.user = user;
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+      notifyAuthChange(user);
+    }
+  } catch (err) {
+    console.warn("Error toggling trial state:", err);
+  }
+  return user;
 }

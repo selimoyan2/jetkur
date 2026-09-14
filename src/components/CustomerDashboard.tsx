@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useAuth } from "../context/AuthContext";
+import { checkTrialStatus, toggleTrialExpiredSimulation } from "../utils/authStorage";
 import { 
   SiteConfig, 
   CustomerPanelTab, 
@@ -116,6 +118,7 @@ import { AdvancedPerformanceTrendsQuickCard } from "./dashboard/AdvancedPerforma
 import { UserAuthManagement } from "./dashboard/UserAuthManagement";
 import { UserAuthQuickCard } from "./dashboard/UserAuthQuickCard";
 import { CoolifyDeploymentGuide } from "./dashboard/CoolifyDeploymentGuide";
+import { CloudflareEdgeDeploymentGuide } from "./dashboard/CloudflareEdgeDeploymentGuide";
 import { AiImageOptimizer } from "./dashboard/AiImageOptimizer";
 import { SecurityAuditManager } from "./dashboard/SecurityAuditManager";
 import { AutomatedDnsSetupGuide } from "./dashboard/AutomatedDnsSetupGuide";
@@ -161,6 +164,7 @@ import {
   Sparkles, 
   Send,
   Globe, 
+  Cloud,
   Globe2, 
   Palette, 
   Plus, 
@@ -249,6 +253,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   onDeploy,
   initialTab
 }) => {
+  const { user } = useAuth();
+  const trialStatus = checkTrialStatus(user);
+  const [showSiteLimitModal, setShowSiteLimitModal] = useState(false);
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+
   const [dashboardMode, setDashboardMode] = useState<"simple" | "advanced">("simple");
   const [activeTab, setActiveTab] = useState<CustomerPanelTab>(initialTab || "general");
 
@@ -257,6 +266,13 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  // Prompt upgrade modal if trial expired and not already in hosting-package
+  useEffect(() => {
+    if (trialStatus.isTrial && trialStatus.isExpired && activeTab !== "hosting-package") {
+      setShowTrialExpiredModal(true);
+    }
+  }, [trialStatus.isTrial, trialStatus.isExpired, activeTab]);
   const [copiedDomain, setCopiedDomain] = useState(false);
   const [isAiWorking, setIsAiWorking] = useState(false);
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
@@ -1224,6 +1240,224 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-24">
+      {/* 14-DAY TRIAL & WEBSITE QUOTA BANNER */}
+      {trialStatus.isTrial && (
+        <div className={`p-4 sm:p-5 rounded-2xl border shadow-lg transition-all ${
+          trialStatus.isExpired 
+            ? "bg-gradient-to-r from-rose-950 via-slate-900 to-amber-950 border-rose-500/50 text-white" 
+            : "bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-900 border-amber-500/40 text-white"
+        }`}>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-1.5 ${
+                  trialStatus.isExpired 
+                    ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                    : "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                }`}>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>14 Günlük Ücretsiz Deneme Sürümü</span>
+                </span>
+                
+                {trialStatus.isExpired ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold animate-pulse">
+                    🔴 Süre Sona Erdi
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                    ⏳ Kalan Süre: {trialStatus.daysRemaining} Gün
+                  </span>
+                )}
+
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-mono">
+                  🌐 Web Sitesi Hakkı: {trialStatus.createdSitesCount} / {trialStatus.maxAllowedSites} Site Aktif
+                </span>
+              </div>
+
+              <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+                {trialStatus.isExpired ? (
+                  <strong className="text-rose-300">
+                    14 günlük deneme süreniz sona erdi. Sitenizin Cloudflare Anycast üzerinde 0.02s hızında kesintisiz yayında kalması ve yönetim paneline erişebilmek için lütfen paket seçimi yapın.
+                  </strong>
+                ) : (
+                  <span>
+                    Deneme süreniz boyunca <strong>1 adet web sitesini</strong> Cloudflare Edge ağına bağlayabilir, AI içerik ve SEO araçlarını deneyimleyebilirsiniz. 2. site ve kesintisiz yayın için paket seçimi yapabilirsiniz.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSiteLimitModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Yeni bir web sitesi projesi ekleyin"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                <span>+ Yeni Web Sitesi Ekle</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("hosting-package")}
+                className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-md cursor-pointer ${
+                  trialStatus.isExpired
+                    ? "bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 animate-pulse"
+                    : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950"
+                }`}
+              >
+                <Rocket className="w-3.5 h-3.5 text-slate-950 fill-current" />
+                <span>{trialStatus.isExpired ? "🚀 Paket Seç & Satış Sürecini Başlat" : "🚀 Paket Seç & Satın Al"}</span>
+              </button>
+
+              {/* Developer / Admin Test Simulation Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  toggleTrialExpiredSimulation();
+                  window.dispatchEvent(new CustomEvent("jetkur_auth_change", { detail: { user: user ? { ...user, trialExpired: !user.trialExpired } : null } }));
+                }}
+                className="px-2.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-[10px] font-mono border border-slate-700 transition-all cursor-pointer"
+                title="Test simülasyonu: 14 günlük sürenin dolduğunu veya devam ettiğini anında test edin"
+              >
+                🧪 {trialStatus.isExpired ? "Süreyi Yenile (Test)" : "Süre Bitti Simüle Et (Test)"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: 1-WEBSITE TRIAL LIMIT REACHED */}
+      {showSiteLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-white shadow-2xl space-y-5 relative">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-extrabold tracking-tight text-white">
+                14 Günlük Deneme Sürümü Sınırı (1/1 Site)
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Ücretsiz 14 günlük deneme sürümünüz kapsamında <strong>1 adet web sitesi</strong> oluşturma ve yönetme hakkınız bulunmaktadır.
+              </p>
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                <div className="font-bold text-amber-300">İkinci veya daha fazla web sitesi eklemek için:</div>
+                <div className="text-slate-400 leading-relaxed">
+                  3 Kademeli Üretim Paketlerimizden (Başlangıç, Kurumsal veya Ultra Edge Ajans) birini seçerek sınırsız veya çoklu site kotasına geçebilirsiniz.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSiteLimitModal(false);
+                  setActiveTab("hosting-package");
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+              >
+                <Rocket className="w-4 h-4 fill-current" />
+                <span>Paketleri İncele &amp; Yükselt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSiteLimitModal(false)}
+                className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TRIAL EXPIRED SALES & UPGRADE REDIRECT */}
+      {showTrialExpiredModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-500/50 rounded-3xl p-6 sm:p-8 max-w-xl w-full text-white shadow-2xl space-y-6 relative">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                <Clock className="w-6 h-6" />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-mono font-bold">
+                14 Günlük Süre Doldu
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                14 Günlük Deneme Süreniz Sona Erdi
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Web siteniz Cloudflare 310+ Global Edge lokasyonunda 0.02 saniye açılış hızıyla hazırlandı. 
+                Sitenizin yayında kalması, form taleplerini almaya devam etmesi ve yönetim paneline erişebilmeniz için lütfen size uygun JetKur paketini seçin.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-amber-400 font-bold text-xs">Başlangıç</div>
+                <div className="text-base font-black text-white mt-1">₺1.490<span className="text-[10px] text-slate-400">/yıl</span></div>
+                <div className="text-[10px] text-slate-400 mt-1">1 Web Sitesi + Edge CDN</div>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 relative">
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black uppercase">Popüler</span>
+                <div className="text-amber-300 font-bold text-xs">Kurumsal Edge</div>
+                <div className="text-base font-black text-white mt-1">₺2.990<span className="text-[10px] text-slate-400">/yıl</span></div>
+                <div className="text-[10px] text-slate-300 mt-1">Özel Domain + AI SEO</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-cyan-400 font-bold text-xs">Ultra Ajans</div>
+                <div className="text-base font-black text-white mt-1">₺5.490<span className="text-[10px] text-slate-400">/yıl</span></div>
+                <div className="text-[10px] text-slate-400 mt-1">Çoklu Site + WhatsApp</div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTrialExpiredModal(false);
+                  setActiveTab("hosting-package");
+                }}
+                className="w-full sm:flex-1 py-3.5 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black flex items-center justify-center gap-2 shadow-xl shadow-amber-500/20 transition-all cursor-pointer"
+              >
+                <Rocket className="w-4 h-4 fill-current" />
+                <span>Paketleri İncele &amp; Satın Al</span>
+              </button>
+
+              <a
+                href="https://wa.me/908503080000?text=Merhaba,%2014%20gunluk%20JetKur%20deneme%20surem%20bitti.%20Paket%20secimi%20ve%20satis%20sureci%20icin%20bilgi%20almak%20istiyorum."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp Satış Danışmanı</span>
+              </a>
+            </div>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTrialExpiredModal(false);
+                  toggleTrialExpiredSimulation();
+                  window.dispatchEvent(new CustomEvent("jetkur_auth_change", { detail: { user: user ? { ...user, trialExpired: !user.trialExpired } : null } }));
+                }}
+                className="text-[11px] text-slate-500 hover:text-slate-400 underline font-mono cursor-pointer"
+              >
+                [Geliştirici/Test: Süreyi Yeniden Başlat &amp; Paneli Aç]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner with Quick Actions */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -3326,6 +3560,28 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-cyan-50 text-cyan-800 border border-cyan-200">
                     CNAME / A
+                  </span>
+                </div>
+              </button>
+
+              {/* 3.3b2 Cloudflare Edge Dağıtım Rehberi (Workers Sites & Pages) */}
+              <button
+                type="button"
+                id="sidebar-cloudflare-edge-btn"
+                onClick={() => setActiveTab("cloudflare-edge-guide")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "cloudflare-edge-guide"
+                    ? "bg-slate-900 text-amber-300 shadow-xs ring-1 ring-amber-500/30"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Cloud className="w-4 h-4 text-amber-500" />
+                  <span>Cloudflare Edge Dağıtım</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                    API &amp; Edge
                   </span>
                 </div>
               </button>
@@ -6100,6 +6356,16 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               onChange={onChange}
               onPreview={onPreview}
               onNavigateToDomainManager={() => setActiveTab("domain-management")}
+              onNavigateToEdgeGuide={() => setActiveTab("cloudflare-edge-guide")}
+            />
+          )}
+
+          {/* CLOUDFLARE EDGE DEPLOYMENT GUIDE (WORKERS SITES & PAGES API) */}
+          {activeTab === "cloudflare-edge-guide" && (
+            <CloudflareEdgeDeploymentGuide
+              config={config}
+              onChange={onChange}
+              onPreview={onPreview}
             />
           )}
 
