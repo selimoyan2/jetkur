@@ -776,10 +776,14 @@ export interface CloudflareDeployment {
   nameservers?: string[];
   sslMode?: "flexible" | "full" | "strict";
   alwaysUseHttps?: boolean;
+  minTlsVersion?: "1.2" | "1.3";
+  automaticHttpsRewrites?: boolean;
   dnsPropagationStatus?: "verified" | "propagating" | "unconfigured";
   apiConfig?: {
     accountId?: string;
     apiToken?: string;
+    globalApiKey?: string;
+    accountEmail?: string;
     zoneId?: string;
     projectName?: string;
     targetType?: "pages" | "workers-sites";
@@ -1687,6 +1691,7 @@ export type CustomerPanelTab =
   | "meta-auditor"
   | "seo-content-optimizer"
   | "ai-content-meta-optimizer"
+  | "ai-meta-optimizer"
   | "schema-generator"
   | "local-seo-schema"
   | "seo-progress"
@@ -1750,6 +1755,7 @@ export type CustomerPanelTab =
   | "system-logs"
   | "system-log"
   | "competitive-seo"
+  | "competitive-alerts"
   | "realtime-traffic"
   | "performance-forecaster"
   | "pricing-intelligence"
@@ -1765,7 +1771,68 @@ export type CustomerPanelTab =
   | "user-auth"
   | "user-management"
   | "coolify-deployment"
-  | "vps-deployment";
+  | "vps-deployment"
+  | "ai-content-planner"
+  | "seo-content-planner"
+  | "seo-trend-forecast"
+  | "trend-forecast"
+  | "competitive-strategy"
+  | "seo-competitive-strategy";
+
+// ==========================================
+// SEO COMPETITIVE STRATEGY VISUALIZER (D3.js RADAR CHART)
+// ==========================================
+
+export interface CompetitiveRadarAxisDef {
+  key: string;
+  label: string;
+  shortLabel: string;
+  description: string;
+  iconName: string;
+  unit: string;
+  idealRange: string;
+  fullMark: number;
+}
+
+export interface CompetitiveStrategyEntity {
+  id: string;
+  name: string;
+  domain: string;
+  isUser: boolean;
+  color: string;
+  fillColor: string;
+  strokeDash?: string;
+  rank: number;
+  marketShare: string;
+  metrics: {
+    domainAuthority: number; // 0-100 (Alan Adı Otoritesi)
+    keywordDensity: number;  // 0-100 (Anahtar Kelime Yoğunluğu & Semantik Optimizasyon)
+    siteSpeed: number;       // 0-100 (Site Hızı & Core Web Vitals)
+    // Complementary secondary dimensions for comprehensive 6-axis mode:
+    backlinkProfile?: number; // 0-100
+    contentDepth?: number;    // 0-100
+    technicalSeo?: number;    // 0-100
+    [key: string]: number | undefined;
+  };
+  keyStrengths: string[];
+  vulnerabilities: string[];
+  estimatedMonthlyTraffic: string;
+}
+
+export interface CompetitiveStrategicAction {
+  id: string;
+  metricKey: "domainAuthority" | "keywordDensity" | "siteSpeed" | "backlinkProfile" | "contentDepth" | "technicalSeo";
+  metricLabel: string;
+  title: string;
+  priority: "Kritik" | "Yüksek" | "Orta";
+  impactScore: string; // e.g. "+35% Görünürlük", "+450 Ziyaretçi"
+  currentGap: number;  // negative if user is trailing
+  strategySummary: string;
+  actionSteps: string[];
+  targetCompetitorName: string;
+  targetTab?: CustomerPanelTab;
+  quickActionLabel?: string;
+}
 
 // ==========================================
 // MARKETING SOURCE ATTRIBUTION & ROI TYPES (D3.js)
@@ -2351,6 +2418,82 @@ export interface TacticalQuickWin {
   targetCompetitor?: string;
 }
 
+export interface CompetitorKeywordRanking {
+  id: string;
+  keyword: string;
+  searchIntent: "Ticari" | "Bilgilendirici" | "Acil / Yerel" | "İşlemsel";
+  monthlyVolume: string;
+  difficulty: number; // 0-100
+  userRank: number | null; // e.g. 2, or null if >20/unranked
+  comp1Rank: number | null; // Rank of competitor 1
+  comp2Rank: number | null; // Rank of competitor 2
+  comp3Rank: number | null; // Rank of competitor 3
+  serpFeatures: string[]; // e.g. ["Local 3-Pack", "Featured Snippet", "Yıldızlı Yorumlar"]
+  status: "leading" | "competing" | "trailing" | "missing";
+  gap: number; // difference compared to best competitor; negative = leading, positive = trailing
+  trafficOpportunity: string;
+  aiRecommendation: string;
+}
+
+export type SwotType = "strength" | "weakness" | "opportunity" | "threat";
+
+export interface SwotItem {
+  id: string;
+  type: SwotType;
+  title: string;
+  description: string;
+  impact: "Kritik" | "Yüksek" | "Orta";
+  targetCompetitor?: string;
+  relatedKeyword?: string;
+  actionableTip: string;
+  actionType?: "blog" | "schema" | "speed" | "keywords" | "local";
+}
+
+export interface SwotComparisonFactor {
+  id: string;
+  factor: string;
+  category: "teknik" | "icerik" | "yerel" | "otorite";
+  userSiteValue: string;
+  comp1Value: string;
+  comp2Value: string;
+  comp3Value: string;
+  swotType: SwotType;
+  competitiveStatus: "superior" | "competitive" | "trailing";
+  aiTacticalAction: string;
+}
+
+export interface CompetitorSwotProfile {
+  id: string;
+  name: string;
+  domain: string;
+  rank: number;
+  marketShare: string;
+  headToHeadSummary: string;
+  strengthsVsUser: string[];
+  vulnerabilitiesVsUser: string[];
+  counterStrategy: string;
+}
+
+export interface CompetitiveSwotAnalysis {
+  analyzedAt: string;
+  sector: string;
+  city: string;
+  domain: string;
+  primaryKeywords: string[];
+  activeKeyword: string;
+  summary: string;
+  competitors: CompetitorContentMetric[];
+  comparisonFactors: SwotComparisonFactor[];
+  swot: {
+    strengths: SwotItem[];
+    weaknesses: SwotItem[];
+    opportunities: SwotItem[];
+    threats: SwotItem[];
+  };
+  competitorProfiles: CompetitorSwotProfile[];
+  searchGroundingSources?: GroundingSourceItem[];
+}
+
 export interface CompetitiveSeoInsightData {
   analyzedAt: string;
   sector: string;
@@ -2366,11 +2509,86 @@ export interface CompetitiveSeoInsightData {
     schemaScore: number;
   };
   competitors: CompetitorContentMetric[];
+  keywordRankings?: CompetitorKeywordRanking[];
   missingKeywords: MissingHighImpactKeyword[];
   radarComparison: CompetitiveRadarMetric[];
   searchGroundingSources: SearchGroundingMeta[];
   tacticalQuickWins: TacticalQuickWin[];
   metaSuggestions?: CompetitiveMetaSuggestion[];
+}
+
+// ==========================================
+// SEO COMPETITIVE ALERT SYSTEM TYPES
+// ==========================================
+
+export type CompetitiveAlertSeverity = "critical" | "warning" | "opportunity" | "info";
+export type CompetitiveAlertStatus = "active" | "resolved" | "dismissed";
+export type CompetitiveAlertCategory = 
+  | "overtaken"              // Competitor was behind or equal, now ahead
+  | "rank_drop"              // User dropped in rank while competitor climbed/maintained
+  | "lost_top3"              // User fell out of Google Top 3 / Local 3-Pack
+  | "lost_number_one"        // User was #1, now competitor took #1
+  | "competitor_surge"       // Competitor climbed +3 or more spots rapidly
+  | "high_volume_threat";    // High search volume keyword where competitor ranks top 3 and user is trailing
+
+export interface SeoCompetitiveAlertAction {
+  type: "blog" | "meta" | "schema" | "speed" | "backlink" | "reviews";
+  label: string;
+  description: string;
+  targetTab?: CustomerPanelTab;
+  prefillKeyword?: string;
+  prefillDraftTitle?: string;
+}
+
+export interface SeoCompetitiveAlert {
+  id: string;
+  keyword: string;
+  monthlyVolume: string;
+  searchIntent: "Ticari" | "Bilgilendirici" | "Acil / Yerel" | "İşlemsel";
+  competitorName: string;
+  competitorDomain?: string;
+  userRank: number | null;          // Current user rank (e.g. 3, or null if >20)
+  competitorRank: number;           // Current competitor rank (e.g. 1)
+  previousUserRank?: number | null; // Previous rank before change
+  previousCompetitorRank?: number;  // Previous competitor rank
+  rankDelta: number;                // Difference (positive = competitor is ahead)
+  userRankChange?: number;          // e.g. -2 (dropped 2 spots)
+  competitorRankChange?: number;    // e.g. +3 (gained 3 spots)
+  severity: CompetitiveAlertSeverity;
+  category: CompetitiveAlertCategory;
+  title: string;                    // e.g. "Rakip 'İstanbul Tesisat' aramasında #1'e yükseldi ve sitenizi geçti"
+  description: string;
+  trafficLossEstimate: string;      // e.g. "Tahmini -450 Aylık Ziyaretçi Kayıp Riski"
+  detectedAt: string;               // ISO date or relative time
+  isRead: boolean;
+  status: CompetitiveAlertStatus;
+  rootCause: string;                // e.g. "Rakip zengin FAQ şeması ve semt bazlı H2 içerikleri ekledi."
+  recommendedAction: SeoCompetitiveAlertAction;
+  serpFeatures?: string[];
+}
+
+export interface SeoCompetitiveAlertSettings {
+  browserPushEnabled: boolean;
+  inAppToastEnabled: boolean;
+  audioCueEnabled: boolean;
+  alertOnAnyOvertake: boolean;        // Trigger alert whenever a competitor is higher
+  alertOnTop3Loss: boolean;           // Trigger critical alert if lost Top 3
+  alertOnHighVolumeOnly: boolean;     // Only alert if search volume > 2000
+  minimumRankGap: number;             // Only alert if competitor is ahead by at least X spots (default 1)
+  lastCheckedAt?: string;
+  autoCheckIntervalHours: number;     // e.g. 6 or 24
+}
+
+export interface CompetitiveAlertSummary {
+  totalAlerts: number;
+  activeCount: number;
+  unreadCount: number;
+  criticalCount: number;
+  outrankedCount: number;
+  outrankedKeywordsCount: number;
+  topThreatCompetitor: string;
+  potentialTrafficAtRisk: string;
+  protectedRankingsCount: number;
 }
 
 // ==========================================
@@ -2903,4 +3121,198 @@ export interface AuthSession {
   token: string;
   expiresAt: string;
 }
+
+// ==========================================
+// AI META-OPTIMIZER TYPES (GEMINI 3.8 FLASH)
+// ==========================================
+export type MetaProposalStyle = "high_ctr" | "trust" | "benefit" | "minimal";
+
+export interface MetaOptimizationProposal {
+  id: string;
+  style: MetaProposalStyle;
+  label: string;
+  styleBadge: string;
+  title: string;
+  description: string;
+  titleLength: number;
+  descriptionLength: number;
+  titleStatus: "optimal" | "warning" | "error";
+  descriptionStatus: "optimal" | "warning" | "error";
+  matchedKeywords: string[];
+  ctrPotential: string; // e.g. "Çok Yüksek (%92+)"
+  whyItWorks: string;
+  recommendedCta: string;
+}
+
+export interface PageMetaOptimization {
+  pageId: string;
+  pageName: string;
+  path: string;
+  suggestedTitle: string;
+  suggestedDescription: string;
+  targetedKeywords: string[];
+}
+
+export interface AiMetaOptimizerResult {
+  score: number; // 0 - 100
+  evaluatedAt: string;
+  industry: string;
+  primaryKeywords: string[];
+  currentTitleAnalysis: {
+    title: string;
+    charCount: number;
+    status: "optimal" | "warning" | "error";
+    feedback: string;
+    keywordMatches: string[];
+  };
+  currentDescriptionAnalysis: {
+    description: string;
+    charCount: number;
+    status: "optimal" | "warning" | "error";
+    feedback: string;
+    keywordMatches: string[];
+  };
+  proposals: MetaOptimizationProposal[];
+  pageMetas?: PageMetaOptimization[];
+  geminiInsights: string[];
+}
+
+// ==========================================
+// AI SEO CONTENT PLANNER TYPES (30-Day Gemini Calendar)
+// ==========================================
+export type ContentPlanSearchIntent = "Bilgilendirici" | "Ticari" | "İşlemsel" | "Acil / Yerel";
+
+export type ContentPlanContentType = 
+  | "Nasıl Yapılır Rehberi" 
+  | "Karşılaştırma & Analiz" 
+  | "Maliyet & Fiyat Rehberi" 
+  | "Vaka Analizi & Başarı Hikayesi" 
+  | "Kontrol Listesi (Checklist)" 
+  | "Sık Sorulan Sorular (FAQ)" 
+  | "Piyasa Trendleri & İpuçları";
+
+export type ContentPlanDayStatus = "planned" | "in-progress" | "published";
+
+export interface ContentPlannerAudienceSegment {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  searchIntent: ContentPlanSearchIntent;
+  painPoints: string[];
+  hookAngle: string;
+  decisionFactors: string[];
+}
+
+export interface ContentPlannerPillar {
+  id: string;
+  name: string;
+  description: string;
+  targetKeywords: string[];
+  colorTheme: string;
+}
+
+export interface ContentCalendarDay {
+  day: number; // 1 to 30
+  week: number; // 1 to 5
+  headline: string; // Catchy primary headline (CTR optimized)
+  alternativeHeadlines: string[]; // 2 catchy alternatives (question/number/curiosity)
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  targetAudienceId: string;
+  targetAudienceName: string;
+  audiencePainPoint: string;
+  searchIntent: ContentPlanSearchIntent;
+  contentType: ContentPlanContentType;
+  estimatedMonthlySearchVolume: string; // e.g. "3,200 / ay"
+  rankingPotential: "Hızlı Kazanım (Quick Win)" | "Otorite İnşası" | "Yüksek Dönüşüm" | "Viral / Sosyal Etki";
+  keyTakeaways: string[]; // 3-4 bullet outline points
+  callToAction: string;
+  status: ContentPlanDayStatus;
+  scheduledDate?: string; // YYYY-MM-DD
+  notes?: string;
+}
+
+export interface AiContentPlanResponse {
+  siteTitle: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  strategyOverview: string;
+  primaryAudienceSegments: ContentPlannerAudienceSegment[];
+  contentPillars: ContentPlannerPillar[];
+  days: ContentCalendarDay[];
+  generatedAt: string;
+  source: "gemini" | "algorithmic_fallback";
+  totalExpectedMonthlyImpressions: string;
+  keywordCoverageCount: number;
+  strategicRecommendations: string[];
+}
+
+// ==========================================
+// SEO TREND FORECAST (GEMINI & SEARCH GROUNDING) TYPES
+// ==========================================
+export type TrendCategory = "breakout" | "seasonal_surge" | "ai_overview" | "commercial_intent" | "long_tail";
+
+export interface TrendTimelinePoint {
+  month: string; // e.g. "Kas 25", "Ara 25", "Oca 26", "Şub 26", "Mar 26", "Nis 26"
+  volumeIndex: number; // 0-100 normalized search momentum
+  rawSearchVolume?: number; // approximate monthly search queries
+  isForecast: boolean; // false for historic/current, true for projection
+  confidenceLower?: number; // lower confidence bound
+  confidenceUpper?: number; // upper confidence bound
+  eventMarker?: string; // e.g. "Google AI Overview Değişimi", "Sezon Zirvesi"
+}
+
+export interface GroundingCitation {
+  title: string;
+  url: string;
+  snippet?: string;
+  sourceDomain?: string;
+}
+
+export interface EmergingSeoTrend {
+  id: string;
+  rank: number; // 1 to 5
+  trendTitle: string; // e.g. "Yapay Zeka Destekli Akıllı Evden Eve Nakliyat Fiyatlandırması"
+  primaryKeyword: string; // e.g. "yapay zeka nakliyat fiyat hesaplama"
+  category: TrendCategory;
+  categoryLabel: string; // e.g. "Kırılma Yaşayan Arama (Breakout)"
+  growthPercentage: number; // e.g. 185 (+185% YoY)
+  growthLabel: string; // e.g. "+185% Yıllık Artış"
+  velocityStatus: "Patlama Yaşıyor" | "İstikrarlı Yükselişte" | "Erken Evre Keşif" | "Sezonsal Zirve";
+  currentMonthlyVolume: string; // e.g. "4,200 / ay"
+  projectedMonthlyVolume: string; // e.g. "12,600 / ay"
+  opportunityScore: number; // 0-100 (higher = better ROI)
+  competitionLevel: "Düşük" | "Orta" | "Yüksek";
+  competitionScore: number; // 0-100 (lower = easier to rank)
+  searchIntent: "Ticari (Commercial)" | "İşlemsel (Transactional)" | "Bilgilendirici (Informational)" | "Gezinme (Navigational)";
+  whyItMatters: string; // Narrative grounded in real search patterns
+  actionPlan: {
+    recommendedHeadline: string;
+    recommendedMetaDescription: string;
+    suggestedPageSlug: string;
+    targetAudience: string;
+    estimatedTimeToRank: string; // e.g. "2-3 Hafta"
+    strategicNextSteps: string[];
+  };
+  relatedQueries: string[];
+  serpFeatures: string[]; // e.g. ["AI Overview", "People Also Ask", "Local 3-Pack"]
+  timeline: TrendTimelinePoint[];
+  color: string; // hex code for visual distinction
+}
+
+export interface SeoTrendForecastResponse {
+  sector: string;
+  industry: string;
+  region: string;
+  analyzedAt: string;
+  macroSummary: string; // Strategic overview of consumer & B2B search behavior
+  marketShiftHighlights: string[]; // 3-4 key industry shifts observed
+  trends: EmergingSeoTrend[]; // Top 5 emerging trends
+  searchGroundingQueries: string[];
+  groundingCitations: GroundingCitation[];
+  source: "gemini_grounding" | "algorithmic_fallback";
+}
+
 

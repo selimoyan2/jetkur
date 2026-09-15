@@ -62,6 +62,7 @@ interface SeoManagerProps {
   onOpenMetaAuditor?: () => void;
   onOpenContentOptimizer?: () => void;
   onOpenAiContentMetaOptimizer?: () => void;
+  onOpenAiMetaOptimizer?: () => void;
   onOpenSchemaGenerator?: () => void;
   onOpenLocalSeoSchema?: () => void;
   defaultSubTab?: SeoSubTab;
@@ -80,6 +81,7 @@ export const SeoManager: React.FC<SeoManagerProps> = ({
   onOpenMetaAuditor,
   onOpenContentOptimizer,
   onOpenAiContentMetaOptimizer,
+  onOpenAiMetaOptimizer,
   onOpenSchemaGenerator,
   onOpenLocalSeoSchema,
   defaultSubTab
@@ -767,11 +769,23 @@ export const SeoManager: React.FC<SeoManagerProps> = ({
             {/* TAB 1: GENERAL & HOMEPAGE SEO */}
             {activeSubTab === "general" && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-2">
                   <div>
                     <h2 className="text-base font-bold text-slate-900">Ana Sayfa ve Genel Web Sitesi SEO Ayarları</h2>
                     <p className="text-xs text-slate-500 mt-0.5">Sitenizin ana sayfası ve genel paylaşımlar için geçerli olan varsayılan etiketler.</p>
                   </div>
+                  {onOpenAiMetaOptimizer && (
+                    <button
+                      type="button"
+                      id="seo-manager-generate-optimized-metadata-btn"
+                      onClick={onOpenAiMetaOptimizer}
+                      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                      title="Gemini AI ile sektörel anahtar kelimelere göre optimize edilmiş meta başlık ve açıklamaları otomatik üretin"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                      <span>Generate Optimized Metadata</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Meta Title */}

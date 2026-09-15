@@ -33,6 +33,15 @@ import { SeoProgressNotificationSystem } from "./dashboard/SeoProgressNotificati
 import { MetaTagsAuditor } from "./dashboard/MetaTagsAuditor";
 import { SeoContentOptimizer } from "./dashboard/SeoContentOptimizer";
 import { AiContentMetaOptimizer } from "./dashboard/AiContentMetaOptimizer";
+import { AiMetaOptimizer } from "./dashboard/AiMetaOptimizer";
+import { SeoCompetitiveAlertCenter } from "./dashboard/SeoCompetitiveAlertCenter";
+import { CompetitiveAlertToast } from "./dashboard/CompetitiveAlertToast";
+import { 
+  loadCompetitiveAlerts, 
+  calculateAlertSummary, 
+  markAlertAsRead 
+} from "../utils/seoCompetitiveAlertEngine";
+import { SeoCompetitiveAlert, CompetitiveAlertSummary } from "../types";
 import { JsonLdSchemaGenerator } from "./dashboard/JsonLdSchemaGenerator";
 import { LocalSeoSchemaGenerator } from "./dashboard/LocalSeoSchemaGenerator";
 import { runSeoHealthCheck } from "../utils/seoHealthCheckEngine";
@@ -52,12 +61,16 @@ import { QrCodeManager } from "./dashboard/QrCodeManager";
 import { QrMarketingQuickCard } from "./dashboard/QrMarketingQuickCard";
 import { PerformanceScoreGaugeWidget } from "./dashboard/PerformanceScoreGaugeWidget";
 import { SeoHeatmapWidget } from "./dashboard/SeoHeatmapWidget";
+import { SeoPerformanceHeatmap } from "./dashboard/SeoPerformanceHeatmap";
 import { SeoOpportunityToast } from "./dashboard/SeoOpportunityToast";
 import { SeoOpportunityCenter } from "./dashboard/SeoOpportunityCenter";
 import { detectSeoOpportunities, SeoOpportunityAlert } from "../utils/seoOpportunityEngine";
 import { AssetManager } from "./dashboard/AssetManager";
 import { BlogManager } from "./dashboard/BlogManager";
 import { AiBlogEngine } from "./dashboard/AiBlogEngine";
+import { AiSeoContentPlanner } from "./dashboard/AiSeoContentPlanner";
+import { SeoTrendForecast } from "./dashboard/SeoTrendForecast";
+import { SeoCompetitiveStrategyVisualizer } from "./dashboard/SeoCompetitiveStrategyVisualizer";
 import { CompetitiveSeoWidget } from "./dashboard/CompetitiveSeoWidget";
 import { RealtimeTrafficOverviewWidget } from "./dashboard/RealtimeTrafficOverviewWidget";
 import { AbTestConversionFunnelWidget } from "./dashboard/AbTestConversionFunnelWidget";
@@ -111,6 +124,8 @@ import { PricingIntelligenceWorkspace } from "./dashboard/PricingIntelligenceWor
 import { PricingIntelligenceQuickCard } from "./dashboard/PricingIntelligenceQuickCard";
 import { GlobalSeoAgentWorkspace } from "./dashboard/GlobalSeoAgentWorkspace";
 import { GlobalSeoQuickCard } from "./dashboard/GlobalSeoQuickCard";
+import { SeoTrendForecastQuickCard } from "./dashboard/SeoTrendForecastQuickCard";
+import { SeoCompetitiveStrategyQuickCard } from "./dashboard/SeoCompetitiveStrategyQuickCard";
 import { BulkSeoPerformanceExportWorkspace } from "./dashboard/BulkSeoPerformanceExportWorkspace";
 import { BulkSeoPerformanceQuickCard } from "./dashboard/BulkSeoPerformanceQuickCard";
 import { AdvancedSitePerformanceTrends } from "./dashboard/AdvancedSitePerformanceTrends";
@@ -220,6 +235,7 @@ import {
   BookOpen,
   Network,
   Calendar,
+  CalendarRange,
   Clock,
   Bell,
   BellRing,
@@ -260,6 +276,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
   const [dashboardMode, setDashboardMode] = useState<"simple" | "advanced">("simple");
   const [activeTab, setActiveTab] = useState<CustomerPanelTab>(initialTab || "general");
+  const [heatmapSubTab, setHeatmapSubTab] = useState<"regional-performance" | "page-sections">("regional-performance");
 
   useEffect(() => {
     if (initialTab) {
@@ -277,6 +294,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [isAiWorking, setIsAiWorking] = useState(false);
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
   const [isSeoOptimizerOpen, setIsSeoOptimizerOpen] = useState(false);
+  const [isAiMetaOptimizerModalOpen, setIsAiMetaOptimizerModalOpen] = useState(false);
   const [isGettingStartedOpen, setIsGettingStartedOpen] = useState(false);
   const [isAutoArchiveModalOpen, setIsAutoArchiveModalOpen] = useState(false);
   const [autoArchiveNotice, setAutoArchiveNotice] = useState<{ count: number; names: string[] } | null>(null);
@@ -335,6 +353,62 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
       } catch {}
       return next;
     });
+  };
+
+  // Real-time SEO Competitive Alerts State & Handlers
+  const [competitiveAlerts, setCompetitiveAlerts] = useState<SeoCompetitiveAlert[]>(() => loadCompetitiveAlerts());
+  const [activeCompetitiveToast, setActiveCompetitiveToast] = useState<SeoCompetitiveAlert | null>(null);
+  const [isCompetitiveAlertCenterModalOpen, setIsCompetitiveAlertCenterModalOpen] = useState(false);
+
+  const competitiveSummary: CompetitiveAlertSummary = useMemo(() => {
+    return calculateAlertSummary(competitiveAlerts);
+  }, [competitiveAlerts]);
+
+  // Sync competitive alerts with storage and periodic checks
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "hizliweb_seo_competitive_alerts") {
+        setCompetitiveAlerts(loadCompetitiveAlerts());
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    
+    // Check periodically for simulated or updated competitor shifts
+    const interval = setInterval(() => {
+      setCompetitiveAlerts(loadCompetitiveAlerts());
+    }, 4000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Present in-app push toast for high or critical unread competitor alert
+  useEffect(() => {
+    if (!activeCompetitiveToast && competitiveAlerts.length > 0) {
+      const outrankedOrHigh = competitiveAlerts.find(
+        (a) => a.status === "unread" && (a.severity === "critical" || a.severity === "high" || a.category === "outranked")
+      );
+      if (outrankedOrHigh) {
+        setActiveCompetitiveToast(outrankedOrHigh);
+      }
+    }
+  }, [competitiveAlerts, activeCompetitiveToast]);
+
+  const handleMarkCompetitiveAlertRead = (id: string) => {
+    const updated = markAlertAsRead(id);
+    setCompetitiveAlerts(updated);
+    if (activeCompetitiveToast?.id === id) {
+      setActiveCompetitiveToast(null);
+    }
+  };
+
+  const handleDismissCompetitiveToast = () => {
+    if (activeCompetitiveToast) {
+      handleMarkCompetitiveAlertRead(activeCompetitiveToast.id);
+    }
+    setActiveCompetitiveToast(null);
   };
 
   // First-login auto-open Getting Started Guide
@@ -1774,6 +1848,53 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
           <button
             type="button"
+            id="header-generate-optimized-metadata-btn"
+            onClick={() => setIsAiMetaOptimizerModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-indigo-500/20 to-purple-600/20 hover:from-amber-500/30 hover:to-indigo-500/30 text-amber-200 border border-amber-500/50 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+            title="Gemini AI ile sitenizin sektörel anahtar kelimelerine göre optimize edilmiş meta başlık ve açıklamaları otomatik üretin"
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>Generate Optimized Metadata</span>
+          </button>
+
+          {/* SEO COMPETITIVE ALERT BADGE / ACTION BUTTON */}
+          <button
+            type="button"
+            id="header-competitive-alerts-btn"
+            onClick={() => setActiveTab("competitive-alerts")}
+            className={`relative px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer ${
+              activeTab === "competitive-alerts"
+                ? "bg-rose-500/30 border-rose-400 text-rose-200 ring-2 ring-rose-500/50"
+                : competitiveSummary.outrankedCount > 0
+                ? "bg-gradient-to-r from-rose-950/70 to-amber-950/70 border-rose-500/60 text-rose-200 hover:border-rose-400"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:border-slate-600"
+            }`}
+            title="SEO Rekabet Alarmları: Rakiplerin sıralama değişikliklerini ve sitenizi geçen rakipleri anlık izleyin"
+          >
+            <div className="relative flex items-center justify-center">
+              <BellRing className={`w-4 h-4 ${competitiveSummary.outrankedCount > 0 ? "text-rose-400 animate-bounce" : "text-amber-400"}`} />
+              {competitiveSummary.unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900 animate-ping" />
+              )}
+            </div>
+            <span className="hidden sm:inline">SEO Rekabet Alarmı</span>
+            {competitiveSummary.outrankedCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[10px] font-mono shadow-xs animate-pulse">
+                {competitiveSummary.outrankedCount} Rakip Önde!
+              </span>
+            ) : competitiveSummary.unreadCount > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black font-mono">
+                {competitiveSummary.unreadCount} Yeni
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
+                Stabil
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setDashboardMode("simple")}
             className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
@@ -2044,6 +2165,51 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           >
             <BookOpen className="w-4 h-4 text-amber-400" />
             <span>AI Blog Motoru</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-ai-content-planner-btn"
+            onClick={() => setActiveTab("ai-content-planner")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "ai-content-planner" || activeTab === "seo-content-planner"
+                ? "bg-indigo-600 text-white shadow-md font-black ring-2 ring-indigo-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Gemini Destekli 30 Günlük SEO Blog İçerik Takvimi & Kitle Segmentleri"
+          >
+            <CalendarRange className="w-4 h-4 text-indigo-400" />
+            <span>AI İçerik Planlayıcı (30 Gün)</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-seo-trend-forecast-btn"
+            onClick={() => setActiveTab("seo-trend-forecast")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "seo-trend-forecast" || activeTab === "trend-forecast"
+                ? "bg-indigo-600 text-white shadow-md font-black ring-2 ring-indigo-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Gemini 3.8 Flash & Canlı Google Search Grounding ile 12 Aylık Yükselen Arama Trendleri"
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>SEO Trend Tahmincisi</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-competitive-strategy-btn"
+            onClick={() => setActiveTab("competitive-strategy")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "competitive-strategy" || activeTab === "seo-competitive-strategy"
+                ? "bg-cyan-600 text-white shadow-md font-black ring-2 ring-cyan-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="D3.js Radar Çizelgesi ile Alan Adı Otoritesi, Kelime Yoğunluğu ve Hız Kıyaslaması"
+          >
+            <Target className="w-4 h-4 text-cyan-400" />
+            <span>SEO Rekabet Stratejisi</span>
           </button>
 
           <button
@@ -2873,6 +3039,27 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </span>
               </button>
 
+              {/* 2.3i AI Meta-Optimizer (Gemini Otomatik SERP Başlık & Açıklama) */}
+              <button
+                type="button"
+                id="sidebar-ai-meta-optimizer-btn"
+                onClick={() => setActiveTab("ai-meta-optimizer")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "ai-meta-optimizer"
+                    ? "bg-slate-900 text-amber-400 shadow-xs ring-1 ring-amber-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>AI Meta-Optimizer</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-900 text-[10px] font-mono font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Gemini SERP</span>
+                </span>
+              </button>
+
               {/* 2.3h Otomatik JSON-LD Schema.org Oluşturucu */}
               <button
                 type="button"
@@ -2954,6 +3141,46 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </span>
               </button>
 
+              {/* 2.4b AI SEO Content Planner (30-Day Gemini Calendar) */}
+              <button
+                type="button"
+                id="sidebar-ai-content-planner-btn"
+                onClick={() => setActiveTab("ai-content-planner")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "ai-content-planner" || activeTab === "seo-content-planner"
+                    ? "bg-slate-900 text-indigo-400 shadow-xs ring-1 ring-indigo-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <CalendarRange className="w-4 h-4 text-indigo-500" />
+                  <span>AI SEO İçerik Planlayıcı</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 uppercase">
+                  30 Gün
+                </span>
+              </button>
+
+              {/* 2.4c SEO Trend Forecast (Gemini 3.8 Flash & Search Grounding 12-Month Predictions) */}
+              <button
+                type="button"
+                id="sidebar-seo-trend-forecast-btn"
+                onClick={() => setActiveTab("seo-trend-forecast")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "seo-trend-forecast" || activeTab === "trend-forecast"
+                    ? "bg-slate-900 text-emerald-400 shadow-xs ring-1 ring-emerald-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <span>SEO Trend Tahmincisi</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 uppercase">
+                  12 Ay
+                </span>
+              </button>
+
               {/* 2.5 Competitive SEO Insight (Top 3 Rakip Kıyaslama & Eksik Anahtar Kelimeler) */}
               <button
                 type="button"
@@ -2972,6 +3199,38 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-900 uppercase">
                   Top 3 SERP
                 </span>
+              </button>
+
+              {/* 2.5b SEO Rekabet Alarmları (Rakip Sıralama Değişimleri & Geçilme Uyarıları) */}
+              <button
+                type="button"
+                id="sidebar-competitive-alerts-btn"
+                onClick={() => setActiveTab("competitive-alerts")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "competitive-alerts" || activeTab === "seo-competitive-alerts"
+                    ? "bg-slate-900 text-rose-400 shadow-xs ring-1 ring-rose-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <BellRing className={`w-4 h-4 ${competitiveSummary.outrankedCount > 0 ? "text-rose-500 animate-pulse" : "text-amber-500"}`} />
+                  <span>SEO Rekabet Alarmları</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {competitiveSummary.outrankedCount > 0 ? (
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white uppercase animate-pulse shadow-xs">
+                      {competitiveSummary.outrankedCount} Rakip Önde
+                    </span>
+                  ) : competitiveSummary.unreadCount > 0 ? (
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 uppercase font-mono">
+                      {competitiveSummary.unreadCount} Yeni
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase">
+                      Aktif
+                    </span>
+                  )}
+                </div>
               </button>
 
               {/* 2.6 AI Global SEO Agent (Search Grounding & Geo-Location Trends) */}
@@ -3917,6 +4176,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 onChange={onChange}
                 isCompactWidget={true}
                 onOpenFullView={() => setActiveTab("competitive-seo")}
+                onOpenAlertCenter={() => setActiveTab("competitive-alerts")}
                 onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
               />
 
@@ -3946,6 +4206,12 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               <GlobalSeoQuickCard
                 config={config}
                 onOpenWorkspace={() => setActiveTab("global-seo")}
+              />
+
+              {/* SEO Trend Forecast Quick Card (Gemini 3.8 Flash & Google Search Grounding) */}
+              <SeoTrendForecastQuickCard
+                config={config}
+                onOpenWorkspace={() => setActiveTab("seo-trend-forecast")}
               />
 
               {/* Bulk SEO Performance Export Quick Card (CSV & All Pages Matrix) */}
@@ -5137,12 +5403,55 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           )}
 
+          {/* 4.1b AI SEO CONTENT PLANNER (30-DAY GEMINI EDITORIAL CALENDAR & AUDIENCE SEGMENTS) */}
+          {(activeTab === "ai-content-planner" || activeTab === "seo-content-planner") && (
+            <AiSeoContentPlanner
+              config={config}
+              onChange={(updated) => onChange(updated)}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              onSendToAiBlog={(headline, primaryKeyword) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", headline);
+                sessionStorage.setItem("ai_blog_prefill_keyword", primaryKeyword);
+                setActiveTab("ai-blog-engine");
+              }}
+            />
+          )}
+
+          {/* 4.1c SEO TREND FORECAST (GEMINI 3.8 FLASH + GOOGLE SEARCH GROUNDING 12-MONTH PREDICTIONS) */}
+          {(activeTab === "seo-trend-forecast" || activeTab === "trend-forecast") && (
+            <SeoTrendForecast
+              config={config}
+              onChange={(updated) => onChange(updated)}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              onSendToAiBlog={(headline, primaryKeyword) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", headline);
+                sessionStorage.setItem("ai_blog_prefill_keyword", primaryKeyword);
+                setActiveTab("ai-blog-engine");
+              }}
+            />
+          )}
+
           {/* 4.2 COMPETITIVE SEO INSIGHT COMPONENT */}
           {activeTab === "competitive-seo" && (
             <CompetitiveSeoWidget
               config={config}
               onChange={onChange}
               onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              onOpenAlertCenter={() => setActiveTab("competitive-alerts")}
+            />
+          )}
+
+          {/* 4.2b SEO COMPETITIVE ALERT CENTER (RAKİP SIRALAMA DEĞİŞİMLERİ & GEÇİLME ALARMLARI) */}
+          {(activeTab === "competitive-alerts" || activeTab === "seo-competitive-alerts") && (
+            <SeoCompetitiveAlertCenter
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              onSendToAiBlog={(keyword, draftTitle) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+                sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+                setActiveTab("ai-blog-engine");
+              }}
             />
           )}
 
@@ -6671,6 +6980,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               onOpenMetaAuditor={() => setActiveTab("meta-auditor")}
               onOpenContentOptimizer={() => setActiveTab("seo-content-optimizer")}
               onOpenAiContentMetaOptimizer={() => setActiveTab("ai-content-meta-optimizer")}
+              onOpenAiMetaOptimizer={() => setIsAiMetaOptimizerModalOpen(true)}
               onOpenSchemaGenerator={() => setActiveTab("schema-generator")}
               onOpenLocalSeoSchema={() => setActiveTab("local-seo-schema")}
             />
@@ -6720,10 +7030,60 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           {/* 11.2b D3.JS ETKİLEŞİMLİ SEO & TRAFİK ISI HARİTASI */}
           {activeTab === "seo-heatmap" && (
             <div className="space-y-6">
-              <SeoHeatmapWidget
-                config={config}
-                onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
-              />
+              {/* Heatmap Type Sub-Tab Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 bg-slate-900 border border-slate-800 rounded-2xl">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    id="subtab-regional-seo-heatmap"
+                    onClick={() => setHeatmapSubTab("regional-performance")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                      heatmapSubTab === "regional-performance"
+                        ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    }`}
+                  >
+                    <Flame className="w-4 h-4 text-rose-500 fill-rose-500" />
+                    <span>Bölgesel Tıklanma &amp; Anahtar Kelime Isı Haritası (CTR &amp; Regional)</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 font-mono text-[9px] font-bold border border-amber-400/30">
+                      Yeni • D3.js
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="subtab-section-seo-heatmap"
+                    onClick={() => setHeatmapSubTab("page-sections")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                      heatmapSubTab === "page-sections"
+                        ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Sayfa Bölümü &amp; İçerik Isı Haritası (Section Engagement)</span>
+                  </button>
+                </div>
+
+                <div className="text-right px-3 hidden md:block">
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Aktif Site: <strong className="text-white">{config.companyName || "Site"}</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Conditional Renderer based on heatmapSubTab */}
+              {heatmapSubTab === "regional-performance" ? (
+                <SeoPerformanceHeatmap
+                  config={config}
+                  onOpenSettings={() => setActiveTab("seo")}
+                />
+              ) : (
+                <SeoHeatmapWidget
+                  config={config}
+                  onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+                />
+              )}
             </div>
           )}
 
@@ -6777,6 +7137,15 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               onChange={onChange}
               onPreview={onPreview}
               onOpenSeoTab={() => setActiveTab("seo")}
+            />
+          )}
+
+          {/* 11.5c AI META-OPTIMIZER (GEMINI 3.8 FLASH OTOMATİK META TITLE & DESCRIPTION) */}
+          {activeTab === "ai-meta-optimizer" && (
+            <AiMetaOptimizer
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
             />
           )}
 
@@ -6980,6 +7349,28 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         onApply={onChange}
       />
 
+      {/* AI Meta-Optimizer Modal */}
+      {isAiMetaOptimizerModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-xs overflow-y-auto"
+          id="ai-meta-optimizer-modal-backdrop"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl p-2 sm:p-4">
+            <AiMetaOptimizer
+              config={config}
+              onChange={onChange}
+              onClose={() => setIsAiMetaOptimizerModalOpen(false)}
+              onNavigateTab={(tab) => {
+                setIsAiMetaOptimizerModalOpen(false);
+                setActiveTab(tab as CustomerPanelTab);
+              }}
+              isModal={true}
+              autoRunOnMount={true}
+            />
+          </div>
+        </div>
+      )}
+
       {/* One-Click Site Snapshot Modal (Offline ZIP & Media Package) */}
       <OneClickSnapshotModal
         isOpen={isSnapshotModalOpen}
@@ -7088,6 +7479,59 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           }}
           onClose={() => setIsOpportunityCenterOpen(false)}
         />
+      )}
+
+      {/* Real-time SEO Competitive Alert Toast (Push / SERP Shift Notification) */}
+      {activeCompetitiveToast && (
+        <CompetitiveAlertToast
+          alert={activeCompetitiveToast}
+          onClose={handleDismissCompetitiveToast}
+          onOpenAlertCenter={() => {
+            setActiveCompetitiveToast(null);
+            setActiveTab("competitive-alerts");
+          }}
+          onSendToAiBlog={(keyword, draftTitle) => {
+            sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+            sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+            setActiveCompetitiveToast(null);
+            setActiveTab("ai-blog-engine");
+          }}
+        />
+      )}
+
+      {/* Quick Modal SEO Competitive Alert Center */}
+      {isCompetitiveAlertCenterModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-xs overflow-y-auto"
+          id="competitive-alert-center-modal-backdrop"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[92vh] overflow-y-auto shadow-2xl p-2 sm:p-4">
+            <div className="flex justify-end p-2">
+              <button
+                type="button"
+                id="close-competitive-alert-modal-btn"
+                onClick={() => setIsCompetitiveAlertCenterModalOpen(false)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+            <SeoCompetitiveAlertCenter
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => {
+                setIsCompetitiveAlertCenterModalOpen(false);
+                setActiveTab(tab as CustomerPanelTab);
+              }}
+              onSendToAiBlog={(keyword, draftTitle) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+                sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+                setIsCompetitiveAlertCenterModalOpen(false);
+                setActiveTab("ai-blog-engine");
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

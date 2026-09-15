@@ -12,6 +12,9 @@ import {
   generateFallbackCompetitiveSeo 
 } from "../../utils/competitiveSeoUtils";
 import { downloadCompetitiveSeoPdf } from "../../utils/competitiveSeoPdfGenerator";
+import { CompetitiveKeywordRankingTable } from "./CompetitiveKeywordRankingTable";
+import { CompetitiveSeoComparisonTable } from "./CompetitiveSeoComparisonTable";
+import { SeoCompetitiveAlertCenter } from "./SeoCompetitiveAlertCenter";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -55,7 +58,8 @@ import {
   BarChart3,
   Download,
   DollarSign,
-  HelpCircle
+  HelpCircle,
+  BellRing
 } from "lucide-react";
 
 interface CompetitiveSeoWidgetProps {
@@ -64,6 +68,8 @@ interface CompetitiveSeoWidgetProps {
   onNavigateTab?: (tab: string, state?: any) => void;
   isCompactWidget?: boolean;
   onOpenFullView?: () => void;
+  onOpenAlertCenter?: () => void;
+  initialTab?: "alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords";
 }
 
 export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
@@ -71,7 +77,9 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
   onChange,
   onNavigateTab,
   isCompactWidget = false,
-  onOpenFullView
+  onOpenFullView,
+  onOpenAlertCenter,
+  initialTab
 }) => {
   // State
   const [insightData, setInsightData] = useState<CompetitiveSeoInsightData | null>(null);
@@ -80,7 +88,7 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
   const [isGroundingActive, setIsGroundingActive] = useState(true);
   
   // Filters & Tabs
-  const [compactTab, setCompactTab] = useState<"metrics" | "suggestions" | "keywords">("metrics");
+  const [compactTab, setCompactTab] = useState<"alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords">(initialTab || "swot");
   const [activeIntentFilter, setActiveIntentFilter] = useState<string>("all");
   const [keywordSearch, setKeywordSearch] = useState<string>("");
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<string | null>(null);
@@ -438,12 +446,63 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
 
         {/* Interactive Compact Tabs */}
         <div className="relative z-10 pt-1">
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
+            <button
+              type="button"
+              id="compact-tab-alerts"
+              onClick={() => setCompactTab("alerts")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                compactTab === "alerts"
+                  ? "bg-rose-600 text-white font-black shadow-xs ring-2 ring-rose-400/50"
+                  : "bg-slate-800/80 text-rose-300 hover:text-white border border-rose-500/40"
+              }`}
+            >
+              <BellRing className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span>SEO Rekabet Alarmları</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-950/80 text-rose-300 text-[9px] font-mono font-bold border border-rose-800">
+                Canlı SERP
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="compact-tab-swot"
+              onClick={() => setCompactTab("swot")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                compactTab === "swot"
+                  ? "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 font-black shadow-xs"
+                  : "bg-slate-800/60 text-slate-400 hover:text-white"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>SWOT Karşılaştırma Tablosu (Top 3 Rakip)</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-900/40 text-[9px] font-mono font-bold">
+                Canlı Gemini
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="compact-tab-rankings"
+              onClick={() => setCompactTab("rankings")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                compactTab === "rankings"
+                  ? "bg-amber-400 text-slate-950 font-black shadow-xs"
+                  : "bg-slate-800/60 text-slate-400 hover:text-white"
+              }`}
+            >
+              <Target className="w-3.5 h-3.5" />
+              <span>Kelime Sıralamaları</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-900/40 text-[10px] font-mono font-bold">
+                {data.keywordRankings?.length || 10}
+              </span>
+            </button>
+
             <button
               type="button"
               id="compact-tab-metrics"
               onClick={() => setCompactTab("metrics")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 compactTab === "metrics"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "bg-slate-800/60 text-slate-400 hover:text-white"
@@ -457,15 +516,15 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
               type="button"
               id="compact-tab-suggestions"
               onClick={() => setCompactTab("suggestions")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 compactTab === "suggestions"
-                  ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "bg-slate-800/60 text-slate-400 hover:text-white"
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>İçerik İyileştirme Önerileri</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-400/30 text-amber-200 text-[9px] font-mono">
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-900/40 text-[9px] font-mono">
                 4 Aksiyon
               </span>
             </button>
@@ -474,7 +533,7 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
               type="button"
               id="compact-tab-keywords"
               onClick={() => setCompactTab("keywords")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 compactTab === "keywords"
                   ? "bg-rose-600 text-white shadow-xs"
                   : "bg-slate-800/60 text-slate-400 hover:text-white"
@@ -485,6 +544,160 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Tab ALERTS: Real-time SEO Competitive Alert System */}
+        {compactTab === "alerts" && (
+          <div className="space-y-4 relative z-10 animate-fadeIn">
+            <SeoCompetitiveAlertCenter
+              config={config}
+              onChange={onChange}
+              onNavigateTab={onNavigateTab as any}
+            />
+          </div>
+        )}
+
+        {/* Tab SWOT: Real-time Gemini SWOT Comparison Table against Top 3 Competitors */}
+        {compactTab === "swot" && (
+          <div className="space-y-4 relative z-10 animate-fadeIn">
+            <CompetitiveSeoComparisonTable
+              config={config}
+              onChange={onChange}
+              onNavigateTab={onNavigateTab}
+              onApplyKeyword={(kw) => {
+                const currentKws = config.seo?.keywords || [];
+                const kwList = Array.isArray(currentKws)
+                  ? currentKws
+                  : typeof currentKws === "string"
+                  ? currentKws.split(",").map((s) => s.trim()).filter(Boolean)
+                  : [];
+                if (!kwList.includes(kw)) {
+                  onChange({
+                    ...config,
+                    seo: {
+                      ...config.seo,
+                      keywords: [...kwList, kw]
+                    }
+                  });
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Tab 0: Keyword Rankings Comparison Preview Table (Top 3 Competitors Benchmark) */}
+        {compactTab === "rankings" && (
+          <div className="space-y-4 relative z-10 animate-fadeIn">
+            <div className="rounded-2xl bg-slate-800/80 border border-slate-700/80 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-950/80 text-slate-300 border-b border-slate-700/80">
+                      <th className="py-2.5 px-3.5 font-bold uppercase tracking-wider text-[10px]">
+                        Anahtar Kelime & Niyet
+                      </th>
+                      <th className="py-2.5 px-3 font-black uppercase tracking-wider text-[10px] bg-indigo-950/90 text-amber-300">
+                        Siteniz
+                      </th>
+                      <th className="py-2.5 px-2.5 font-bold text-slate-300 text-[10px]">
+                        1. Rakip
+                      </th>
+                      <th className="py-2.5 px-2.5 font-bold text-slate-300 text-[10px]">
+                        2. Rakip
+                      </th>
+                      <th className="py-2.5 px-2.5 font-bold text-slate-300 text-[10px]">
+                        3. Rakip
+                      </th>
+                      <th className="py-2.5 px-3 font-bold text-[10px] text-center">
+                        Sıra Farkı
+                      </th>
+                      <th className="py-2.5 px-3.5 font-bold text-[10px]">
+                        Gemini Stratejik Tavsiye
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {(data.keywordRankings || []).slice(0, 5).map((kr) => {
+                      const isLeading = kr.userRank === 1 || (kr.userRank !== null && kr.gap < 0);
+                      const isTrailing = kr.userRank !== null && kr.gap > 0;
+                      const isMissing = kr.userRank === null;
+
+                      return (
+                        <tr key={kr.id} className="hover:bg-slate-700/30 transition-colors">
+                          <td className="py-2.5 px-3.5">
+                            <div className="font-bold text-white text-xs">{kr.keyword}</div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                              <span className="text-amber-300">{kr.searchIntent}</span>
+                              <span>•</span>
+                              <span>{kr.monthlyVolume}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 bg-indigo-950/40">
+                            {kr.userRank === 1 ? (
+                              <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[11px]">
+                                👑 #1 Lider
+                              </span>
+                            ) : kr.userRank !== null ? (
+                              <span className="px-2 py-0.5 rounded bg-indigo-600 text-white font-black text-[11px]">
+                                #{kr.userRank}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">
+                                Sıralamada Yok
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-slate-300 font-mono text-xs">
+                            {kr.comp1Rank ? `#${kr.comp1Rank}` : "-"}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-slate-300 font-mono text-xs">
+                            {kr.comp2Rank ? `#${kr.comp2Rank}` : "-"}
+                          </td>
+                          <td className="py-2.5 px-2.5 text-slate-300 font-mono text-xs">
+                            {kr.comp3Rank ? `#${kr.comp3Rank}` : "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {isLeading ? (
+                              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                                {Math.abs(kr.gap)} Sıra Önde
+                              </span>
+                            ) : isMissing ? (
+                              <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-bold">
+                                Fırsat (+99)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                                -{kr.gap} Geride
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-[11px] text-slate-300 max-w-xs truncate">
+                            {kr.aiRecommendation}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-3 bg-slate-900/90 border-t border-slate-700/80 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">
+                  Toplam <strong>{data.keywordRankings?.length || 10}</strong> anahtar kelime karşılaştırıldı.
+                </span>
+                {onOpenFullView && (
+                  <button
+                    type="button"
+                    onClick={onOpenFullView}
+                    className="text-xs text-amber-300 hover:text-amber-200 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Tüm Karşılaştırma Tablosunu ve Filtreleri Gör</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab 1: Visual Content Performance Metrics vs Top Competitors */}
         {compactTab === "metrics" && (
@@ -1135,6 +1348,65 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
           })}
         </div>
       </div>
+
+      {/* 3.5. GEMINI-POWERED REAL-TIME SWOT ANALYSIS COMPARISON TABLE AGAINST TOP 3 COMPETITORS */}
+      <CompetitiveSeoComparisonTable
+        config={config}
+        onChange={onChange}
+        onNavigateTab={onNavigateTab}
+        onApplyKeyword={(kw) => {
+          const currentKws = config.seo?.keywords || [];
+          const kwList = Array.isArray(currentKws)
+            ? currentKws
+            : typeof currentKws === "string"
+            ? currentKws.split(",").map((s) => s.trim()).filter(Boolean)
+            : [];
+          if (!kwList.includes(kw)) {
+            onChange({
+              ...config,
+              seo: {
+                ...config.seo,
+                keywords: [...kwList, kw]
+              }
+            });
+          }
+        }}
+      />
+
+      {/* 3.6. GEMINI-POWERED KEYWORD RANKING COMPARISON TABLE AGAINST TOP 3 COMPETITORS */}
+      <CompetitiveKeywordRankingTable
+        rankings={data.keywordRankings || []}
+        competitors={data.competitors || []}
+        userDomain={config.cloudflare?.customDomain || config.cloudflare?.subdomain || "sitemiz.com.tr"}
+        userName={config.companyName || "Siteniz"}
+        onApplyKeyword={(kw) => {
+          const currentKws = config.seo?.keywords || [];
+          const kwList = Array.isArray(currentKws)
+            ? currentKws
+            : typeof currentKws === "string"
+            ? currentKws.split(",").map((s) => s.trim()).filter(Boolean)
+            : [];
+          if (!kwList.includes(kw)) {
+            onChange({
+              ...config,
+              seo: {
+                ...config.seo,
+                keywords: [...kwList, kw]
+              }
+            });
+          }
+        }}
+        onSendToAiBlog={(kw, draftTitle) => {
+          if (onNavigateTab) {
+            sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${kw} Rehberi`);
+            sessionStorage.setItem("ai_blog_prefill_keyword", kw);
+            onNavigateTab("ai-blog-engine");
+          }
+        }}
+        isLoading={isLoading}
+        onRefresh={() => fetchCompetitiveInsight(true)}
+        onOpenAlerts={onOpenAlertCenter || (() => setCompactTab("alerts"))}
+      />
 
       {/* 4. VISUAL METRICS CHARTS: RADAR & BAR CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

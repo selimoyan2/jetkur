@@ -36,6 +36,7 @@ import {
   HelpCircle,
   BarChart3,
   Globe2,
+  Calendar,
   CornerDownRight,
   Maximize2
 } from "lucide-react";
@@ -319,6 +320,19 @@ export const AiBlogEngine: React.FC<AiBlogEngineProps> = ({
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-slate-950 font-black">
                   %{generatedArticle.seoScore}
                 </span>
+              </button>
+            )}
+
+            {onNavigateTab && (
+              <button
+                type="button"
+                id="btn-open-30day-content-planner"
+                onClick={() => onNavigateTab("ai-content-planner")}
+                className="px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 cursor-pointer"
+                title="Gemini ile 30 Günlük Blog İçerik Takvimini Aç"
+              >
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <span>30 Günlük AI Takvim</span>
               </button>
             )}
 

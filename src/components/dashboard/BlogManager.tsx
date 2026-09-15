@@ -528,6 +528,19 @@ export const BlogManager: React.FC<BlogManagerProps> = ({
               <span>AI Blog Motoru</span>
             </button>
 
+            {onNavigateTab && (
+              <button
+                type="button"
+                id="blog-open-ai-planner-btn"
+                onClick={() => onNavigateTab("ai-content-planner")}
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                title="Gemini ile 30 Günlük Blog İçerik Takvimi & Kitle Segmentleri"
+              >
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <span>AI İçerik Planlayıcı (30 Gün)</span>
+              </button>
+            )}
+
             <button
               type="button"
               id="blog-create-article-btn"
