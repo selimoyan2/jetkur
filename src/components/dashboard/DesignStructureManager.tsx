@@ -254,7 +254,22 @@ export const DesignStructureManager: React.FC<DesignStructureManagerProps> = ({
           <LogoSettings
             header={config.header}
             companyName={config.companyName}
-            onChange={(updatedHeader) => onChange({ ...config, header: updatedHeader })}
+            onChange={(updatedHeader) => {
+              onChange({
+                ...config,
+                header: updatedHeader,
+                logo: updatedHeader.logoImage || config.logo,
+                logoUrl: updatedHeader.logoImage || config.logoUrl
+              });
+            }}
+            onLogoUploaded={(dataUrl) => {
+              onChange({
+                ...config,
+                logo: dataUrl,
+                logoUrl: dataUrl,
+                header: { ...config.header, logoImage: dataUrl, logoType: "image" }
+              });
+            }}
             onOpenAssetManager={onOpenAssetManager}
           />
 

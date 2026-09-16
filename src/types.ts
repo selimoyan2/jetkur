@@ -1682,6 +1682,7 @@ export type CustomerPanelTab =
   | "social-scheduler"
   | "social-post-scheduler"
   | "seo"
+  | "seo-report"
   | "seo-heatmap"
   | "seo-opportunities"
   | "seo-opportunity-alerts"
@@ -1777,7 +1778,9 @@ export type CustomerPanelTab =
   | "seo-trend-forecast"
   | "trend-forecast"
   | "competitive-strategy"
-  | "seo-competitive-strategy";
+  | "seo-competitive-strategy"
+  | "seo-executive-summary"
+  | "executive-summary";
 
 // ==========================================
 // SEO COMPETITIVE STRATEGY VISUALIZER (D3.js RADAR CHART)

@@ -28,6 +28,7 @@ import { SimpleMerchantMode } from "./dashboard/SimpleMerchantMode";
 import { SeoManager } from "./dashboard/SeoManager";
 import { SeoHealthCheck } from "./dashboard/SeoHealthCheck";
 import { SeoAuditor } from "./dashboard/SeoAuditor";
+import { SeoReportTab } from "./dashboard/SeoReportTab";
 import { PageSeoManager } from "./dashboard/PageSeoManager";
 import { SeoProgressNotificationSystem } from "./dashboard/SeoProgressNotificationSystem";
 import { MetaTagsAuditor } from "./dashboard/MetaTagsAuditor";
@@ -71,6 +72,7 @@ import { AiBlogEngine } from "./dashboard/AiBlogEngine";
 import { AiSeoContentPlanner } from "./dashboard/AiSeoContentPlanner";
 import { SeoTrendForecast } from "./dashboard/SeoTrendForecast";
 import { SeoCompetitiveStrategyVisualizer } from "./dashboard/SeoCompetitiveStrategyVisualizer";
+import { SeoExecutiveSummary } from "./dashboard/SeoExecutiveSummary";
 import { CompetitiveSeoWidget } from "./dashboard/CompetitiveSeoWidget";
 import { RealtimeTrafficOverviewWidget } from "./dashboard/RealtimeTrafficOverviewWidget";
 import { AbTestConversionFunnelWidget } from "./dashboard/AbTestConversionFunnelWidget";
@@ -151,6 +153,10 @@ import {
   exportComprehensiveReport 
 } from "../utils/dataExport";
 import { CrmIntegrationModal } from "./dashboard/CrmIntegrationModal";
+import { processLogoFile, processLogoFormData, validateLogoFile } from "../utils/logoUploadHelper";
+import { LogoUploadToast, LogoToastInfo } from "./dashboard/LogoUploadToast";
+import { QuickLogoUploadModal } from "./dashboard/QuickLogoUploadModal";
+import { StakeholderPdfReportModal } from "./dashboard/StakeholderPdfReportModal";
 import { 
   CRM_PROVIDER_META, 
   getDefaultCrmConfig, 
@@ -217,6 +223,7 @@ import {
   Share2,
   Activity,
   Download,
+  FileDown,
   History,
   TrendingUp,
   DollarSign,
@@ -293,6 +300,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const [copiedDomain, setCopiedDomain] = useState(false);
   const [isAiWorking, setIsAiWorking] = useState(false);
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
+  const [isStakeholderReportModalOpen, setIsStakeholderReportModalOpen] = useState(false);
   const [isSeoOptimizerOpen, setIsSeoOptimizerOpen] = useState(false);
   const [isAiMetaOptimizerModalOpen, setIsAiMetaOptimizerModalOpen] = useState(false);
   const [isGettingStartedOpen, setIsGettingStartedOpen] = useState(false);
@@ -311,6 +319,24 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
   // Real-time SEO Health Check score
   const seoHealthScore = useMemo(() => runSeoHealthCheck(config).score, [config]);
+
+  // SEO Audit Execution State & Timestamp for 'Run SEO Audit' feature
+  const [isAuditingSeo, setIsAuditingSeo] = useState<boolean>(false);
+  const [lastAuditedDate, setLastAuditedDate] = useState<Date>(() => new Date());
+
+  const handleRunSeoAudit = () => {
+    setIsAuditingSeo(true);
+    setLastAuditedDate(new Date());
+    setTimeout(() => {
+      setIsAuditingSeo(false);
+      setDashboardMode("advanced");
+      setActiveTab("seo-report");
+      const targetEl = document.getElementById("seo-report-tab-workspace") || document.getElementById("customer-dashboard-main-content");
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 600);
+  };
 
   // Real-time AI SEO Opportunity Alerts & Toast State
   const [isOpportunityCenterOpen, setIsOpportunityCenterOpen] = useState(false);
@@ -423,9 +449,88 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
     }
   }, []);
 
+  // Dedicated Logo Upload & Management State
+  const [logoToast, setLogoToast] = useState<LogoToastInfo | null>(null);
+  const [isQuickLogoModalOpen, setIsQuickLogoModalOpen] = useState(false);
+  const [isHeaderLogoProcessing, setIsHeaderLogoProcessing] = useState(false);
+  const headerLogoFileInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveLogo = config.logo || config.header?.logoImage || config.logoUrl || "";
+
+  const handleHeaderLogoFileSelected = async (file: File) => {
+    setIsHeaderLogoProcessing(true);
+    try {
+      const result = await processLogoFile(file, {
+        maxDimension: 1200,
+        quality: 0.92,
+        companySubdomain: config.cloudflare?.subdomain || "sirket"
+      });
+
+      if (!result.success || !result.dataUrl) {
+        const errorText = result.errorMessage || "Logo yüklenemedi. Lütfen geçerli bir dosya seçin.";
+        setLogoToast({
+          type: "error",
+          title: "Logo Yükleme Hatası",
+          message: errorText,
+          fileName: file.name,
+          onRetry: () => headerLogoFileInputRef.current?.click()
+        });
+        return;
+      }
+
+      const updatedLogo = result.dataUrl;
+      const updatedConfig: SiteConfig = {
+        ...config,
+        logo: updatedLogo,
+        logoUrl: updatedLogo,
+        header: {
+          ...(config.header || {
+            sticky: true,
+            logoType: "image",
+            logoHeight: 44,
+            logoWidth: 0,
+            logoAspectRatio: "auto",
+            logoObjectFit: "contain",
+            showTextAlongsideLogo: false,
+            ctaButton: { text: "Teklif Al", link: "#contact", enabled: true }
+          }),
+          logoType: "image",
+          logoImage: updatedLogo
+        }
+      };
+
+      onChange(updatedConfig);
+
+      setLogoToast({
+        type: "success",
+        title: "Logo Başarıyla Yüklendi",
+        message: `"${result.fileName || "Logo"}" başarıyla web sitenize ve başlık alanınıza uygulandı.`,
+        fileName: result.fileName,
+        fileSize: result.fileSizeBytes,
+        previewUrl: updatedLogo,
+        dimensions: result.dimensions,
+        savingsPercentage: result.savingsPercentage
+      });
+    } catch (err: any) {
+      setLogoToast({
+        type: "error",
+        title: "Logo Okuma Hatası",
+        message: err?.message || "Logo dosyası işlenirken bir hata oluştu.",
+        fileName: file.name,
+        onRetry: () => headerLogoFileInputRef.current?.click()
+      });
+    } finally {
+      setIsHeaderLogoProcessing(false);
+      if (headerLogoFileInputRef.current) {
+        headerLogoFileInputRef.current.value = "";
+      }
+    }
+  };
+
   // Quick setup progress calculation
   const isLogoComplete = Boolean(
     config.logo || 
+    config.header?.logoImage ||
     (config.logoUrl && !config.logoUrl.includes("placeholder.svg") && !config.logoUrl.includes("via.placeholder"))
   );
   const isContactComplete = Boolean(
@@ -1567,32 +1672,98 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               </span>
             )}
           </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-            <span>{config.companyName}</span>
-            <span className="text-slate-400 text-xs font-normal">({config.sector} • {config.city})</span>
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span>Yayın Adresi:</span>
+          
+          <div className="flex items-start sm:items-center gap-3.5 pt-1">
+            {/* Interactive Logo Avatar / Uploader Card */}
+            <div className="relative group shrink-0">
+              <input
+                ref={headerLogoFileInputRef}
+                type="file"
+                accept="image/png, image/jpeg, image/svg+xml, image/webp"
+                className="hidden"
+                disabled={isHeaderLogoProcessing}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleHeaderLogoFileSelected(e.target.files[0]);
+                  }
+                }}
+              />
+              
               <button
-                onClick={handleCopySubdomain}
-                className="font-mono text-amber-400 hover:underline flex items-center gap-1"
-                title="Yayın adresini kopyala"
+                type="button"
+                id="header-company-logo-badge"
+                onClick={() => setIsQuickLogoModalOpen(true)}
+                title={effectiveLogo ? "Logoyu değiştir veya yönet (Tıklayın)" : "Logonuzu yükleyin (Tıklayın)"}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-950 border border-slate-700/80 hover:border-amber-400 p-1 flex items-center justify-center overflow-hidden transition-all shadow-md group-hover:scale-105 cursor-pointer relative"
               >
-                <span>{config.cloudflare?.customDomain || `${config.cloudflare?.subdomain || 'sirket'}.hizliweb.site`}</span>
-                {copiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {isHeaderLogoProcessing ? (
+                  <RefreshCw className="w-5 h-5 text-amber-400 animate-spin" />
+                ) : effectiveLogo ? (
+                  <img
+                    src={effectiveLogo}
+                    alt={config.companyName || "Logo"}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-amber-400">
+                    <span className="text-base font-black">
+                      {(config.companyName || "⚡").charAt(0).toUpperCase()}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 flex items-center gap-0.5">
+                      +Logo
+                    </span>
+                  </div>
+                )}
+
+                {/* Hover Quick Edit Badge */}
+                <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-2xl">
+                  <Camera className="w-4 h-4 text-amber-300" />
+                </div>
               </button>
-            </span>
-            <button
-              type="button"
-              id="header-connect-domain-btn"
-              onClick={() => setActiveTab("connect-custom-domain")}
-              className="px-2.5 py-0.5 rounded-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-[11px] font-bold border border-blue-500/40 transition-all flex items-center gap-1 cursor-pointer"
-              title="Kendi alan adınızı (.com, .com.tr) bağlayın ve Global Edge CNAME talimatlarını inceleyin"
-            >
-              <Globe className="w-3 h-3 text-blue-400" />
-              <span>{config.cloudflare?.customDomain ? "Custom Domain Ayarları" : "+ Connect Custom Domain"}</span>
-            </button>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                  <span>{config.companyName}</span>
+                  <span className="text-slate-400 text-xs font-normal">({config.sector} • {config.city})</span>
+                </h1>
+                <button
+                  type="button"
+                  id="header-quick-logo-modal-btn"
+                  onClick={() => setIsQuickLogoModalOpen(true)}
+                  className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold border border-slate-700 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Logo Yükleme & Yönetim Masasını Aç"
+                >
+                  <Upload className="w-3 h-3 text-amber-400" />
+                  <span>{effectiveLogo ? "Logoyu Değiştir" : "+ Logo Yükle"}</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <span>Yayın Adresi:</span>
+                  <button
+                    onClick={handleCopySubdomain}
+                    className="font-mono text-amber-400 hover:underline flex items-center gap-1"
+                    title="Yayın adresini kopyala"
+                  >
+                    <span>{config.cloudflare?.customDomain || `${config.cloudflare?.subdomain || 'sirket'}.hizliweb.site`}</span>
+                    {copiedDomain ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </span>
+                <button
+                  type="button"
+                  id="header-connect-domain-btn"
+                  onClick={() => setActiveTab("connect-custom-domain")}
+                  className="px-2.5 py-0.5 rounded-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-[11px] font-bold border border-blue-500/40 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Kendi alan adınızı (.com, .com.tr) bağlayın ve Global Edge CNAME talimatlarını inceleyin"
+                >
+                  <Globe className="w-3 h-3 text-blue-400" />
+                  <span>{config.cloudflare?.customDomain ? "Custom Domain Ayarları" : "+ Connect Custom Domain"}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1834,6 +2005,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             <span>10-Dk Kurulum Rehberi</span>
             <span className="px-1.5 py-0.5 rounded-md bg-slate-950 text-amber-400 text-[10px] font-mono font-bold">
               %{setupProgressPercent}
+            </span>
+          </button>
+
+          {/* RUN SEO AUDIT BUTTON (Triggers Meta Tags & Performance Metrics Analysis) */}
+          <button
+            type="button"
+            id="header-run-seo-audit-btn"
+            onClick={handleRunSeoAudit}
+            disabled={isAuditingSeo}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer disabled:opacity-50 ${
+              activeTab === "seo-report"
+                ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 ring-2 ring-emerald-400"
+                : "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-emerald-950/40"
+            }`}
+            title="Sitenin tüm meta etiketlerini ve Google Core Web Vitals performans metriklerini anlık analiz ederek SEO Raporu sekmesinde görüntüleyin"
+          >
+            <Activity className={`w-4 h-4 ${isAuditingSeo ? "animate-spin text-amber-300" : "text-emerald-200"}`} />
+            <span>{isAuditingSeo ? "Analiz Ediliyor..." : "Run SEO Audit"}</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-slate-950/40 text-emerald-200 text-[10px] font-mono font-bold">
+              %{seoHealthScore}
             </span>
           </button>
 
@@ -2214,6 +2405,21 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
           <button
             type="button"
+            id="top-seo-executive-summary-btn"
+            onClick={() => setActiveTab("seo-executive-summary")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "seo-executive-summary" || activeTab === "executive-summary"
+                ? "bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Isı Haritası, Rakip Kıyaslama Tablosu ve Radar Çizelgesi ile Paydaş Sunumu ve İndirilebilir PDF Raporu"
+          >
+            <FileText className="w-4 h-4 text-amber-400" />
+            <span>SEO Yönetici Özeti (PDF)</span>
+          </button>
+
+          <button
+            type="button"
             id="top-security-audit-btn"
             onClick={() => setActiveTab("security-audit")}
             className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -2244,6 +2450,17 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span>Dışa Aktar</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-stakeholder-pdf-report-btn"
+            onClick={() => setIsStakeholderReportModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-500 hover:to-purple-600 text-white text-xs font-black flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer ring-1 ring-indigo-400/40"
+            title="Müşteri paydaşları için mevcut site konfigürasyonunu ve performans metriklerini profesyonel A4 PDF raporu olarak dışa aktar"
+          >
+            <FileDown className="w-4 h-4 text-indigo-200" />
+            <span>Paydaş Raporu (PDF)</span>
           </button>
 
           <button
@@ -2641,6 +2858,28 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400">Content</span>
               </div>
+
+              {/* 2.0a SEO Report (Kapsamlı SEO & Hız Denetimi Raporu) */}
+              <button
+                type="button"
+                id="sidebar-seo-report-btn"
+                onClick={() => handleRunSeoAudit()}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "seo-report"
+                    ? "bg-slate-900 text-emerald-400 shadow-xs ring-1 ring-emerald-400/30"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span>SEO Raporu (SEO Report)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    Yeni
+                  </span>
+                </div>
+              </button>
 
               {/* 2.0 SEO Auditor (SEO Denetçisi & Görsel Alt Metin Sağlığı) */}
               <button
@@ -3231,6 +3470,46 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     </span>
                   )}
                 </div>
+              </button>
+
+              {/* 2.5c SEO Rekabet Stratejisi (D3.js Radar Çizelgesi ile 6-Eksenli Kıyaslama) */}
+              <button
+                type="button"
+                id="sidebar-competitive-strategy-btn"
+                onClick={() => setActiveTab("competitive-strategy")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "competitive-strategy" || activeTab === "seo-competitive-strategy"
+                    ? "bg-slate-900 text-cyan-400 shadow-xs ring-1 ring-cyan-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Target className="w-4 h-4 text-cyan-500" />
+                  <span>SEO Rekabet Stratejisi</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-900 uppercase">
+                  D3 Radar
+                </span>
+              </button>
+
+              {/* 2.5d SEO Yönetici Özeti & Paydaş Raporu (Isı Haritası + Kıyaslama + Radar PDF) */}
+              <button
+                type="button"
+                id="sidebar-seo-executive-summary-btn"
+                onClick={() => setActiveTab("seo-executive-summary")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "seo-executive-summary" || activeTab === "executive-summary"
+                    ? "bg-slate-900 text-amber-400 shadow-xs ring-1 ring-amber-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-amber-500" />
+                  <span>SEO Yönetici Özeti</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 uppercase">
+                  PDF Rapor
+                </span>
               </button>
 
               {/* 2.6 AI Global SEO Agent (Search Grounding & Geo-Location Trends) */}
@@ -4128,6 +4407,35 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           {/* 1. GENERAL INFORMATION & HOMEPAGE SEO */}
           {activeTab === "general" && (
             <div className="space-y-6">
+              {/* Stakeholder Executive Report Quick Card Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-900 border border-indigo-500/40 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center shrink-0">
+                    <FileDown className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-white">Müşteri Paydaşları Yönetici Raporu (PDF)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/30 font-mono">
+                        A4 Formatı
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300">
+                      Mevcut site mimarisini, Core Web Vitals (0.02s) hız skorlarını, teknik SEO ve lead dönüşüm metriklerini kurumsal PDF raporu olarak dışa aktarın.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  id="overview-open-stakeholder-pdf-btn"
+                  onClick={() => setIsStakeholderReportModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-all shadow-md shrink-0 flex items-center gap-2 cursor-pointer active:scale-95 ring-1 ring-indigo-400/40"
+                >
+                  <FileDown className="w-4 h-4 text-indigo-200" />
+                  <span>Raporu Aç & İndir</span>
+                </button>
+              </div>
+
               {/* Site Performance & Real-time Visitor Overview Card */}
               <SitePerformanceOverviewCard
                 config={config}
@@ -5452,6 +5760,24 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
                 setActiveTab("ai-blog-engine");
               }}
+            />
+          )}
+
+          {/* 4.2c SEO COMPETITIVE STRATEGY (D3.js RADAR CHART VISUALIZER) */}
+          {(activeTab === "competitive-strategy" || activeTab === "seo-competitive-strategy") && (
+            <SeoCompetitiveStrategyVisualizer
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2d SEO EXECUTIVE SUMMARY (PRINTABLE PDF REPORT & STAKEHOLDER PRESENTATION) */}
+          {(activeTab === "seo-executive-summary" || activeTab === "executive-summary") && (
+            <SeoExecutiveSummary
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
             />
           )}
 
@@ -6983,6 +7309,19 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               onOpenAiMetaOptimizer={() => setIsAiMetaOptimizerModalOpen(true)}
               onOpenSchemaGenerator={() => setActiveTab("schema-generator")}
               onOpenLocalSeoSchema={() => setActiveTab("local-seo-schema")}
+              onOpenSeoReport={() => setActiveTab("seo-report")}
+            />
+          )}
+
+          {/* 11.0a SEO REPORT TAB (COMPREHENSIVE AUDIT OF SITE'S META TAGS AND PERFORMANCE METRICS) */}
+          {activeTab === "seo-report" && (
+            <SeoReportTab
+              config={config}
+              onChange={onChange}
+              onPreview={onPreview}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              lastAuditedDate={lastAuditedDate}
+              onTriggerAudit={handleRunSeoAudit}
             />
           )}
 
@@ -7532,6 +7871,31 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           </div>
         </div>
+      )}
+
+      {/* Quick Logo Management & Upload Modal */}
+      <QuickLogoUploadModal
+        isOpen={isQuickLogoModalOpen}
+        onClose={() => setIsQuickLogoModalOpen(false)}
+        config={config}
+        onChange={onChange}
+        onShowToast={(toast) => setLogoToast(toast)}
+        onOpenAssetManager={() => setActiveTab("asset-manager")}
+      />
+
+      {/* Stakeholder Executive Report (A4 PDF & Print) Modal */}
+      <StakeholderPdfReportModal
+        isOpen={isStakeholderReportModalOpen}
+        onClose={() => setIsStakeholderReportModalOpen(false)}
+        config={config}
+      />
+
+      {/* User-friendly Logo Upload Notification Toast */}
+      {logoToast && (
+        <LogoUploadToast
+          toast={logoToast}
+          onClose={() => setLogoToast(null)}
+        />
       )}
     </div>
   );

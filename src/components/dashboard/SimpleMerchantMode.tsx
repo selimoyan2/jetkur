@@ -37,7 +37,8 @@ import {
   Bell,
   BellRing,
   Lock,
-  FileText
+  FileText,
+  Activity
 } from "lucide-react";
 import { getTagColorClass, getLeadTagStyle } from "./LeadTagsManager";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
@@ -317,6 +318,17 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
             >
               <Globe className="w-4 h-4 text-blue-600" />
               <span>{config.cloudflare?.customDomain ? "Alan Adı: Bağlı" : "Alan Adı Yönetimi"}</span>
+            </button>
+          )}
+
+          {onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab("seo-report")}
+              className="px-3.5 py-3 rounded-2xl bg-white/90 hover:bg-white text-slate-950 font-bold text-xs shadow-md flex items-center gap-1.5 transition-transform hover:scale-105 cursor-pointer"
+              title="Sitenin tüm arama motoru meta etiketlerini ve Google hız skorlarını denetle"
+            >
+              <Activity className="w-4 h-4 text-emerald-600" />
+              <span>SEO Raporu</span>
             </button>
           )}
 

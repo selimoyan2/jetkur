@@ -1,6 +1,6 @@
 {
   "name": "JetKur - Dünyanın En Hızlı Web Sitesi Altyapısı",
-  "description": "Ultra hızlı Global Anycast Edge CDN üzerinde çalışan; Gemini Destekli 30 Günlük AI SEO İçerik Planlayıcı (Blog Content Planner & Kitle Segmentasyonu), SEO Rekabet Alarmları (Rakip Sıralama Değişimleri & Geçilme Uyarıları), AI Global SEO Agent (Google Search Grounding ile Çoklu Pazar Analizi), AI Fiyatlandırma Zekası, D3.js Gelecek Performans Tahmincisi, AI Content Meta-Optimizer, SEO Health Score Günlük Otomatik Denetim Aracı ve Akıllı KOBİ Web Sitesi Platformu.",
+  "description": "Ultra hızlı Global Anycast Edge CDN üzerinde çalışan; Kapsamlı SEO ve Performans Denetimi (Canlı Meta Etiketleri ve Core Web Vitals Raporu), SEO Yönetici Özeti (Isı Haritası, Rakip Kıyaslama Tablosu ve D3 Radar Çizelgesi ile Yazdırılabilir PDF Paydaş Raporu), SEO Rekabet Stratejisi (D3.js 6-Eksenli Radar Analizi), Gemini Destekli 30 Günlük AI SEO İçerik Planlayıcı, SEO Rekabet Alarmları, AI Global SEO Agent, AI Fiyatlandırma Zekası, D3.js Gelecek Performans Tahmincisi ve Akıllı KOBİ Web Sitesi Platformu.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

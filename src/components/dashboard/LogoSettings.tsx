@@ -1,12 +1,14 @@
 import React, { useRef, useState } from "react";
 import { HeaderConfig } from "../../types";
-import { Image as ImageIcon, Upload, Trash2, Sliders, Check, Sparkles, RefreshCw } from "lucide-react";
+import { Image as ImageIcon, Upload, Trash2, Sliders, Check, Sparkles, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
+import { processLogoFile } from "../../utils/logoUploadHelper";
 
 interface LogoSettingsProps {
   header: HeaderConfig;
   companyName: string;
   onChange: (updatedHeader: HeaderConfig) => void;
   onOpenAssetManager?: () => void;
+  onLogoUploaded?: (dataUrl: string) => void;
 }
 
 export const LogoSettings: React.FC<LogoSettingsProps> = ({
@@ -14,9 +16,12 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
   companyName,
   onChange,
   onOpenAssetManager,
+  onLogoUploaded,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [previewBg, setPreviewBg] = useState<"dark" | "light" | "transparent">("dark");
 
   const logoType = header.logoType || "icon";
@@ -26,24 +31,42 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
   const logoAspectRatio = header.logoAspectRatio || "auto";
   const logoObjectFit = header.logoObjectFit || "contain";
 
-  const handleFileUpload = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      alert("Lütfen geçerli bir görsel dosyası (PNG, SVG, JPG, WebP) seçin.");
-      return;
-    }
+  const showToast = (type: "success" | "error", text: string) => {
+    setToastMessage({ type, text });
+    setTimeout(() => setToastMessage(null), 5000);
+  };
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        onChange({
-          ...header,
-          logoType: "image",
-          logoImage: result,
-        });
+  const handleFileUpload = async (file: File) => {
+    setIsProcessing(true);
+    setToastMessage(null);
+    try {
+      const result = await processLogoFile(file, {
+        maxDimension: 1200,
+        quality: 0.92
+      });
+
+      if (!result.success || !result.dataUrl) {
+        showToast("error", result.errorMessage || "Logo yüklenemedi. Lütfen geçerli bir dosya seçin.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+
+      onChange({
+        ...header,
+        logoType: "image",
+        logoImage: result.dataUrl,
+      });
+
+      if (onLogoUploaded) {
+        onLogoUploaded(result.dataUrl);
+      }
+
+      const savings = result.savingsPercentage && result.savingsPercentage > 0 ? ` (%${result.savingsPercentage} tasarruf)` : "";
+      showToast("success", `✅ "${result.fileName || "Logo"}" başarıyla yüklendi ve optimize edildi${savings}!`);
+    } catch (err: any) {
+      showToast("error", `Logo işleme hatası: ${err?.message || "Bilinmeyen hata"}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -118,6 +141,34 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
         </div>
       </div>
 
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          id="logo-settings-inline-toast"
+          className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in duration-200 ${
+            toastMessage.type === "success"
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+              : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastMessage.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-slate-400 hover:text-white p-1 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {logoType === "image" ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Upload Box & URL Input */}
@@ -127,7 +178,7 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !isProcessing && fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
                 isDragging
                   ? "border-amber-400 bg-amber-500/10"
@@ -139,6 +190,7 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
                 type="file"
                 accept="image/png, image/jpeg, image/svg+xml, image/webp"
                 className="hidden"
+                disabled={isProcessing}
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     handleFileUpload(e.target.files[0]);
@@ -147,14 +199,18 @@ export const LogoSettings: React.FC<LogoSettingsProps> = ({
               />
               <div className="flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                  <Upload className="w-6 h-6" />
+                  {isProcessing ? (
+                    <RefreshCw className="w-6 h-6 animate-spin text-amber-400" />
+                  ) : (
+                    <Upload className="w-6 h-6" />
+                  )}
                 </div>
                 <div>
                   <span className="text-xs font-bold text-white block">
-                    Logo Dosyası Yüklemek İçin Tıklayın veya Sürükleyin
+                    {isProcessing ? "Logo İşleniyor & Optimize Ediliyor..." : "Logo Dosyası Yüklemek İçin Tıklayın veya Sürükleyin"}
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5">
-                    PNG (Şeffaf Arka Planlı), SVG, JPG veya WebP • Max 5MB
+                    PNG (Şeffaf Arka Planlı), SVG, JPG veya WebP • Max 10MB
                   </span>
                 </div>
               </div>

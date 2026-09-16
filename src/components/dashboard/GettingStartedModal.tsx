@@ -325,8 +325,32 @@ export const GettingStartedModal: React.FC<GettingStartedModalProps> = ({
                           <div className="w-full sm:w-auto">
                             <Base64ImageUpload
                               label="Logoyu Değiştir / Yükle"
-                              currentImage={config.logo || ""}
-                              onImageChange={(b64) => onChange({ ...config, logo: b64 })}
+                              value={config.logo || config.header?.logoImage || ""}
+                              currentImage={config.logo || config.header?.logoImage || ""}
+                              onChange={(b64) => {
+                                onChange({
+                                  ...config,
+                                  logo: b64,
+                                  logoUrl: b64,
+                                  header: {
+                                    ...config.header,
+                                    logoType: b64 ? "image" : "icon",
+                                    logoImage: b64
+                                  }
+                                });
+                              }}
+                              onImageChange={(b64) => {
+                                onChange({
+                                  ...config,
+                                  logo: b64,
+                                  logoUrl: b64,
+                                  header: {
+                                    ...config.header,
+                                    logoType: b64 ? "image" : "icon",
+                                    logoImage: b64
+                                  }
+                                });
+                              }}
                               buttonText="Logo Dosyası Seç"
                             />
                           </div>

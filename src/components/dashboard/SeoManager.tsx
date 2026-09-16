@@ -65,6 +65,7 @@ interface SeoManagerProps {
   onOpenAiMetaOptimizer?: () => void;
   onOpenSchemaGenerator?: () => void;
   onOpenLocalSeoSchema?: () => void;
+  onOpenSeoReport?: () => void;
   defaultSubTab?: SeoSubTab;
 }
 
@@ -84,6 +85,7 @@ export const SeoManager: React.FC<SeoManagerProps> = ({
   onOpenAiMetaOptimizer,
   onOpenSchemaGenerator,
   onOpenLocalSeoSchema,
+  onOpenSeoReport,
   defaultSubTab
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<SeoSubTab>(defaultSubTab || "general");
@@ -474,6 +476,19 @@ export const SeoManager: React.FC<SeoManagerProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
+            {onOpenSeoReport && (
+              <button
+                type="button"
+                id="btn-seo-manager-goto-seo-report"
+                onClick={onOpenSeoReport}
+                className="px-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 text-xs font-black flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-emerald-500/30 active:scale-95 cursor-pointer"
+                title="Sitenin tüm meta etiketlerini ve Google Core Web Vitals performans metriklerini anlık analiz eden SEO Raporunu aç"
+              >
+                <Activity className="w-4 h-4 text-slate-950 fill-current" />
+                <span>📊 Kapsamlı SEO &amp; Performans Raporu</span>
+              </button>
+            )}
+
             {onOpenOpportunities && (
               <button
                 type="button"

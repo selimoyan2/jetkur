@@ -18,17 +18,21 @@ import {
   isWebPAsset, 
   WebPOptimizeDetails 
 } from "../../utils/imageOptimizer";
+import { readFileAsDataURL } from "../../utils/logoUploadHelper";
 
 interface Base64ImageUploadProps {
   label?: string;
   helperText?: string;
   value?: string;
-  onChange: (base64OrUrl: string) => void;
+  currentImage?: string; // alias for value
+  onChange?: (base64OrUrl: string) => void;
+  onImageChange?: (base64OrUrl: string) => void; // alias for onChange
   aspectRatio?: "16/9" | "4/3" | "1/1" | "21/9" | "auto";
   maxDimension?: number;
   quality?: number;
   placeholder?: string;
   compact?: boolean;
+  buttonText?: string;
   className?: string;
   onOptimized?: (details: WebPOptimizeDetails) => void;
 }
@@ -49,16 +53,38 @@ export const compressImageToBase64 = async (
 export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
   label,
   helperText,
-  value = "",
+  value,
+  currentImage,
   onChange,
+  onImageChange,
   aspectRatio = "16/9",
   maxDimension = 1400,
   quality = 0.82,
   placeholder = "https://... veya bilgisayarınızdan yükleyin",
   compact = false,
+  buttonText,
   className = "",
   onOptimized
 }) => {
+  const effectiveValue = value ?? currentImage ?? "";
+
+  const triggerChange = (newVal: string) => {
+    if (typeof onChange === "function") {
+      try {
+        onChange(newVal);
+      } catch (err) {
+        console.error("Base64ImageUpload onChange handler error:", err);
+      }
+    }
+    if (typeof onImageChange === "function") {
+      try {
+        onImageChange(newVal);
+      } catch (err) {
+        console.error("Base64ImageUpload onImageChange handler error:", err);
+      }
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,12 +97,33 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
   const handleFileChange = async (file: File) => {
     setErrorMsg(null);
     setIsProcessing(true);
+
+    // Initial size check
+    if (file.size > 15 * 1024 * 1024) {
+      setErrorMsg("Dosya boyutu çok yüksek (maksimum 15MB).");
+      setIsProcessing(false);
+      return;
+    }
+
     try {
-      const details = await compressImageFileToWebP(file, maxDimension, quality);
-      setLastOptimization(details);
-      onChange(details.base64);
-      if (onOptimized) {
-        onOptimized(details);
+      // SVG files or non-canvas formats fall back directly to robust FileReader
+      if (file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")) {
+        const dataUrl = await readFileAsDataURL(file);
+        triggerChange(dataUrl);
+        return;
+      }
+
+      try {
+        const details = await compressImageFileToWebP(file, maxDimension, quality);
+        setLastOptimization(details);
+        triggerChange(details.base64);
+        if (onOptimized && typeof onOptimized === "function") {
+          onOptimized(details);
+        }
+      } catch (optErr) {
+        console.warn("WebP compression failed in Base64ImageUpload, falling back to direct FileReader:", optErr);
+        const dataUrl = await readFileAsDataURL(file);
+        triggerChange(dataUrl);
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Görsel yüklenirken bir hata oluştu.");
@@ -102,8 +149,8 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
     }
   };
 
-  const isBase64 = value && value.startsWith("data:image/");
-  const isWebp = isWebPAsset(value);
+  const isBase64 = effectiveValue && effectiveValue.startsWith("data:image/");
+  const isWebp = isWebPAsset(effectiveValue);
 
   const aspectClass = 
     aspectRatio === "16/9" ? "aspect-16/9" :
@@ -134,16 +181,16 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
         />
 
         <div className="flex items-center gap-2">
-          {value ? (
+          {effectiveValue ? (
             <div className="relative w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 overflow-hidden shrink-0 group">
-              <img src={value} alt="Preview" className="w-full h-full object-cover" />
+              <img src={effectiveValue} alt="Preview" className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => {
-                  onChange("");
+                  triggerChange("");
                   setLastOptimization(null);
                 }}
-                className="absolute inset-0 bg-rose-950/80 text-rose-300 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                className="absolute inset-0 bg-rose-950/80 text-rose-300 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
                 title="Görseli Sil"
               >
                 <Trash2 className="w-4 h-4" />
@@ -161,20 +208,20 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700 transition-colors"
+                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700 transition-colors cursor-pointer"
               >
                 <Upload className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin text-amber-400' : ''}`} />
-                <span>{isProcessing ? "WebP Dönüştürülüyor..." : "Görsel Seç (WebP)"}</span>
+                <span>{isProcessing ? "WebP Dönüştürülüyor..." : (buttonText || "Görsel Seç (WebP)")}</span>
               </button>
 
-              {value && (
+              {effectiveValue && (
                 <button
                   type="button"
                   onClick={() => {
-                    onChange("");
+                    triggerChange("");
                     setLastOptimization(null);
                   }}
-                  className="px-2.5 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-bold transition-colors"
+                  className="px-2.5 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-bold transition-colors cursor-pointer"
                   title="Görseli Kaldır"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -183,7 +230,7 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
             </div>
 
             {/* Quick WebP format indicator */}
-            {value && (
+            {effectiveValue && (
               <div className="flex items-center gap-1.5 text-[10px]">
                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-bold ${
                   isWebp ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-slate-800 text-slate-400"
@@ -234,11 +281,11 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
 
       {/* Main Container */}
       <div className="space-y-2">
-        {value ? (
+        {effectiveValue ? (
           /* Preview State */
           <div className={`relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 ${aspectClass} group`}>
             <img
-              src={value}
+              src={effectiveValue}
               alt="Uploaded Preview"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -259,7 +306,7 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    onChange("");
+                    triggerChange("");
                     setLastOptimization(null);
                   }}
                   className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
@@ -332,7 +379,7 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-white block">
-                  {isProcessing ? "WebP Pipeline Çalışıyor (Sıkıştırılıyor & Edge'e Hazırlanıyor)..." : "Görsel Yüklemek İçin Tıklayın veya Sürükleyin"}
+                  {isProcessing ? "WebP Pipeline Çalışıyor (Sıkıştırılıyor & Edge'e Hazırlanıyor)..." : (buttonText ? `${buttonText} İçin Tıklayın veya Sürükleyin` : "Görsel Yüklemek İçin Tıklayın veya Sürükleyin")}
                 </span>
                 <span className="text-[11px] text-slate-400 block mt-0.5">
                   PNG, JPG, WebP veya SVG • Otomatik olarak <strong className="text-amber-400">WebP formatına</strong> dönüştürülerek Cloudflare Edge için optimize edilir
@@ -343,7 +390,7 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
         )}
 
         {/* Cloudflare Edge details mini card */}
-        {value && showEdgeDetails && (
+        {effectiveValue && showEdgeDetails && (
           <div className="p-3 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs space-y-2 animate-fadeIn">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-cyan-400 font-bold">
@@ -380,17 +427,17 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
           <button
             type="button"
             onClick={() => setShowUrlInput(!showUrlInput)}
-            className="text-slate-400 hover:text-amber-400 font-semibold flex items-center gap-1 transition-colors"
+            className="text-slate-400 hover:text-amber-400 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
           >
             <LinkIcon className="w-3 h-3" />
             <span>{showUrlInput ? "URL Girişini Gizle" : "Veya Doğrudan Görsel URL'si Gir"}</span>
           </button>
 
-          {value && (
+          {effectiveValue && (
             <button
               type="button"
-              onClick={() => onChange("")}
-              className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1"
+              onClick={() => triggerChange("")}
+              className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
               <span>Temizle</span>
@@ -411,21 +458,29 @@ export const Base64ImageUpload: React.FC<Base64ImageUploadProps> = ({
               type="button"
               onClick={() => {
                 if (urlInput.trim()) {
-                  onChange(urlInput.trim());
+                  triggerChange(urlInput.trim());
                   setUrlInput("");
                   setShowUrlInput(false);
                 }
               }}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 cursor-pointer"
             >
               Uygula
             </button>
           </div>
         )}
 
+        {/* Error message */}
         {errorMsg && (
-          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
-            {errorMsg}
+          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center justify-between">
+            <span>{errorMsg}</span>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="text-rose-400 hover:text-rose-200 ml-2 cursor-pointer font-bold"
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>

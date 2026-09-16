@@ -205,6 +205,19 @@ ${tacticalActions.map((a, i) => `${i + 1}. [${a.priority}] ${a.title}\n   Etki: 
                 </>
               )}
             </button>
+
+            {onNavigateTab && (
+              <button
+                type="button"
+                id="btn-goto-executive-summary"
+                onClick={() => onNavigateTab("seo-executive-summary")}
+                className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                title="Isı haritası, kıyaslama tablosu ve radar çizelgesini içeren yazdırılabilir PDF yönetici özetini açın"
+              >
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span>Yönetici Özeti (PDF Rapor)</span>
+              </button>
+            )}
           </div>
         </div>
 

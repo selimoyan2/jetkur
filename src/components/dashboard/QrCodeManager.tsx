@@ -8,6 +8,7 @@ import {
   downloadCanvasAsPng,
   MarketingTemplateType
 } from "../../utils/qrMarketingCanvas";
+import { processLogoFile } from "../../utils/logoUploadHelper";
 import {
   QrCode,
   Download,
@@ -108,17 +109,24 @@ export const QrCodeManager: React.FC<QrCodeManagerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Logo file upload handler
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (loadEvt) => {
-      const result = loadEvt.target?.result as string;
-      if (result) {
-        setCustomLogoImage(result);
+    try {
+      const result = await processLogoFile(file, { maxDimension: 600, quality: 0.9 });
+      if (result.success && result.dataUrl) {
+        setCustomLogoImage(result.dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const result = loadEvt.target?.result as string;
+        if (result) {
+          setCustomLogoImage(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleResetLogo = () => {
