@@ -70,8 +70,14 @@ import { AssetManager } from "./dashboard/AssetManager";
 import { BlogManager } from "./dashboard/BlogManager";
 import { AiBlogEngine } from "./dashboard/AiBlogEngine";
 import { AiSeoContentPlanner } from "./dashboard/AiSeoContentPlanner";
+import { AiSeoContentAssistant } from "./dashboard/AiSeoContentAssistant";
 import { SeoTrendForecast } from "./dashboard/SeoTrendForecast";
 import { SeoCompetitiveStrategyVisualizer } from "./dashboard/SeoCompetitiveStrategyVisualizer";
+import { CompetitorUrlAnalysisModule } from "./dashboard/CompetitorUrlAnalysisModule";
+import { ContentGapMap } from "./dashboard/ContentGapMap";
+import { MarketShareBenchmarkTable } from "./dashboard/MarketShareBenchmarkTable";
+import { LocalSeoLocationMap } from "./dashboard/LocalSeoLocationMap";
+import { MarketShareCompetitorAnalysisPanel } from "./dashboard/MarketShareCompetitorAnalysisPanel";
 import { SeoExecutiveSummary } from "./dashboard/SeoExecutiveSummary";
 import { CompetitiveSeoWidget } from "./dashboard/CompetitiveSeoWidget";
 import { RealtimeTrafficOverviewWidget } from "./dashboard/RealtimeTrafficOverviewWidget";
@@ -125,6 +131,7 @@ import { MediaLibraryManager } from "./dashboard/MediaLibraryManager";
 import { PricingIntelligenceWorkspace } from "./dashboard/PricingIntelligenceWorkspace";
 import { PricingIntelligenceQuickCard } from "./dashboard/PricingIntelligenceQuickCard";
 import { GlobalSeoAgentWorkspace } from "./dashboard/GlobalSeoAgentWorkspace";
+import { AiGlobalSeoAgent } from "./dashboard/AiGlobalSeoAgent";
 import { GlobalSeoQuickCard } from "./dashboard/GlobalSeoQuickCard";
 import { SeoTrendForecastQuickCard } from "./dashboard/SeoTrendForecastQuickCard";
 import { SeoCompetitiveStrategyQuickCard } from "./dashboard/SeoCompetitiveStrategyQuickCard";
@@ -2375,6 +2382,21 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
           <button
             type="button"
+            id="top-ai-seo-content-assistant-btn"
+            onClick={() => setActiveTab("ai-seo-content-assistant")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "ai-seo-content-assistant" || activeTab === "seo-content-assistant"
+                ? "bg-indigo-600 text-white shadow-md font-black ring-2 ring-indigo-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Gemini Destekli Blog Taslakları ve Optimize Meta-İçerik Asistanı"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span>AI İçerik Asistanı (Taslak & Meta)</span>
+          </button>
+
+          <button
+            type="button"
             id="top-seo-trend-forecast-btn"
             onClick={() => setActiveTab("seo-trend-forecast")}
             className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -2386,6 +2408,36 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           >
             <TrendingUp className="w-4 h-4 text-emerald-400" />
             <span>SEO Trend Tahmincisi</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-market-share-benchmark-btn"
+            onClick={() => setActiveTab("market-share-benchmark")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "market-share-benchmark" || activeTab === "market-share"
+                ? "bg-indigo-600 text-white shadow-md font-black ring-2 ring-indigo-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Rakiplerle doğrudan domain otoritesi, anahtar kelime yoğunluğu ve site hızı metriklerini karşılaştıran Pazar Payı Kıyaslama Tablosu"
+          >
+            <TrendingUp className="w-4 h-4 text-cyan-400" />
+            <span>Pazar Payı Kıyaslama</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-content-gap-map-btn"
+            onClick={() => setActiveTab("content-gap-map")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "content-gap-map" || activeTab === "content-gap"
+                ? "bg-rose-600 text-white shadow-md font-black ring-2 ring-rose-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="Seçili rakiplerin içerik boşluklarını görselleştiren ve eksik kelimeleri gösteren İçerik Boşluğu Haritası"
+          >
+            <Compass className="w-4 h-4 text-rose-400" />
+            <span>İçerik Boşluğu Haritası</span>
           </button>
 
           <button
@@ -3400,6 +3452,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </span>
               </button>
 
+              {/* 2.4b2 AI SEO Content Assistant (Gemini Blog Outlines & Optimized Meta-Content) */}
+              <button
+                type="button"
+                id="sidebar-ai-seo-content-assistant-btn"
+                onClick={() => setActiveTab("ai-seo-content-assistant")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "ai-seo-content-assistant" || activeTab === "seo-content-assistant"
+                    ? "bg-slate-900 text-indigo-400 shadow-xs ring-1 ring-indigo-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-indigo-500" />
+                  <span>AI SEO İçerik Asistanı</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 uppercase">
+                  Taslak & Meta
+                </span>
+              </button>
+
               {/* 2.4c SEO Trend Forecast (Gemini 3.8 Flash & Search Grounding 12-Month Predictions) */}
               <button
                 type="button"
@@ -3472,6 +3544,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </div>
               </button>
 
+              {/* 2.5b-3 Pazar Payı Rakip Analiz Paneli (D3.js Pazar Payı & Sıralama Kıyaslaması) */}
+              <button
+                type="button"
+                id="sidebar-market-share-panel-btn"
+                onClick={() => setActiveTab("market-share-panel" as CustomerPanelTab)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === ("market-share-panel" as CustomerPanelTab)
+                    ? "bg-slate-900 text-indigo-400 shadow-xs ring-1 ring-indigo-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <PieChart className="w-4 h-4 text-indigo-500" />
+                  <span>Pazar Payı Rakip Paneli</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-900 uppercase">
+                  D3.js
+                </span>
+              </button>
+
               {/* 2.5c SEO Rekabet Stratejisi (D3.js Radar Çizelgesi ile 6-Eksenli Kıyaslama) */}
               <button
                 type="button"
@@ -3489,6 +3581,46 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </div>
                 <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-900 uppercase">
                   D3 Radar
+                </span>
+              </button>
+
+              {/* 2.5c-2 Rakip Analiz Modülü (Doğrudan URL ile İçerik & Anahtar Kelime Kıyaslama) */}
+              <button
+                type="button"
+                id="sidebar-competitor-url-analysis-btn"
+                onClick={() => setActiveTab("competitor-url-analysis")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "competitor-url-analysis" || activeTab === "competitor-analysis"
+                    ? "bg-slate-900 text-blue-400 shadow-xs ring-1 ring-blue-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  <span>Rakip Analiz Modülü</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 uppercase">
+                  URL Tara
+                </span>
+              </button>
+
+              {/* 2.5c-5 Yerel SEO Konum Haritası (Google Haritalar Local Pack & İlçe Arama Hacimleri) */}
+              <button
+                type="button"
+                id="sidebar-local-seo-map-btn"
+                onClick={() => setActiveTab("local-seo-map")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "local-seo-map"
+                    ? "bg-slate-900 text-emerald-300 shadow-xs ring-1 ring-emerald-400/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-emerald-500" />
+                  <span>Yerel SEO Konum Haritası</span>
+                </div>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 uppercase">
+                  Local Pack
                 </span>
               </button>
 
@@ -5725,6 +5857,19 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           )}
 
+          {/* 4.1b2 AI SEO CONTENT ASSISTANT (GEMINI BLOG OUTLINES & OPTIMIZED META-CONTENT) */}
+          {(activeTab === "ai-seo-content-assistant" || activeTab === "seo-content-assistant") && (
+            <AiSeoContentAssistant
+              siteConfig={config}
+              onUpdateSiteConfig={(updater) => onChange(updater(config))}
+              onNavigateToBlogEngine={(topic, keyword) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", topic);
+                sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+                setActiveTab("ai-blog-engine");
+              }}
+            />
+          )}
+
           {/* 4.1c SEO TREND FORECAST (GEMINI 3.8 FLASH + GOOGLE SEARCH GROUNDING 12-MONTH PREDICTIONS) */}
           {(activeTab === "seo-trend-forecast" || activeTab === "trend-forecast") && (
             <SeoTrendForecast
@@ -5768,6 +5913,51 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             <SeoCompetitiveStrategyVisualizer
               config={config}
               onChange={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2c-2 RAKİP ANALİZ MODÜLÜ (DOĞRUDAN URL İLE OTOMATİK İÇERİK & ANAHTAR KELİME KIYASLAMA) */}
+          {(activeTab === "competitor-url-analysis" || activeTab === "competitor-analysis") && (
+            <CompetitorUrlAnalysisModule
+              siteConfig={config}
+              onUpdateSiteConfig={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2c-3 İÇERİK BOŞLUĞU HARİTASI (CONTENT GAP MAP & EKSİK ANAHTAR KELİMELER) */}
+          {(activeTab === "content-gap-map" || activeTab === "content-gap") && (
+            <ContentGapMap
+              siteConfig={config}
+              onUpdateSiteConfig={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2c-3b PAZAR PAYI RAKİP ANALİZ PANELİ (D3.JS PAZAR PAYI VE GOOGLE SIRALAMA KIYASLAMASI) */}
+          {(activeTab === ("market-share-panel" as CustomerPanelTab) || activeTab === "market-share-panel") && (
+            <MarketShareCompetitorAnalysisPanel
+              siteConfig={config}
+              onUpdateSiteConfig={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2c-4 PAZAR PAYI KIYASLAMA TABLOSU (MARKET SHARE BENCHMARK & DOĞRUDAN DA, YOĞUNLUK, HIZ KARŞILAŞTIRMASI) */}
+          {(activeTab === "market-share-benchmark" || activeTab === "market-share") && (
+            <MarketShareBenchmarkTable
+              siteConfig={config}
+              onUpdateSiteConfig={onChange}
+              onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+            />
+          )}
+
+          {/* 4.2c-5 YEREL SEO KONUM HARİTASI (GOOGLE HARİTALAR LOCAL PACK & İLÇE ARAMA HACMİ) */}
+          {(activeTab === "local-seo-map" || activeTab === "local-seo-location-map") && (
+            <LocalSeoLocationMap
+              siteConfig={config}
+              onUpdateSiteConfig={onChange}
               onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
             />
           )}
@@ -7627,9 +7817,9 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           )}
 
-          {/* 22. AI GLOBAL SEO AGENT (SEARCH GROUNDING & REGIONAL TRENDS) */}
+          {/* 22. AI GLOBAL SEO AGENT (SEARCH GROUNDING, REGIONAL TRENDS & TRANSLATION STRATEGIES) */}
           {(activeTab === "global-seo" || activeTab === "ai-global-seo") && (
-            <GlobalSeoAgentWorkspace
+            <AiGlobalSeoAgent
               config={config}
               onChange={onChange}
               onPreview={onPreview}

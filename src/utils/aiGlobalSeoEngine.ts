@@ -1,4 +1,12 @@
-import { SiteConfig, TargetMarketRegion, RegionalKeywordVariation, GeoMarketAnalysis, GlobalSeoAgentReport, CustomPageItem } from "../types";
+import { 
+  SiteConfig, 
+  TargetMarketRegion, 
+  RegionalKeywordVariation, 
+  GeoMarketAnalysis, 
+  GlobalSeoAgentReport, 
+  CustomPageItem,
+  RegionalContentTranslationStrategy
+} from "../types";
 
 export const DEFAULT_TARGET_MARKETS: TargetMarketRegion[] = [
   // Domestic Geo-Targeted Markets
@@ -723,6 +731,7 @@ export function generateFallbackGlobalSeoReport(
         detail: "İstanbul Anadolu Yakası, Ankara OSTİM ve Almanya DACH pazarı için 1 tıkla özel açılış sayfaları oluşturulabilir."
       }
     ],
+    translationStrategies: generateRegionalTranslationStrategies(config, selectedMarketIds),
     isGroundingLive: false
   };
 }
@@ -872,4 +881,349 @@ export function exportGlobalSeoReportToJson(report: GlobalSeoAgentReport): void 
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+/**
+ * Generates tailored regional content translation and transcreation strategies
+ */
+export function generateRegionalTranslationStrategies(
+  config: SiteConfig,
+  selectedMarketIds: string[] = []
+): RegionalContentTranslationStrategy[] {
+  const companyName = config.companyName || "HızlıWeb";
+  const sector = config.sector || "Web Tasarım & Yazılım";
+
+  const allStrategies: Record<string, RegionalContentTranslationStrategy> = {
+    "intl-de": {
+      regionId: "intl-de",
+      regionName: "Almanya & DACH Bölgesi (Berlin, Münih, Viyana, Zürih)",
+      countryCode: "DE",
+      flag: "🇩🇪",
+      targetLanguage: "de",
+      languageLabel: "Almanca (Deutsch)",
+      transcreationScore: 88,
+      transcreationGuidance: "Almanya pazarında motamot çeviriler 'yabancı ajans' intibası yaratarak hemen çıkma oranını %70 artırır. 'Web sitesi yapıyoruz' yerine 'Maßgeschneiderte Webentwicklung mit Festpreisgarantie' (Sabit fiyat garantili özel web geliştirme) yaklaşımı benimsenmelidir. Ciddiyet, şeffaf süreç ve Alman mühendislik titizliği vurgulanmalıdır.",
+      toneAndFormality: "Resmi ve Saygılı (Höflichkeitsform - Sie / Ihnen). Spekülatif, sansasyonel veya aşırı hevesli pazarlama sıfatları yerine somut teknik metrikler ve kanıtlar.",
+      culturalTrustAnchors: [
+        "100% DSGVO (GDPR) Uyumluluk Beyanı ve Çerez Denetimi",
+        "Yasal zorunluluk olan 'Impressum' ve 'Datenschutzerklärung' bağlantıları",
+        "TÜV / ISO sertifikaları ve AB standartlarında veri güvenliği",
+        "Rechnung (Fatura ile sonradan ödeme), SEPA ve Sofort ödeme entegrasyonları"
+      ],
+      buyerPsychologyNotes: "Alman B2B karar vericileri için en büyük risk projenin yarım kalması veya gizli maliyetlerin ortaya çıkmasıdır. Bu nedenle 'Festpreis' (Sabit Fiyat) ve '300ms altı yükleme garantisi' en güçlü satın alma tetikleyicileridir.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Hemen Teklif Alın",
+          localizedVersion: "Unverbindliches Festpreisangebot anfordern",
+          context: "Hero & Birincil Eylem"
+        },
+        {
+          turkishOriginal: "Bize Ulaşın",
+          localizedVersion: "Kostenloses 15-Min Erstgespräch vereinbaren",
+          context: "İletişim & Danışmanlık"
+        },
+        {
+          turkishOriginal: "Hizmetlerimizi İnceleyin",
+          localizedVersion: "Leistungsübersicht & Referenzprojekte ansehen",
+          context: "Portföy & Çözümler"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "Sayfa altbilgisine (Footer) 'Impressum' ve 'Datenschutz' linklerini eksiksiz ekleyin.",
+          "Core Web Vitals ve sayfa açılış hızını somut milisaniye değerleriyle belirtin.",
+          "Her hizmet için şeffaf paket kapsamı ve teslim süresi taahhüdü verin."
+        ],
+        donts: [
+          "'Piyasanın 1 numarası' gibi dayanaksız veya yasal olarak şikayet edilebilecek iddialar kullanmayın.",
+          "Kullanıcıya izin almadan 'Du' (sen) şeklinde hitap etmeyin.",
+          "Fiyat teklifini gizleyip sadece form doldurmaya zorlamayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="de-DE" href="https://example.com/de/" />',
+      localizedUrlPattern: "/de/webseite-erstellen-lassen-festpreis"
+    },
+    "intl-uk": {
+      regionId: "intl-uk",
+      regionName: "Birleşik Krallık / İngiltere (Londra, Manchester, Edinburgh)",
+      countryCode: "GB",
+      flag: "🇬🇧",
+      targetLanguage: "en",
+      languageLabel: "İngilizce (British English)",
+      transcreationScore: 78,
+      transcreationGuidance: "İngiltere pazarında Amerikan İngilizcesi imlası (Customize yerine Customise, Program yerine Programme) profesyonellik dışı algılanabilir. Abartıdan uzak, esprili ve zarif 'British Understatement' tonu tercih edilmelidir.",
+      toneAndFormality: "Kibar, akıcı, danışmanlık tonunda ve pratik. 'Bespoke' (kişiye özel terzi işi) ve 'Hassle-free' anahtar kavramlardır.",
+      culturalTrustAnchors: [
+        "Trustpilot 4.8+ Değerlendirme Puanı ve Müşteri Yorumları",
+        "Companies House kayıt numarası ve UK VAT şeffaflığı",
+        "Stripe, Apple Pay ve Direct Debit desteği",
+        "No-obligation Consultation (Bağlayıcı olmayan keşif görüşmesi)"
+      ],
+      buyerPsychologyNotes: "İngiliz işletmeler bürokrasi ve gereksiz uzun toplantılardan kaçınır. İşlerin ne kadar 'streamlined' ve zahmetsiz yürüdüğünü görmek isterler.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Hemen Başlayın",
+          localizedVersion: "Book a Free 15-Minute Discovery Call",
+          context: "Hero & Birincil Eylem"
+        },
+        {
+          turkishOriginal: "Fiyat Teklifi Al",
+          localizedVersion: "Get Your Tailored Quote in 24 Hours",
+          context: "Hızlı Teklif Formu"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "British English imla kurallarına ve para birimi sembolüne (£ GBP) sadık kalın.",
+          "Canlı vaka çalışmaları (Case Studies) ve net ROI oranları sergileyin.",
+          "Basit ve şeffaf adımlardan oluşan 3 adımlı çalışma takvimi gösterin."
+        ],
+        donts: [
+          "Amerikanvari aşırı iddialı 'Change the world' sloganlarından kaçının.",
+          "KDV (VAT) durumunu belirtmeden brüt/net fiyat kafa karışıklığı yaratmayın.",
+          "Yavaş açılan veya mobil formatı oturmamış portföy galerileri koymayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="en-GB" href="https://example.com/en-gb/" />',
+      localizedUrlPattern: "/en-gb/bespoke-web-development"
+    },
+    "intl-us": {
+      regionId: "intl-us",
+      regionName: "Amerika Birleşik Devletleri (Global İngilizce Pazarı)",
+      countryCode: "US",
+      flag: "🇺🇸",
+      targetLanguage: "en",
+      languageLabel: "İngilizce (US English)",
+      transcreationScore: 72,
+      transcreationGuidance: "Amerikan pazarında ilk 3 saniyede net bir değer önermesi (Value Proposition) sunulmalıdır. Müşterinin gelirini nasıl artıracağı veya operasyonel yükünü nasıl azaltacağı somut olarak ilk ekranda gösterilmelidir.",
+      toneAndFormality: "Enerjik, doğrudan, sonuç odaklı ve 'Action-driven'. İkinci tekil şahıs ('You / Your business') ile doğrudan diyalog.",
+      culturalTrustAnchors: [
+        "G2, Capterra veya Google Reviews rozetleri",
+        "30-Day Money Back Guarantee veya Memnuniyet Güvencesi",
+        "Instant Booking (Calendly tarzı anında takvimden randevu alma)",
+        "Stripe, PayPal, Credit Card güvenli ödeme rozetleri"
+      ],
+      buyerPsychologyNotes: "Amerikalı karar vericiler hızlı karar alır ancak acımasızca eleme yapar. Sayfa hızının gecikmesi veya formun 4 alandan uzun olması dönüşümü %50 düşürür.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Hemen Başlayın",
+          localizedVersion: "Launch Your High-Converting Site Today",
+          context: "Hero Butonu"
+        },
+        {
+          turkishOriginal: "Teklif Al",
+          localizedVersion: "Calculate Your Instant Project Estimate",
+          context: "Fiyat Hesaplayıcı"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "Fayda odaklı (Benefit-first) başlıklar ve net sayısal veriler kullanın.",
+          "Tek tıkla randevu veya anında mesajlaşma entegrasyonu sunun.",
+          "Modern ve minimalist bento-grid tasarımları öne çıkarın."
+        ],
+        donts: [
+          "Kullanıcıyı uzun şirket hikayesi okumaya mecbur bırakmayın.",
+          "İletişim bilgilerini sayfanın derinliklerine gizlemeyin.",
+          "Yavaş yüklenen ağır animasyonlar kullanmayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="en-US" href="https://example.com/en-us/" />',
+      localizedUrlPattern: "/en-us/high-performance-web-solutions"
+    },
+    "intl-fr": {
+      regionId: "intl-fr",
+      regionName: "Fransa & Frankofon Pazar (Paris, Lyon, Brüksel)",
+      countryCode: "FR",
+      flag: "🇫🇷",
+      targetLanguage: "fr",
+      languageLabel: "Fransızca (Français)",
+      transcreationScore: 86,
+      transcreationGuidance: "Fransız kullanıcılar kendi dillerine karşı son derece hassastır. İngilizce terimler (Buzzwords) yerine Fransızca terminoloji ('Site internet sur mesure', 'Devis gratuit', 'Accompagnement personnalisé') kullanılmalıdır.",
+      toneAndFormality: "Kibar ve resmi (Vouvoyer - Vous). Fransız estetiği, tipografik zarafet ve dengeli tasarım öne çıkmalıdır.",
+      culturalTrustAnchors: [
+        "Mentions Légales ve Politique de Confidentialité (RGPD / GDPR)",
+        "Paiement 100% Sécurisé (CB, Visa, Mastercard)",
+        "Avis Clients Vérifiés (Doğrulanmış Müşteri İncelemeleri)",
+        "Devis gratuit sans engagement (Taahhütsüz ücretsiz teklif)"
+      ],
+      buyerPsychologyNotes: "Fransız müşteriler tasarım kalitesi ve kişisel ilgiye çok önem verir. Standart hazır şablon hissi veren siteleri hemen terk ederler.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Hemen Teklif Alın",
+          localizedVersion: "Demandez votre devis gratuit sans engagement",
+          context: "Hero & Başvuru"
+        },
+        {
+          turkishOriginal: "İletişime Geçin",
+          localizedVersion: "Échangez avec notre équipe d'experts",
+          context: "Danışmanlık"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "Fransızca dilbilgisi, aksan işaretleri (é, è, ç) ve noktalama kurallarına titizlikle uyun.",
+          "Tasarım estetiği ve kullanıcı deneyimini (UX) vurgulayın.",
+          "Hizmet sonrası teknik destek ve bakım garantisi verin."
+        ],
+        donts: [
+          "Otomatik çeviri hissi veren bağlamsız cümleler kurmayın.",
+          "Aşırı Amerikanvari agresif satış dili kullanmayın.",
+          "Yasal künye (Mentions Légales) olmadan yayına çıkmayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="fr-FR" href="https://example.com/fr/" />',
+      localizedUrlPattern: "/fr/creation-site-internet-sur-mesure"
+    },
+    "intl-ae": {
+      regionId: "intl-ae",
+      regionName: "Körfez & BAE (Dubai, Abu Dabi, Riyad Hub)",
+      countryCode: "AE",
+      flag: "🇦🇪",
+      targetLanguage: "ar",
+      languageLabel: "Arapça & İş İngilizcesi",
+      transcreationScore: 92,
+      transcreationGuidance: "Körfez pazarında itibar, kurumsal lüks, ultra hız ve VIP ilgi en önemli satın alma dürtüsüdür. Hem modern standart Arapça (Fusha) hem de üst düzey Business English eşzamanlı desteklenmelidir.",
+      toneAndFormality: "Saygılı, prestijli, ortaklık odaklı ve lüks. Güçlü kurumsal duruş ve referanslar ön planda olmalıdır.",
+      culturalTrustAnchors: [
+        "DED (Dubai Economy & Tourism) lisans ve şirket uyumluluğu",
+        "Anında WhatsApp Business VIP iletişim hattı",
+        "Yerel para birimleri (AED, SAR) ve Apple Pay / Mada desteği",
+        "Bölgesel veri merkezi (Dubai / Bahrain) düşük gecikme süresi"
+      ],
+      buyerPsychologyNotes: "Körfez müşterileri hızlı yüz yüze veya görüntülü görüşme ister. WhatsApp üzerinden doğrudan üst düzey yetkiliyle konuşabilmek satışı %80 oranında kapatır.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Hemen Başlayın",
+          localizedVersion: "احصل على استشارة فورية عبر واتساب (WhatsApp VIP İstişare)",
+          context: "Mobil Hızlı İletişim"
+        },
+        {
+          turkishOriginal: "Teklif Al",
+          localizedVersion: "Request an Exclusive Project Proposal in AED",
+          context: "Kurumsal Teklif"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "RTL (Sağdan sola) Arapça tipografiye tam uyum sağlayın.",
+          "Dubai ve Körfez referanslarını, uluslararası vizyonu vurgulayın.",
+          "Hızlı yanıt veren WhatsApp butonunu sabit konumlandırın."
+        ],
+        donts: [
+          "Kültürel ve dini hassasiyetlere uygunsuz görsel veya ifadeler kullanmayın.",
+          "Sadece İngilizce bırakıp yerel Arapça desteğini ihmal etmeyin.",
+          "Bölgesel telefon kodu (+971) ve yerel çalışma saatlerini belirtmeyi unutmayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="ar-AE" href="https://example.com/ar/" />',
+      localizedUrlPattern: "/ar/web-design-dubai"
+    },
+    "intl-nl": {
+      regionId: "intl-nl",
+      regionName: "Hollanda & Benelux (Amsterdam, Rotterdam, Utrecht)",
+      countryCode: "NL",
+      flag: "🇳🇱",
+      targetLanguage: "nl",
+      languageLabel: "Felemenkçe (Nederlands)",
+      transcreationScore: 74,
+      transcreationGuidance: "Hollanda pazarında açıklık, şeffaflık ve somutluk esastır. 'Website laten maken' (Web sitesi yaptırmak) kalıbı en yüksek hacimli yerel aramadır. Karmaşık paketler yerine net ve anlaşılır çözümler sevilir.",
+      toneAndFormality: "Doğrudan, samimi ama profesyonel (Je / U dengesi). Laf kalabalığından arındırılmış, fonksiyonel tasarım.",
+      culturalTrustAnchors: [
+        "iDEAL Ödeme Entegrasyonu (Hollanda'da e-ticaret ve ödemelerin %70'i)",
+        "KVK (Kamer van Koophandel) kayıt numarası şeffaflığı",
+        "AVG (Hollanda GDPR) tam uyumu",
+        "WebwinkelKeur veya Thuiswinkel güven rozetleri"
+      ],
+      buyerPsychologyNotes: "Hollandalılar aşırı abartılı vaatlere şüpheyle yaklaşır. 'Ne kadara, ne zaman teslim edilecek ve teknik altyapısı nedir?' sorularına net cevap ararlar.",
+      localizedCtas: [
+        {
+          turkishOriginal: "Teklif Al",
+          localizedVersion: "Vraag direct een vrijblijvende offerte aan",
+          context: "Fiyat Teklifi"
+        },
+        {
+          turkishOriginal: "Hemen Başla",
+          localizedVersion: "Plan een gratis kennismakingsgesprek",
+          context: "Tanışma Toplantısı"
+        }
+      ],
+      contentDosAndDonts: {
+        dos: [
+          "Ödeme altyapısında mutlaka iDEAL logosuna yer verin.",
+          "Pragmatik ve doğrudan bir dil kullanın.",
+          "Sitenin yeşil enerji ve çevre dostu CDN altyapısıyla çalıştığını belirtin."
+        ],
+        donts: [
+          "Gereksiz formalitelerle süreci uzatmayın.",
+          "Fiyatları gizleyip yalnızca toplantı sonrası vermeye çalışmayın."
+        ]
+      },
+      recommendedHreflangTag: '<link rel="alternate" hreflang="nl-NL" href="https://example.com/nl/" />',
+      localizedUrlPattern: "/nl/professionele-website-laten-maken"
+    }
+  };
+
+  const targetIds = selectedMarketIds.length > 0 
+    ? selectedMarketIds.filter(id => allStrategies[id])
+    : ["intl-de", "intl-uk", "intl-us", "intl-fr", "intl-ae", "intl-nl"];
+
+  if (targetIds.length === 0) {
+    return [allStrategies["intl-de"], allStrategies["intl-uk"], allStrategies["intl-us"]];
+  }
+
+  return targetIds.map(id => allStrategies[id]).filter(Boolean);
+}
+
+/**
+ * Export full translation and localization strategy brief to Markdown
+ */
+export function exportTranslationStrategyBriefToMarkdown(report: GlobalSeoAgentReport): void {
+  const strategies = report.translationStrategies || [];
+  let md = `# AI Global SEO Uluslararası İçerik Çeviri & Transcreation Strateji Raporu\n\n`;
+  md += `**Firma / Marka:** ${report.companyName}\n`;
+  md += `**Sektör:** ${report.industry}\n`;
+  md += `**Tarih:** ${report.analyzedAt}\n`;
+  md += `**Global Erişim Skoru:** %${report.overallGlobalReachScore}/100\n\n`;
+  md += `## Stratejik Yönetici Özeti\n${report.executiveStrategicSummary}\n\n`;
+  md += `---\n\n`;
+
+  strategies.forEach((s) => {
+    md += `## ${s.flag} ${s.regionName} (${s.languageLabel})\n\n`;
+    md += `* **Transcreation Skoru:** %${s.transcreationScore}/100 (Doğrudan çeviri yerine kültürel uyarlama gereksinimi)\n`;
+    md += `* **Önerilen Hreflang:** \`${s.recommendedHreflangTag}\`\n`;
+    md += `* **Önerilen URL Deseni:** \`${s.localizedUrlPattern}\`\n`;
+    md += `* **Üslup & Hitap (Tone of Voice):** ${s.toneAndFormality}\n\n`;
+    md += `### Transcreation & İçerik Kılavuzu\n${s.transcreationGuidance}\n\n`;
+    md += `### Bölgesel Alıcı Psikolojisi & Satın Alma Güdüleri\n${s.buyerPsychologyNotes}\n\n`;
+    
+    md += `### Kültürel Güven Unsurları (Trust Anchors)\n`;
+    s.culturalTrustAnchors.forEach((a) => {
+      md += `- [x] ${a}\n`;
+    });
+    md += `\n`;
+
+    md += `### Lokalize Eylem Çağrıları (CTAs)\n`;
+    s.localizedCtas.forEach((cta) => {
+      md += `- **${cta.turkishOriginal}** ➔ \`${cta.localizedVersion}\` *(${cta.context})*\n`;
+    });
+    md += `\n`;
+
+    md += `### Yapılması ve Kaçınılması Gerekenler\n`;
+    md += `**Yapılması Gerekenler:**\n`;
+    s.contentDosAndDonts.dos.forEach((d) => md += `+ ${d}\n`);
+    md += `\n**Kaçınılması Gerekenler:**\n`;
+    s.contentDosAndDonts.donts.forEach((d) => md += `- ${d}\n`);
+    md += `\n---\n\n`;
+  });
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `ai-global-seo-translation-strategy-${new Date().toISOString().slice(0, 10)}.md`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

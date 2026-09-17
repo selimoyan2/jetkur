@@ -36,7 +36,10 @@ import {
   Flame,
   Scale,
   ExternalLink,
-  Sliders
+  Sliders,
+  Compass,
+  MapPin,
+  PieChart
 } from "lucide-react";
 import { SiteConfig, CompetitiveStrategyEntity, CompetitiveRadarAxisDef } from "../types";
 import { 
@@ -46,6 +49,11 @@ import {
 import { WeeklyQuickSeoWins } from "./dashboard/WeeklyQuickSeoWins";
 import { CompetitiveAnalysisReport } from "./dashboard/CompetitiveAnalysisReport";
 import { GlobalSeoAgentWorkspace } from "./dashboard/GlobalSeoAgentWorkspace";
+import { CompetitorUrlAnalysisModule } from "./dashboard/CompetitorUrlAnalysisModule";
+import { ContentGapMap } from "./dashboard/ContentGapMap";
+import { MarketShareBenchmarkTable } from "./dashboard/MarketShareBenchmarkTable";
+import { LocalSeoLocationMap } from "./dashboard/LocalSeoLocationMap";
+import { MarketShareCompetitorAnalysisPanel } from "./dashboard/MarketShareCompetitorAnalysisPanel";
 
 // ============================================================================
 // DATA CONTRACTS
@@ -168,7 +176,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
   const marketLeader = competitors.find(c => c.rank === 1) || competitors[0];
 
   // Active strategic module tab
-  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
+  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [pdfSuccessNotice, setPdfSuccessNotice] = useState<boolean>(false);
   const printableReportRef = useRef<HTMLDivElement>(null);
@@ -397,6 +405,42 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
             <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
+                id="banner-market-share-panel-btn"
+                onClick={() => setActiveStrategicTab("market-share-panel")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 text-xs font-black tracking-wide hover:bg-indigo-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <PieChart className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Pazar Payı Rakip Analiz Paneli (D3.js)</span>
+              </button>
+              <button
+                type="button"
+                id="banner-local-seo-map-btn"
+                onClick={() => setActiveStrategicTab("local-seo-map")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black tracking-wide hover:bg-emerald-500/30 transition-all cursor-pointer"
+              >
+                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Yerel SEO Konum Haritası (Local Pack)</span>
+              </button>
+              <button
+                type="button"
+                id="banner-content-gap-map-btn"
+                onClick={() => setActiveStrategicTab("content-gap-map")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 text-xs font-black tracking-wide hover:bg-rose-500/30 transition-all cursor-pointer"
+              >
+                <Compass className="w-3.5 h-3.5 text-rose-400" />
+                <span>İçerik Boşluğu Haritası (Content Gap Map)</span>
+              </button>
+              <button
+                type="button"
+                id="banner-rakip-analiz-btn"
+                onClick={() => setActiveStrategicTab("competitor-url-analysis")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-xs font-black tracking-wide hover:bg-blue-500/30 transition-all cursor-pointer"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-400" />
+                <span>Rakip Analiz Modülü (URL Karşılaştırma)</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveStrategicTab("global-ai-seo")}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-black tracking-wide hover:bg-cyan-500/30 transition-all cursor-pointer"
               >
@@ -542,6 +586,76 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
 
           <button
             type="button"
+            id="strategic-tab-market-share-panel"
+            onClick={() => setActiveStrategicTab("market-share-panel")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "market-share-panel"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <PieChart className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Pazar Payı Rakip Analiz Paneli (D3)</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-market-share"
+            onClick={() => setActiveStrategicTab("market-share-benchmark")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "market-share-benchmark"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Pazar Payı Kıyaslama Tablosu</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-content-gap-map"
+            onClick={() => setActiveStrategicTab("content-gap-map")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "content-gap-map"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-rose-700 hover:bg-rose-50"
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 text-rose-400" />
+            <span>İçerik Boşluğu Haritası (Content Gap)</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-local-seo-map"
+            onClick={() => setActiveStrategicTab("local-seo-map")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "local-seo-map"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Yerel SEO Konum Haritası</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-competitor-url"
+            onClick={() => setActiveStrategicTab("competitor-url-analysis")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "competitor-url-analysis"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-400" />
+            <span>Rakip Analiz Modülü (URL Karşılaştırma)</span>
+          </button>
+
+          <button
+            type="button"
             id="strategic-tab-global-ai-seo"
             onClick={() => setActiveStrategicTab("global-ai-seo")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
@@ -602,6 +716,71 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           <span>{activeConfig.city} • {activeConfig.sector}</span>
         </div>
       </div>
+
+      {/* ===================================================================== */}
+      {/* 2.2b PAZAR PAYI RAKİP ANALİZ PANELİ (D3.JS PAZAR PAYI DAĞILIMI VE GOOGLE SIRALAMA KIYASLAMASI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "market-share-panel") && (
+        <div id="pazar-payi-rakip-analiz-paneli-section" className="scroll-mt-6">
+          <MarketShareCompetitorAnalysisPanel
+            siteConfig={activeConfig}
+            onUpdateSiteConfig={onUpdateSiteConfig}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.3 PAZAR PAYI KIYASLAMA TABLOSU (DOMAİN OTORİTESİ, KELİME YOĞUNLUĞU, SİTE HIZI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "market-share-benchmark") && (
+        <div id="pazar-payi-kiyaslama-tablosu-section" className="scroll-mt-6">
+          <MarketShareBenchmarkTable
+            siteConfig={activeConfig}
+            onUpdateSiteConfig={onUpdateSiteConfig}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.4 İÇERİK BOŞLUĞU HARİTASI (SEÇİLİ RAKİPLERİN İÇERİK BOŞLUKLARI & EKSİK KELİMELER) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "content-gap-map") && (
+        <div id="icerik-boslugu-haritasi-section" className="scroll-mt-6">
+          <ContentGapMap
+            siteConfig={activeConfig}
+            onUpdateSiteConfig={onUpdateSiteConfig}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.4b YEREL SEO KONUM HARİTASI (GOOGLE HARİTALAR LOCAL PACK & YEREL ARAMA HACMİ) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "local-seo-map") && (
+        <div id="yerel-seo-konum-haritasi-section" className="scroll-mt-6">
+          <LocalSeoLocationMap
+            siteConfig={activeConfig}
+            onUpdateSiteConfig={onUpdateSiteConfig}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.5 RAKİP ANALİZ MODÜLÜ (URL İLE İÇERİK VE ANAHTAR KELİME KARŞILAŞTIRMASI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "competitor-url-analysis") && (
+        <div id="rakip-url-analiz-modulu-section" className="scroll-mt-6">
+          <CompetitorUrlAnalysisModule
+            siteConfig={activeConfig}
+            onUpdateSiteConfig={onUpdateSiteConfig}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
 
       {/* ===================================================================== */}
       {/* 3. GLOBAL AI SEO AJANI (KÜRESEL PAZARLAR, ANAHTAR KELİME & İÇERİK STRATEJİSİ) */}

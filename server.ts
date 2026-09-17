@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 import { generateFallbackSeoContentOptimizer, calculateGooglePixelWidth } from "./src/utils/seoContentOptimizerEngine";
 import { generateFallbackBlogArticle, auditBlogArticleSeo, generateBlogJsonLdSchema, STOCK_ARTICLE_COVERS } from "./src/utils/aiBlogEngineUtils";
 import { generateFallbackAiImageOptimization } from "./src/utils/imageOptimizer";
-import { generateFallbackCompetitiveSeo } from "./src/utils/competitiveSeoUtils";
+import { generateFallbackCompetitiveSeo, generateFallbackBenchmarkingData } from "./src/utils/competitiveSeoUtils";
 import { generateFallbackCompetitiveSwot } from "./src/utils/competitiveSwotUtils";
 import { generateFallbackContentMetaOptimization, extractScannableSections, getSectorKeywords } from "./src/utils/aiContentMetaOptimizerEngine";
 import { generateFallbackMetaOptimization, extractSiteKeywords } from "./src/utils/aiMetaOptimizerEngine";
@@ -16,6 +16,7 @@ import { generateFallbackContentPlan } from "./src/utils/aiContentPlannerEngine"
 import { generateFallbackSeoTrendForecast } from "./src/utils/seoTrendForecastEngine";
 import { generatePricingIntelligence } from "./src/utils/aiPricingIntelligenceEngine";
 import { generateFallbackGlobalSeoReport } from "./src/utils/aiGlobalSeoEngine";
+import { generateFallbackAiSeoContentAssistant } from "./src/utils/aiSeoContentAssistantEngine";
 
 dotenv.config();
 
@@ -652,6 +653,171 @@ JSON Şeması:
         city: req.body?.city,
         customDomain: req.body?.domain
       } as any);
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
+    }
+  });
+
+  // Real-time Competitive SEO Benchmarking (Domain Authority & Keyword Ranking vs Competitors)
+  app.post("/api/competitive-benchmarking", async (req, res) => {
+    try {
+      const {
+        companyName = "İşletme",
+        sector = "Hizmet",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        customCompetitors = [],
+        config = {}
+      } = req.body;
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackBenchmarkingData(
+          config && config.companyName ? config : ({ companyName, sector, city, cloudflare: { customDomain: domain } } as any),
+          customCompetitors
+        );
+        return res.json({ success: true, source: "algorithmic_model", data: fallback });
+      }
+
+      const compPromptList = customCompetitors && customCompetitors.length > 0
+        ? `Özel İstenen Rakipler: ${customCompetitors.map((c: any) => `${c.name || ''} (${c.domain})`).join(', ')}`
+        : `Lütfen Google Arama ile "${city} ${sector}" ve "${sector} firmaları" sorgularında EN GÜÇLÜ İLK 3 RAKİBİ canlı olarak tespit et.`;
+
+      const prompt = `Sen uluslararası ve Türkiye yerel SEO standartlarına (Moz Domain Authority, Ahrefs DR, Semrush Visibility, Google SERP algoritmaları) hakim kıdemli bir SEO Analistisin.
+Google Search aracını kullanarak canlı web verileriyle "${city} ${sector}" pazarındaki rakipleri tara ve aşağıdaki işletme ile kapsamlı bir "Competitive SEO Benchmarking" analizi yap.
+
+İşletme Bilgileri:
+- Firma Adı: ${companyName}
+- Sektör / Niş: ${sector}
+- Şehir / Bölge: ${city}
+- Web Sitesi: ${domain}
+${compPromptList}
+
+Lütfen şu iki kritik kıyaslama tablosunu ve özet verilerini üret:
+
+1. DOMAIN OTORİTESİ (DOMAIN AUTHORITY) KIYASLAMA TABLOSU:
+Kullanıcının sitesi ve en güçlü 3 rakip için:
+- domain: Web adresi
+- name: Firma adı
+- isUser: true (kullanıcı için), false (rakipler için)
+- rank: 1, 2, 3 veya 4
+- domainAuthority: 0-100 ölçeğinde Moz/Ahrefs tarzı Domain Authority (DA) skoru
+- pageAuthority: 0-100 ölçeğinde Page Authority (PA)
+- backlinksCount: Tahmini toplam backlink sayısı (sayı)
+- referringDomains: Tahmini yönlendiren domain (RD) sayısı (sayı)
+- spamScore: Spam riski yüzdesi (% örn. 1-10)
+- organicVisibility: 0-100 ölçeğinde organik arama görünürlük indeksi
+- indexedPages: Google'da indeksli tahmini sayfa sayısı
+- speedScore: 0-100 Google PageSpeed / Core Web Vitals skoru (Kullanıcının Cloudflare edge statik sitesi için ~95-98)
+- schemaScore: 0-100 Yapısal veri & Schema.org puanı
+- authorityStatus: "superior" | "competitive" | "trailing"
+- keyAuthoritySignal: Otoriteyi güçlendiren veya zayıflatan ana sinyal (örn. "1800+ kaliteli backlink", "98/100 Core Web Vitals")
+- topDifferentiator: Rakipten ayrışan temel özellik
+
+2. ANAHTAR KELİME SIRALAMASI (KEYWORD RANKING HEAD-TO-HEAD) KIYASLAMA TABLOSU:
+Sektörün ve bölgenin en kritik 8-10 adet ticari, acil/yerel ve bilgilendirici anahtar kelimesi için kullanıcının sırası ve 3 rakibin sırasını kıyasla:
+- id: "kr-1", "kr-2" vb.
+- keyword: Anahtar kelime
+- searchIntent: "Ticari" | "Bilgilendirici" | "Acil / Yerel" | "İşlemsel"
+- monthlyVolume: Aylık aranma hacmi (örn. "8.4K / ay")
+- difficulty: 0-100 SEO zorluk puanı
+- userRank: Kullanıcının tahmini SERP sırası (örn. 1, 2, 3, 5, 8 veya null if >20)
+- comp1Rank: 1. Rakibin sırası (örn. 1)
+- comp2Rank: 2. Rakibin sırası (örn. 2)
+- comp3Rank: 3. Rakibin sırası (örn. 4)
+- serpFeatures: ["Yerel 3-Pack (Harita)", "Öne Çıkan Snippet", "Site Bağlantıları", "Telefon Butonu"] vb.
+- status: "leading" (kullanıcı en önde), "competing" (ilk 5'te rekabet halinde), "trailing" (geride), "missing" (sıralamada yok)
+- gap: Sitenin en iyi rakibe göre sıra farkı (negatif ise kullanıcı önde, pozitif ise geride)
+- trafficOpportunity: Potansiyel tıklama kazancı (örn. "+540 Aylık Tıklama")
+- aiRecommendation: Kullanıcının bu kelimede rakipleri geçmesi için somut SEO taktiği.
+
+3. BENCHMARKING ÖZETİ:
+- avgCompetitorDa: Rakiplerin ortalama DA skoru
+- userDa: Kullanıcının DA skoru
+- daGap: userDa - avgCompetitorDa
+- leadingKeywordsCount: Kullanıcının rakiplerin önünde olduğu kelime sayısı
+- trailingKeywordsCount: Kullanıcının geride kaldığı kelime sayısı
+- competingKeywordsCount: Başa baş yarışılan kelime sayısı
+- totalTrafficOpportunity: Toplam potansiyel organik trafik kazancı (örn. "+2.850 Aylık Ziyaretçi")
+- keyCompetitiveAdvantage: Kullanıcının pazardaki en güçlü avantajı
+
+Lütfen yanıtını SADECE geçerli bir JSON nesnesi olarak döndür:
+{
+  "userDomain": "${domain}",
+  "userName": "${companyName}",
+  "sector": "${sector}",
+  "city": "${city}",
+  "domainAuthorities": [...],
+  "keywordRankings": [...],
+  "summary": { ... }
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      let rawText = response.text || "";
+      rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (parseErr) {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          throw parseErr;
+        }
+      }
+
+      // Extract search grounding sources if available
+      const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+      const webQueries: string[] = groundingMeta?.webSearchQueries || [];
+      const groundingChunks: any[] = groundingMeta?.groundingChunks || [];
+
+      const extractedSources: any[] = [];
+      if (webQueries.length > 0) {
+        webQueries.forEach((q) => {
+          extractedSources.push({
+            query: q,
+            sources: groundingChunks
+              .filter((c: any) => c.web?.uri)
+              .slice(0, 4)
+              .map((c: any) => ({
+                title: c.web.title || "SERP Kaynağı",
+                uri: c.web.uri
+              }))
+          });
+        });
+      }
+
+      parsed.analyzedAt = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      parsed.userDomain = domain;
+      parsed.userName = companyName;
+      parsed.sector = sector;
+      parsed.city = city;
+      parsed.source = "gemini_grounding";
+      if (extractedSources.length > 0) {
+        parsed.groundingSources = extractedSources.flatMap(e => e.sources);
+      }
+
+      return res.json({ success: true, source: "gemini_grounding", data: parsed });
+    } catch (err: any) {
+      console.error("Competitive Benchmarking error, serving fallback:", err);
+      const fallback = generateFallbackBenchmarkingData(
+        req.body?.config || {
+          companyName: req.body?.companyName,
+          sector: req.body?.sector,
+          city: req.body?.city,
+          cloudflare: { customDomain: req.body?.domain }
+        } as any,
+        req.body?.customCompetitors
+      );
       return res.json({ success: true, source: "fallback_recovery", data: fallback });
     }
   });
@@ -2156,6 +2322,183 @@ Lütfen cevabını SADECE geçerli bir JSON olarak döndür. JSON dışında hi�
         req.body?.industry,
         req.body?.city
       );
+      return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+    }
+  });
+
+  // AI SEO Content Assistant (Gemini 3.8 Flash - Blog Outlines & Optimized Meta-Content)
+  app.post("/api/ai-seo-content-assistant", async (req, res) => {
+    try {
+      const {
+        primaryKeyword = "",
+        secondaryKeywords = [],
+        topicHint = "",
+        searchIntent = "Ticari",
+        contentAngle = "Kapsamlı Rehber (Ultimate Guide)",
+        tone = "Uzman & Otoriter",
+        targetAudience = "",
+        targetWordCount = 1500,
+        companyName = "İşletme",
+        sector = "Hizmet",
+        city = "İstanbul",
+        siteServices = []
+      } = req.body || {};
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackAiSeoContentAssistant({
+          primaryKeyword,
+          secondaryKeywords,
+          topicHint,
+          searchIntent,
+          contentAngle,
+          tone,
+          targetAudience,
+          targetWordCount,
+          companyName,
+          sector,
+          city,
+          siteServices
+        });
+        return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+      }
+
+      const prompt = `Sen Türkiye'nin en iyi Kıdemli Google SEO Mimarı ve E-E-A-T İçerik Stratejistisin.
+Aşağıdaki anahtar kelimelere ve işletme profiline göre, Google SERP'te 1. sayfada yer alacak, Featured Snippets ve Google AI Overviews için optimize edilmiş KAPSAMLI BİR BLOG TASLAĞI (Blog Post Outline) ve OPTİMİZE EDİLMİŞ META-İÇERİK (Meta-Content Package) üret.
+
+Girdi Parametreleri:
+- Birincil Odak Anahtar Kelime: "${primaryKeyword || `${city} ${sector}`}"
+- İkincil / LSI Anahtar Kelimeler: ${Array.isArray(secondaryKeywords) && secondaryKeywords.length > 0 ? secondaryKeywords.join(", ") : "Otomatik türet"}
+- Konu / Odak İpucu: "${topicHint || "2026 Kapsamlı Sektör Rehberi"}"
+- Arama Niyeti (Search Intent): "${searchIntent}"
+- İçerik Açısı (Content Angle): "${contentAngle}"
+- Üslup / Ton: "${tone}"
+- Hedef Kitle: "${targetAudience || `${city} bölgesindeki potansiyel müşteriler ve karar vericiler`}"
+- Hedef Kelime Sayısı: ${targetWordCount || 1500} kelime
+- Firma / Marka: "${companyName}"
+- Sektör / Niş: "${sector}"
+- Şehir / Bölge: "${city}"
+- Firmanın Hizmetleri: ${Array.isArray(siteServices) ? siteServices.join(", ") : "Genel Sektörel"}
+
+Üretilecek İçerik Gereksinimleri:
+1. titleOptions: 3-4 adet yüksek CTR oranına sahip H1 Başlık alternatifi (Karakter sayısı 50-65 arası, pixelWidth tahmini, ctrRating, ve angleDescription).
+2. selectedTitle: En güçlü H1 başlık.
+3. hookIntro: Giriş paragrafı stratejisi (Problem-Agitation-Solution veya merak uyandırıcı soru, değer vaadi).
+4. sections: En az 4-5 adet H2 ana bölüm; her birinde purpose, bu bölüme yedirilecek targetKeywords, en az 2 adet H3 alt başlık (her H3 altında 3-4 madde bulletPoints), suggestedVisualOrBlock (örn: "Karşılaştırma Tablosu", "Kontrol Listesi", "Uyarı Kutusu") ve estimatedWords.
+5. featuredSnippetSummary: Google Answer Box ve AI Overviews için tam 40-55 kelimelik doğrudan, net tanım/cevap paragrafı.
+6. peopleAlsoAsk: 4 adet Google 'Kullanıcılar Bunu da Sordu' (PAA) sorusu ve özlü cevapları.
+7. internalLinks: 3 adet sitenin diğer sayfalarına verilecek akıllı iç link önerisi (anchorText, targetPage, context).
+8. callToActionPlan: Dönüşüm planı (placement, ctaHeadline, ctaButtonText, ctaDescription).
+9. eeatChecklist: Google Experience, Expertise, Authoritativeness, Trustworthiness sinyal önerileri.
+10. metaContent:
+    - metaTitle: Tam 50-60 karakter, SERP dostu başlık.
+    - metaDescription: 140-160 karakter, harekete geçirici açıklama.
+    - cleanSlug: Türkçe karakterlerden arındırılmış temiz URL slug'ı.
+    - ogTitle ve ogDescription: Sosyal paylaşımlar için.
+    - featuredImageAltText: SEO uyumlu görsel alt metni.
+    - schemaJsonLd: BlogPosting JSON-LD şeması.
+
+Lütfen SADECE geçerli bir JSON formatında yanıt ver. Markdown blokları (örn: \`\`\`json) KULLANMA veya sadece saf JSON döndür:
+{
+  "primaryKeyword": "...",
+  "secondaryKeywords": ["..."],
+  "searchIntent": "${searchIntent}",
+  "targetAudience": "...",
+  "contentAngle": "${contentAngle}",
+  "tone": "${tone}",
+  "estimatedReadingTime": "6-8 dk",
+  "targetWordCount": ${targetWordCount || 1500},
+  "competitionDifficulty": "Orta",
+  "titleOptions": [
+    {
+      "title": "...",
+      "charCount": 58,
+      "pixelWidth": 520,
+      "ctrRating": "Çok Yüksek",
+      "angleDescription": "..."
+    }
+  ],
+  "selectedTitle": "...",
+  "hookIntro": {
+    "hookLine": "...",
+    "problemAgitation": "...",
+    "valuePromise": "..."
+  },
+  "sections": [
+    {
+      "id": "sec-1",
+      "heading": "...",
+      "purpose": "...",
+      "targetKeywords": ["..."],
+      "estimatedWords": 300,
+      "suggestedVisualOrBlock": "...",
+      "subheadings": [
+        {
+          "title": "...",
+          "bulletPoints": ["...", "..."]
+        }
+      ]
+    }
+  ],
+  "featuredSnippetSummary": "...",
+  "peopleAlsoAsk": [
+    { "question": "...", "conciseAnswer": "..." }
+  ],
+  "internalLinks": [
+    { "anchorText": "...", "targetPage": "...", "context": "..." }
+  ],
+  "callToActionPlan": {
+    "placement": "...",
+    "ctaHeadline": "...",
+    "ctaButtonText": "...",
+    "ctaDescription": "..."
+  },
+  "eeatChecklist": {
+    "experience": "...",
+    "expertise": "...",
+    "authoritativeness": "...",
+    "trustworthiness": "..."
+  },
+  "metaContent": {
+    "metaTitle": "...",
+    "metaTitleLength": 56,
+    "metaTitlePixelWidth": 510,
+    "isMetaTitleOptimal": true,
+    "metaDescription": "...",
+    "metaDescriptionLength": 152,
+    "isMetaDescriptionOptimal": true,
+    "cleanSlug": "...",
+    "primaryKeyword": "...",
+    "secondaryKeywords": ["..."],
+    "ogTitle": "...",
+    "ogDescription": "...",
+    "featuredImageAltText": "...",
+    "schemaJsonLd": "{...}"
+  }
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+        }
+      });
+
+      const text = response.text || "";
+      const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      parsed.id = `assistant-out-${Date.now()}`;
+      parsed.createdAt = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+      parsed.source = "gemini_api";
+      parsed.modelUsed = "gemini-3.8-flash";
+
+      return res.json({ success: true, source: "gemini_api", data: parsed });
+    } catch (err: any) {
+      console.error("AI SEO Content Assistant API Error:", err);
+      const fallback = generateFallbackAiSeoContentAssistant(req.body || {});
       return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
     }
   });

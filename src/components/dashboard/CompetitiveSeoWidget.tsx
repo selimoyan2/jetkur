@@ -15,6 +15,7 @@ import { downloadCompetitiveSeoPdf } from "../../utils/competitiveSeoPdfGenerato
 import { CompetitiveKeywordRankingTable } from "./CompetitiveKeywordRankingTable";
 import { CompetitiveSeoComparisonTable } from "./CompetitiveSeoComparisonTable";
 import { SeoCompetitiveAlertCenter } from "./SeoCompetitiveAlertCenter";
+import { CompetitiveSeoBenchmarking } from "./CompetitiveSeoBenchmarking";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -59,7 +60,8 @@ import {
   Download,
   DollarSign,
   HelpCircle,
-  BellRing
+  BellRing,
+  Trophy
 } from "lucide-react";
 
 interface CompetitiveSeoWidgetProps {
@@ -69,7 +71,7 @@ interface CompetitiveSeoWidgetProps {
   isCompactWidget?: boolean;
   onOpenFullView?: () => void;
   onOpenAlertCenter?: () => void;
-  initialTab?: "alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords";
+  initialTab?: "benchmarking" | "alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords";
 }
 
 export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
@@ -88,7 +90,7 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
   const [isGroundingActive, setIsGroundingActive] = useState(true);
   
   // Filters & Tabs
-  const [compactTab, setCompactTab] = useState<"alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords">(initialTab || "swot");
+  const [compactTab, setCompactTab] = useState<"benchmarking" | "alerts" | "swot" | "rankings" | "metrics" | "suggestions" | "keywords">(initialTab || "benchmarking");
   const [activeIntentFilter, setActiveIntentFilter] = useState<string>("all");
   const [keywordSearch, setKeywordSearch] = useState<string>("");
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<string | null>(null);
@@ -449,6 +451,23 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
             <button
               type="button"
+              id="compact-tab-benchmarking"
+              onClick={() => setCompactTab("benchmarking")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                compactTab === "benchmarking"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
+                  : "bg-slate-800/80 text-amber-300 hover:text-white border border-amber-500/40"
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Competitive Benchmarking</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-900/60 text-amber-300 text-[9px] font-mono font-bold border border-amber-500/30">
+                DA &amp; Head-to-Head
+              </span>
+            </button>
+
+            <button
+              type="button"
               id="compact-tab-alerts"
               onClick={() => setCompactTab("alerts")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -544,6 +563,41 @@ export const CompetitiveSeoWidget: React.FC<CompetitiveSeoWidgetProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Tab BENCHMARKING: Real-time Competitive SEO Benchmarking (DA & Keyword Ranking vs Competitors) */}
+        {compactTab === "benchmarking" && (
+          <div className="space-y-4 relative z-10 animate-fadeIn">
+            <CompetitiveSeoBenchmarking
+              config={config}
+              onChange={onChange}
+              onNavigateTab={onNavigateTab}
+              onApplyKeyword={(kw) => {
+                const currentKws = config.seo?.keywords || [];
+                const kwList = Array.isArray(currentKws)
+                  ? currentKws
+                  : typeof currentKws === "string"
+                  ? currentKws.split(",").map((s) => s.trim()).filter(Boolean)
+                  : [];
+                if (!kwList.includes(kw)) {
+                  onChange({
+                    ...config,
+                    seo: {
+                      ...config.seo,
+                      keywords: [...kwList, kw].join(", ")
+                    }
+                  });
+                }
+              }}
+              onSendToAiBlog={(keyword, draftTitle) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+                sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+                if (onNavigateTab) {
+                  onNavigateTab("ai-blog-generator");
+                }
+              }}
+            />
+          </div>
+        )}
 
         {/* Tab ALERTS: Real-time SEO Competitive Alert System */}
         {compactTab === "alerts" && (

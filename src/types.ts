@@ -1088,6 +1088,9 @@ export interface SiteConfig {
 
   // AI Pricing Intelligence (Historical Conversion Data & Competitive Tier Optimization)
   pricingIntelligence?: PricingIntelligenceData;
+
+  // Manuel Eklenen & Canlı İzlenen Rakip URL Listesi
+  monitoredCompetitors?: MonitoredCompetitorUrlItem[];
 }
 
 // ==========================================
@@ -1777,10 +1780,175 @@ export type CustomerPanelTab =
   | "seo-content-planner"
   | "seo-trend-forecast"
   | "trend-forecast"
+  | "ai-seo-content-assistant"
+  | "seo-content-assistant"
   | "competitive-strategy"
   | "seo-competitive-strategy"
+  | "competitor-analysis"
+  | "competitor-url-analysis"
+  | "content-gap-map"
+  | "content-gap"
+  | "market-share-panel"
+  | "market-share-benchmark"
+  | "market-share"
+  | "local-seo-map"
+  | "local-pack"
   | "seo-executive-summary"
   | "executive-summary";
+
+// ==========================================
+// PAZAR PAYI KIYASLAMA TABLOSU (MARKET SHARE BENCHMARK & DIRECT COMPETITOR COMPARISON)
+// ==========================================
+
+export interface MarketShareCompetitorData {
+  id: string;
+  name: string;
+  domain: string;
+  isUser: boolean;
+  rank: number;
+  marketSharePercent: number; // e.g. 24.5
+  marketShareLabel: string;   // e.g. "%24.5"
+  estimatedMonthlyVisits: number; // e.g. 6800
+  estimatedMonthlyVisitsLabel: string; // e.g. "6.8K"
+  
+  // 1. Domain Otoritesi Metrikleri
+  domainAuthority: number; // 0-100 (DA)
+  pageAuthority: number;   // 0-100 (PA)
+  backlinksCount: number;  // e.g. 1420
+  referringDomains: number; // e.g. 185
+  spamScore: number;       // e.g. 1 (%)
+  daDeltaVsUser: number;   // positive if competitor is higher
+  
+  // 2. Anahtar Kelime Yoğunluğu Metrikleri
+  keywordDensityScore: number; // 0-100 overall score
+  avgKeywordDensityPercent: number; // e.g. 2.1% (ideal) vs 3.8% (stuffed) vs 1.1% (sparse)
+  densityStatus: "İdeal (%1.8 - %2.5)" | "Aşırı Yoğun (Spam Riski)" | "Yetersiz Yoğunluk";
+  top3KeywordsCount: number;   // e.g. 84
+  top10KeywordsCount: number;  // e.g. 312
+  semanticCoveragePercent: number; // e.g. 78%
+  h1H3HierarchyScore: number; // 0-100
+  
+  // 3. Site Hızı & Core Web Vitals Metrikleri
+  siteSpeedScore: number; // 0-100 Google PageSpeed
+  mobileSpeedScore: number; // 0-100 Mobile
+  desktopSpeedScore: number; // 0-100 Desktop
+  lcpSeconds: number; // Largest Contentful Paint (e.g. 1.2s vs 3.4s)
+  ttfbMs: number;     // Time to First Byte (e.g. 68ms vs 480ms)
+  clsScore: number;   // Cumulative Layout Shift (e.g. 0.02 vs 0.18)
+  speedGrade: "Mükemmel (A+)" | "İyi (B)" | "Yavaş (C)" | "Kritik Yavaş (D)";
+  techStack: string;  // e.g. "Vite + Cloudflare Edge CDN" vs "Ağır WordPress / Apache"
+  
+  // Niteliksel Analiz & Taktikler
+  keyAdvantage: string;
+  mainVulnerability: string;
+  tacticalCounterMove: string;
+  isCustom?: boolean;
+}
+
+export interface MarketShareBenchmarkSummary {
+  analyzedAt: string;
+  sector: string;
+  city: string;
+  totalMarketVolume: string;
+  userRank: number;
+  userMarketShare: number;
+  leaderMarketShare: number;
+  daGapVsLeader: number;
+  speedAdvantageVsLeader: number; // positive = user is faster
+  keywordCoverageGapVsLeader: number;
+  topTakeaway: string;
+}
+
+// ==========================================
+// CANLI RAKİP LİSTESİ VE ANLIK VERİ FETCH YÖNETİMİ
+// ==========================================
+
+export interface MonitoredCompetitorUrlItem {
+  id: string;
+  name: string;
+  url: string;
+  domain: string;
+  sector?: string;
+  category?: "Doğrudan Rakip" | "Bölgesel Rakip" | "Ulusal Lider" | "Fiyat Kırıcı" | "Niş Rakip";
+  addedAt: string;
+  lastFetchedAt: string | null;
+  fetchStatus: "idle" | "fetching" | "success" | "error";
+  httpStatusCode?: number; // 200, 301, etc.
+  serverType?: string; // e.g. "Cloudflare / Edge", "Nginx / Ubuntu", "LiteSpeed"
+  sslValid?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  h1?: string;
+  wordCount?: number;
+  domainAuthority?: number; // 0-100
+  pageAuthority?: number;   // 0-100
+  siteSpeedScore?: number;  // 0-100
+  mobileSpeedScore?: number;
+  desktopSpeedScore?: number;
+  lcpSeconds?: number;
+  ttfbMs?: number;
+  estimatedMonthlyVisits?: number;
+  marketSharePercent?: number;
+  backlinksCount?: number;
+  referringDomains?: number;
+  spamScore?: number;
+  topKeywords?: string[];
+  schemaTypes?: string[];
+  notes?: string;
+  isActive: boolean;
+  color?: string;
+}
+
+// ==========================================
+// YEREL SEO KONUM HARİTASI (LOCAL PACK & GEO VISIBILITY)
+// ==========================================
+
+export interface LocalCompetitorPin {
+  id: string;
+  name: string;
+  isUser: boolean;
+  latitude: number;
+  longitude: number;
+  district: string;
+  city: string;
+  address: string;
+  phone: string;
+  rating: number; // e.g. 4.9
+  reviewCount: number; // e.g. 142
+  localPackRank: number; // 1, 2, 3 in Google 3-Pack, or >3
+  inTop3LocalPack: boolean;
+  localSearchVolume: number; // estimated monthly local queries in this radius
+  primaryLocalKeyword: string; // e.g. "Kadıköy oto çekici"
+  gmbVerified: boolean;
+  hasCitations: boolean;
+  citationScore: number; // 0-100
+  geoRadiusKm: number; // estimated effective service radius
+  topLocalAdvantage: string;
+  gmbGaps: string[]; // e.g. ["Eksik çalışma saatleri", "Fotoğraf güncelliği az"]
+}
+
+export interface LocalDistrictSearchVolume {
+  districtName: string;
+  monthlySearchVolume: number;
+  competitorDensity: "Yüksek" | "Orta" | "Düşük";
+  userLocalPackRank: number; // 1, 2, 3 or 4+
+  opportunityScore: number; // 0-100
+  primaryKeyword: string;
+  topCompetitorName: string;
+}
+
+export interface LocalSeoMapSummary {
+  city: string;
+  sector: string;
+  userRank: number;
+  totalLocalMonthlyVolume: number;
+  top3PackCoveragePercent: number; // % of target districts where user is in top 3
+  bestPerformingDistrict: string;
+  highestOpportunityDistrict: string;
+  gmbAuditScore: number; // 0-100
+  reviewGapVsLeader: number;
+  tacticalAction: string;
+}
 
 // ==========================================
 // SEO COMPETITIVE STRATEGY VISUALIZER (D3.js RADAR CHART)
@@ -2421,6 +2589,48 @@ export interface TacticalQuickWin {
   targetCompetitor?: string;
 }
 
+export interface CompetitorDomainAuthority {
+  id: string;
+  name: string;
+  domain: string;
+  isUser: boolean;
+  rank?: number;
+  domainAuthority: number; // 0-100 DA
+  pageAuthority: number;   // 0-100 PA
+  backlinksCount: number;
+  referringDomains: number;
+  spamScore: number;       // Percentage e.g. 1%
+  organicVisibility: number; // 0-100
+  indexedPages: number;
+  speedScore: number;
+  schemaScore: number;
+  authorityStatus: "superior" | "competitive" | "trailing";
+  keyAuthoritySignal: string;
+  topDifferentiator: string;
+}
+
+export interface CompetitiveBenchmarkingData {
+  analyzedAt: string;
+  userDomain: string;
+  userName: string;
+  sector: string;
+  city: string;
+  domainAuthorities: CompetitorDomainAuthority[];
+  keywordRankings: CompetitorKeywordRanking[];
+  summary: {
+    avgCompetitorDa: number;
+    userDa: number;
+    daGap: number;
+    leadingKeywordsCount: number;
+    trailingKeywordsCount: number;
+    competingKeywordsCount: number;
+    totalTrafficOpportunity: string;
+    keyCompetitiveAdvantage: string;
+  };
+  source: "gemini_grounding" | "live_search" | "algorithmic_model";
+  groundingSources?: GroundingSourceItem[];
+}
+
 export interface CompetitorKeywordRanking {
   id: string;
   keyword: string;
@@ -2941,6 +3151,31 @@ export interface GeoMarketAnalysis {
   };
 }
 
+export interface RegionalContentTranslationStrategy {
+  regionId: string;
+  regionName: string;
+  countryCode: string;
+  flag: string;
+  targetLanguage: string;
+  languageLabel: string;
+  transcreationScore: number; // 0-100 (high = needs heavy cultural transcreation rather than direct translation)
+  transcreationGuidance: string;
+  toneAndFormality: string;
+  culturalTrustAnchors: string[];
+  buyerPsychologyNotes: string;
+  localizedCtas: {
+    turkishOriginal: string;
+    localizedVersion: string;
+    context: string;
+  }[];
+  contentDosAndDonts: {
+    dos: string[];
+    donts: string[];
+  };
+  recommendedHreflangTag: string;
+  localizedUrlPattern: string;
+}
+
 export interface GlobalSeoGroundingSource {
   query: string;
   sources: {
@@ -2960,6 +3195,7 @@ export interface GlobalSeoAgentReport {
   executiveStrategicSummary: string;
   targetMarkets: GeoMarketAnalysis[];
   regionalKeywords: RegionalKeywordVariation[];
+  translationStrategies?: RegionalContentTranslationStrategy[];
   searchGroundingSources: GlobalSeoGroundingSource[];
   macroGeoTrends: {
     title: string;
@@ -3317,5 +3553,133 @@ export interface SeoTrendForecastResponse {
   groundingCitations: GroundingCitation[];
   source: "gemini_grounding" | "algorithmic_fallback";
 }
+
+// ==========================================
+// AI SEO CONTENT ASSISTANT (GEMINI BLOG OUTLINES & META-CONTENT)
+// ==========================================
+
+export type ContentSearchIntent = "Bilgilendirici" | "Ticari" | "Satın Alma / Yerel" | "Karşılaştırma";
+
+export type ContentTone = "Uzman & Otoriter" | "Samimi & Rehber" | "Kurumsal & Güven Verici" | "Pratik & Adım Adım";
+
+export type ContentAngle = 
+  | "Kapsamlı Rehber (Ultimate Guide)"
+  | "Fiyat & Maliyet Analizi"
+  | "Adım Adım Nasıl Yapılır?"
+  | "Sık Yapılan Hatalar & İpuçları"
+  | "Karşılaştırma & Seçim Kriterleri";
+
+export interface BlogOutlineSubheading {
+  title: string; // H3
+  bulletPoints: string[]; // Key talking points to cover
+}
+
+export interface BlogOutlineSection {
+  id: string;
+  heading: string; // H2
+  purpose: string; // Why this section exists for SEO & reader
+  targetKeywords: string[]; // Keywords to naturally weave
+  subheadings: BlogOutlineSubheading[]; // H3s
+  suggestedVisualOrBlock: string; // e.g. "Fiyat Karşılaştırma Tablosu", "Uyarı / Pro İpucu Kutusu", "Kontrol Listesi (Checklist)"
+  estimatedWords: number;
+}
+
+export interface TitleOption {
+  title: string;
+  charCount: number;
+  pixelWidth: number;
+  ctrRating: "Çok Yüksek" | "Yüksek" | "Optimal";
+  angleDescription: string;
+}
+
+export interface PeopleAlsoAskItem {
+  question: string;
+  conciseAnswer: string;
+}
+
+export interface InternalLinkingOpportunity {
+  anchorText: string;
+  targetPage: string;
+  context: string;
+}
+
+export interface MetaContentOptimization {
+  metaTitle: string;
+  metaTitleLength: number;
+  metaTitlePixelWidth: number;
+  isMetaTitleOptimal: boolean;
+  metaDescription: string;
+  metaDescriptionLength: number;
+  isMetaDescriptionOptimal: boolean;
+  cleanSlug: string;
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  ogTitle: string;
+  ogDescription: string;
+  featuredImageAltText: string;
+  schemaJsonLd: string; // Ready-to-copy BlogPosting/Article JSON-LD
+}
+
+export interface AiSeoContentAssistantResult {
+  id: string;
+  createdAt: string;
+  source: "gemini_api" | "algorithmic_fallback";
+  modelUsed: string;
+  
+  // SEO Core Parameters
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  searchIntent: ContentSearchIntent;
+  targetAudience: string;
+  contentAngle: ContentAngle;
+  tone: ContentTone;
+  estimatedReadingTime: string;
+  targetWordCount: number;
+  competitionDifficulty: "Düşük" | "Orta" | "Yüksek";
+
+  // Blog Post Outline
+  titleOptions: TitleOption[];
+  selectedTitle: string;
+  hookIntro: {
+    hookLine: string;
+    problemAgitation: string;
+    valuePromise: string;
+  };
+  sections: BlogOutlineSection[];
+  featuredSnippetSummary: string; // 40-55 word direct answer for Google Answer Box / AI Overviews
+  peopleAlsoAsk: PeopleAlsoAskItem[];
+  internalLinks: InternalLinkingOpportunity[];
+  callToActionPlan: {
+    placement: string;
+    ctaHeadline: string;
+    ctaButtonText: string;
+    ctaDescription: string;
+  };
+  eeatChecklist: {
+    experience: string;
+    expertise: string;
+    authoritativeness: string;
+    trustworthiness: string;
+  };
+
+  // Meta-Content
+  metaContent: MetaContentOptimization;
+}
+
+export interface AiSeoContentAssistantRequest {
+  primaryKeyword: string;
+  secondaryKeywords?: string[];
+  topicHint?: string;
+  searchIntent?: ContentSearchIntent;
+  contentAngle?: ContentAngle;
+  tone?: ContentTone;
+  targetAudience?: string;
+  targetWordCount?: number;
+  companyName?: string;
+  sector?: string;
+  city?: string;
+  siteServices?: string[];
+}
+
 
 

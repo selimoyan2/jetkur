@@ -115,35 +115,36 @@ export function buildCompetitiveStrategyData(config: SiteConfig): {
   const comp3Name = `Merkez ${cleanSector} Çözümleri`;
   const comp3Domain = `pro${cleanSector.toLowerCase().replace(/[^a-z0-9]/g, "")}.net`;
 
-  const entities: CompetitiveStrategyEntity[] = [
-    {
-      id: "user-site",
-      name: `${company} (Siteniz)`,
-      domain: domain,
-      isUser: true,
-      color: "#06b6d4", // Cyan 500
-      fillColor: "rgba(6, 182, 212, 0.25)",
-      rank: 2,
-      marketShare: "%24 Pazar Payı",
-      estimatedMonthlyTraffic: "6.8K Ziyaretçi",
-      metrics: {
-        domainAuthority: userDA,
-        keywordDensity: userKeywordDensity,
-        siteSpeed: userSpeed,
-        backlinkProfile: userBacklink,
-        contentDepth: userContentDepth,
-        technicalSeo: userTechnical
-      },
-      keyStrengths: [
-        "Mükemmel Core Web Vitals ve anında yüklenen Edge CDN altyapısı (96/100 hız)",
-        "Dinamik schema.org JSON-LD yerel işletme ve zengin snippet desteği",
-        "Kullanıcı odaklı modern arayüz ve yüksek mobil dönüşüm oranı"
-      ],
-      vulnerabilities: [
-        "1. sıradaki köklü rakibe kıyasla daha az sayıda harici dofollow backlink",
-        "Derinlemesine 2000+ kelimelik teknik kılavuz sayfalarının henüz tamamlanmamış olması"
-      ]
+  const userEntity: CompetitiveStrategyEntity = {
+    id: "user-site",
+    name: `${company} (Siteniz)`,
+    domain: domain,
+    isUser: true,
+    color: "#06b6d4", // Cyan 500
+    fillColor: "rgba(6, 182, 212, 0.25)",
+    rank: 2,
+    marketShare: "%24 Pazar Payı",
+    estimatedMonthlyTraffic: "6.8K Ziyaretçi",
+    metrics: {
+      domainAuthority: userDA,
+      keywordDensity: userKeywordDensity,
+      siteSpeed: userSpeed,
+      backlinkProfile: userBacklink,
+      contentDepth: userContentDepth,
+      technicalSeo: userTechnical
     },
+    keyStrengths: [
+      "Mükemmel Core Web Vitals ve anında yüklenen Edge CDN altyapısı (96/100 hız)",
+      "Dinamik schema.org JSON-LD yerel işletme ve zengin snippet desteği",
+      "Kullanıcı odaklı modern arayüz ve yüksek mobil dönüşüm oranı"
+    ],
+    vulnerabilities: [
+      "1. sıradaki köklü rakibe kıyasla daha az sayıda harici dofollow backlink",
+      "Derinlemesine 2000+ kelimelik teknik kılavuz sayfalarının henüz tamamlanmamış olması"
+    ]
+  };
+
+  const defaultCompetitors: CompetitiveStrategyEntity[] = [
     {
       id: "comp-1",
       name: comp1Name,
@@ -225,6 +226,54 @@ export function buildCompetitiveStrategyData(config: SiteConfig): {
         "FAQ, Hizmet ve Yazar şeması gibi temel teknik SEO etiketleri eksik"
       ]
     }
+  ];
+
+  // Map custom monitored competitors if any exist
+  const customEntities: CompetitiveStrategyEntity[] = (config.monitoredCompetitors || [])
+    .filter(c => c.isActive)
+    .slice(0, 3)
+    .map((mc, idx) => {
+      const palette = [
+        { color: "#f59e0b", fill: "rgba(245, 158, 11, 0.15)" },
+        { color: "#f43f5e", fill: "rgba(244, 63, 94, 0.15)" },
+        { color: "#8b5cf6", fill: "rgba(139, 92, 246, 0.15)" }
+      ];
+      const p = palette[idx % palette.length];
+      const da = mc.domainAuthority || 45;
+      const speed = mc.siteSpeedScore || 68;
+
+      return {
+        id: mc.id,
+        name: mc.name,
+        domain: mc.domain,
+        isUser: false,
+        color: p.color,
+        fillColor: p.fill,
+        rank: idx === 0 ? 1 : idx + 2,
+        marketShare: `%${mc.marketSharePercent || Math.max(10, 32 - idx * 8)} Pazar Payı`,
+        estimatedMonthlyTraffic: `${((mc.estimatedMonthlyVisits || 6000) / 1000).toFixed(1)}K Ziyaretçi`,
+        metrics: {
+          domainAuthority: da,
+          keywordDensity: Math.min(95, da + 15),
+          siteSpeed: speed,
+          backlinkProfile: Math.min(95, Math.round((mc.backlinksCount || 1000) / 50)),
+          contentDepth: Math.min(95, Math.round((mc.wordCount || 1000) / 20)),
+          technicalSeo: mc.sslValid ? 78 : 55
+        },
+        keyStrengths: [
+          mc.serverType ? `Altyapı: ${mc.serverType}` : "Düzenli organik arama trafiği",
+          mc.topKeywords && mc.topKeywords.length > 0 ? `Odak: ${mc.topKeywords[0]}` : "Hedefli SERP varlığı"
+        ],
+        vulnerabilities: [
+          speed < 80 ? `PageSpeed skoru (${speed}/100) hız optimizasyonuna ihtiyaç duyuyor` : "Derinlemesine teknik içerik eksikliği",
+          da < 55 ? "Alan adı otoritesi ve kaliteli backlink sayısı sınırlı" : "Mobil dönüşüm unsurlarında geliştirme alanı"
+        ]
+      };
+    });
+
+  const entities: CompetitiveStrategyEntity[] = [
+    userEntity,
+    ...(customEntities.length > 0 ? customEntities : defaultCompetitors)
   ];
 
   // Tactical recommendations based on gaps

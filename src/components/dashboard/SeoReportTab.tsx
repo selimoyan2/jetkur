@@ -19,7 +19,11 @@ import {
 } from "../../utils/seoAuditorEngine";
 import { updatePageSeoMeta } from "../../utils/pageSeoRegistry";
 import { PerformanceTrendsCard } from "./PerformanceTrendsCard";
+import { GenerateSeoHeatmapCard } from "./GenerateSeoHeatmapCard";
+import { CompetitiveSeoBenchmarking } from "./CompetitiveSeoBenchmarking";
 import {
+  Trophy,
+  Target,
   Activity,
   Search,
   Sparkles,
@@ -62,7 +66,7 @@ export interface SeoReportTabProps {
   onTriggerAudit?: () => void;
 }
 
-type ReportSubView = "overview" | "meta" | "performance" | "trends" | "issues";
+type ReportSubView = "overview" | "meta" | "performance" | "trends" | "heatmap" | "benchmarking" | "issues";
 
 export const SeoReportTab: React.FC<SeoReportTabProps> = ({
   config,
@@ -522,6 +526,40 @@ export const SeoReportTab: React.FC<SeoReportTabProps> = ({
 
           <button
             type="button"
+            id="subtab-seo-report-heatmap"
+            onClick={() => setActiveSubView("heatmap")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubView === "heatmap"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Flame className="w-4 h-4 text-rose-400 fill-current" />
+            <span>SEO Isı Haritası</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold">
+              Etki Izgarası
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="subtab-seo-report-benchmarking"
+            onClick={() => setActiveSubView("benchmarking")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubView === "benchmarking"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span>Competitive Benchmarking</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-mono font-bold">
+              DA &amp; Sıralama
+            </span>
+          </button>
+
+          <button
+            type="button"
             id="subtab-seo-report-issues"
             onClick={() => setActiveSubView("issues")}
             className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
@@ -764,6 +802,12 @@ export const SeoReportTab: React.FC<SeoReportTabProps> = ({
             onNavigateTab={onNavigateTab}
           />
 
+          {/* Generate SEO Heatmap: High-Impact Areas Color-Coded Grid */}
+          <GenerateSeoHeatmapCard
+            config={config}
+            onNavigateTab={onNavigateTab}
+          />
+
           {/* Quick Action Plan Highlights */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
@@ -813,6 +857,39 @@ export const SeoReportTab: React.FC<SeoReportTabProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Real-time Competitive SEO Benchmarking (Domain Authority & Keyword Ranking vs Competitors) */}
+          <div className="pt-2">
+            <CompetitiveSeoBenchmarking
+              config={config}
+              onChange={onChange}
+              onNavigateTab={(tab) => onNavigateTab && onNavigateTab(tab as any)}
+              onApplyKeyword={(kw) => {
+                if (!onChange) return;
+                const existing = Array.isArray(config.seo?.keywords)
+                  ? config.seo.keywords
+                  : typeof config.seo?.keywords === "string"
+                  ? config.seo.keywords.split(",").map((k) => k.trim()).filter(Boolean)
+                  : [];
+                if (!existing.includes(kw)) {
+                  onChange({
+                    ...config,
+                    seo: {
+                      ...config.seo,
+                      keywords: [...existing, kw].join(", ")
+                    }
+                  });
+                }
+              }}
+              onSendToAiBlog={(keyword, draftTitle) => {
+                sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+                sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+                if (onNavigateTab) {
+                  onNavigateTab("ai-blog-generator" as any);
+                }
+              }}
+            />
           </div>
         </div>
       )}
@@ -1174,6 +1251,55 @@ export const SeoReportTab: React.FC<SeoReportTabProps> = ({
             onNavigateTab={onNavigateTab}
             title="Performans Trendleri (Son 30 Günlük Core Web Vitals Tarihçesi)"
             subtitle="D3.js ile son 30 günlük Google Core Web Vitals metriklerinin değişimi, altyapı iyileştirme adımları ve ziyaretçi tutundurma analizi"
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 7. TAB: GENERATE SEO HEATMAP (COLOR-CODED HIGH-IMPACT GRID) */}
+      {/* ===================================================================== */}
+      {activeSubView === "heatmap" && (
+        <div className="space-y-6">
+          <GenerateSeoHeatmapCard
+            config={config}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 8. TAB: COMPETITIVE SEO BENCHMARKING (DOMAIN AUTHORITY & KEYWORD RANKINGS) */}
+      {/* ===================================================================== */}
+      {activeSubView === "benchmarking" && (
+        <div className="space-y-6">
+          <CompetitiveSeoBenchmarking
+            config={config}
+            onChange={onChange}
+            onNavigateTab={(tab) => onNavigateTab && onNavigateTab(tab as any)}
+            onApplyKeyword={(kw) => {
+              if (!onChange) return;
+              const existing = Array.isArray(config.seo?.keywords)
+                ? config.seo.keywords
+                : typeof config.seo?.keywords === "string"
+                ? config.seo.keywords.split(",").map((k) => k.trim()).filter(Boolean)
+                : [];
+              if (!existing.includes(kw)) {
+                onChange({
+                  ...config,
+                  seo: {
+                    ...config.seo,
+                    keywords: [...existing, kw].join(", ")
+                  }
+                });
+              }
+            }}
+            onSendToAiBlog={(keyword, draftTitle) => {
+              sessionStorage.setItem("ai_blog_prefill_topic", draftTitle || `${keyword} Kılavuzu`);
+              sessionStorage.setItem("ai_blog_prefill_keyword", keyword);
+              if (onNavigateTab) {
+                onNavigateTab("ai-blog-generator" as any);
+              }
+            }}
           />
         </div>
       )}
