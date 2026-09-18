@@ -740,3 +740,5 @@ export function generateFallbackBenchmarkingData(
     ]
   };
 }
+
+export const generateCompetitorData = generateFallbackCompetitiveSeo;

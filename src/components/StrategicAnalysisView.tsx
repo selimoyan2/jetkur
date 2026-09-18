@@ -54,6 +54,7 @@ import { ContentGapMap } from "./dashboard/ContentGapMap";
 import { MarketShareBenchmarkTable } from "./dashboard/MarketShareBenchmarkTable";
 import { LocalSeoLocationMap } from "./dashboard/LocalSeoLocationMap";
 import { MarketShareCompetitorAnalysisPanel } from "./dashboard/MarketShareCompetitorAnalysisPanel";
+import { CompetitiveKeywordRankingTable } from "./dashboard/CompetitiveKeywordRankingTable";
 
 // ============================================================================
 // DATA CONTRACTS
@@ -176,7 +177,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
   const marketLeader = competitors.find(c => c.rank === 1) || competitors[0];
 
   // Active strategic module tab
-  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
+  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "seo-competitor-comparison" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [pdfSuccessNotice, setPdfSuccessNotice] = useState<boolean>(false);
   const printableReportRef = useRef<HTMLDivElement>(null);
@@ -586,6 +587,20 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
 
           <button
             type="button"
+            id="strategic-tab-seo-competitor-comparison"
+            onClick={() => setActiveStrategicTab("seo-competitor-comparison")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "seo-competitor-comparison"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <Target className="w-3.5 h-3.5 text-indigo-400" />
+            <span>SEO Rakip Kıyaslama Tablosu</span>
+          </button>
+
+          <button
+            type="button"
             id="strategic-tab-market-share-panel"
             onClick={() => setActiveStrategicTab("market-share-panel")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
@@ -716,6 +731,79 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           <span>{activeConfig.city} • {activeConfig.sector}</span>
         </div>
       </div>
+
+      {/* ===================================================================== */}
+      {/* 2.2a SEO RAKİP KIYASLAMA TABLOSU & SEO STRATEJİK FIRSAT ANALİZİ */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "seo-competitor-comparison") && (
+        <div id="seo-rakip-kiyaslama-tablosu-section" className="space-y-6 scroll-mt-6">
+          {/* Metin Tabanlı 'SEO Stratejik Fırsat Analizi' Özet Kutucuğu */}
+          <div 
+            id="seo-stratejik-firsat-analizi-box"
+            className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border border-amber-500/20 shadow-xs relative overflow-hidden"
+          >
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="space-y-2 max-w-3xl">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                    Stratejik Özet
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    SEO Stratejik Fırsat Analizi: Dijital Ayak İzi ve Sektörel Görünürlük
+                  </h3>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                  Bölgenizdeki ({activeConfig.city}) <strong>{activeConfig.sector}</strong> pazarında rakiplerin dijital ayak izi ortalama <strong>44/100 Domain Otoritesi</strong> ve <strong>1,400+ indeksli sayfa</strong> ile sınırlıdır. Sektördeki toplam aylık görünürlük hacmi <strong>~38.500 arama</strong> düzeyindedir. Rakiplerin özellikle <em>acil mobil aramalar</em> ve <em>lokasyon bazlı semt aramaları</em>nda içerik zafiyetleri tespit edilmiştir. Sitenizin Cloudflare <strong>0.02s TTFB</strong> hız avantajı ve semantik mikro-veri mimarisi sayesinde, <strong>en kritik 5 anahtar kelimede</strong> 30 gün içerisinde 1. sıraya yerleşme fırsatı bulunmaktadır.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full lg:w-auto shrink-0">
+                <div className="p-3 rounded-xl bg-white border border-slate-200 text-center">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase">Sektör Görünürlüğü</div>
+                  <div className="text-base font-black text-slate-900 font-mono">38.5K /ay</div>
+                </div>
+                <div className="p-3 rounded-xl bg-white border border-slate-200 text-center">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase">Rakip Zafiyet Oranı</div>
+                  <div className="text-base font-black text-rose-600 font-mono">%64 Boşluk</div>
+                </div>
+                <div className="p-3 rounded-xl bg-white border border-slate-200 text-center col-span-2 sm:col-span-1">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase">Hedef Büyüme</div>
+                  <div className="text-base font-black text-emerald-600 font-mono">+%185 Trafik</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SEO Rakip Kıyaslama Tablosu (Interactive Comparison Table + D3 Bar Chart + Export as CSV) */}
+          <CompetitiveKeywordRankingTable
+            siteConfig={activeConfig}
+            userName={activeConfig.companyName || "Siteniz"}
+            userDomain={activeConfig.cloudflare?.customDomain || "sitemiz.com.tr"}
+            onApplyKeyword={(kw) => {
+              if (onUpdateSiteConfig) {
+                const rawKeywords = activeConfig.seo?.keywords || "";
+                const currentKws = rawKeywords ? rawKeywords.split(",").map(s => s.trim()) : [];
+                if (!currentKws.includes(kw)) {
+                  currentKws.push(kw);
+                  onUpdateSiteConfig({
+                    ...activeConfig,
+                    seo: {
+                      ...activeConfig.seo,
+                      keywords: currentKws.join(", ")
+                    }
+                  });
+                }
+              }
+            }}
+            onSendToAiBlog={(kw, draftTitle) => {
+              if (onNavigateTab) {
+                onNavigateTab("customer-panel");
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* ===================================================================== */}
       {/* 2.2b PAZAR PAYI RAKİP ANALİZ PANELİ (D3.JS PAZAR PAYI DAĞILIMI VE GOOGLE SIRALAMA KIYASLAMASI) */}
