@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { 
   CompetitorKeywordRanking, 
   CompetitorContentMetric,
@@ -36,14 +36,42 @@ import {
   ArrowDown,
   X,
   SlidersHorizontal,
+  Sliders,
   Settings2,
   CheckSquare,
   Square,
   Pencil,
   RotateCcw,
   Trash2,
-  StickyNote
+  StickyNote,
+  CalendarClock,
+  CalendarCheck,
+  Mail,
+  Activity,
+  Box,
+  Compass,
+  FileDown,
+  FileText,
+  Award,
+  Loader2,
+  PieChart,
+  UploadCloud,
+  Palette
 } from "lucide-react";
+import { CompetitorMarketSharePieChart } from "./CompetitorMarketSharePieChart";
+import { MarketShareReportBuilderModal } from "./MarketShareReportBuilderModal";
+import { CompetitorCsvImportModal, CsvImportMode } from "./CompetitorCsvImportModal";
+import { QuickCsvUploadBar } from "./QuickCsvUploadBar";
+import { generateSampleCsvTemplate } from "../../utils/competitorCsvImport";
+import { CompetitorColorThemeModal } from "./CompetitorColorThemeModal";
+import { 
+  CompetitorColorPalette, 
+  loadSavedColorTheme, 
+  saveColorTheme 
+} from "../../utils/competitorColorTheme";
+import { FloatingBulkActionBar } from "./FloatingBulkActionBar";
+import { CompetitorGoalImpactAnalysisModal } from "./CompetitorGoalImpactAnalysisModal";
+import { Competitor3DScatterPlotModal } from "./Competitor3DScatterPlotModal";
 import { CompetitorRankingD3BarChart } from "./CompetitorRankingD3BarChart";
 import { SelectedCompetitorComparisonChartModal } from "./SelectedCompetitorComparisonChartModal";
 import { SelectedDataDistributionD3Chart } from "./SelectedDataDistributionD3Chart";
@@ -54,8 +82,36 @@ import {
   parseTrafficOpportunity 
 } from "./MetricFilteringPanel";
 import { CompetitorSpeedScoreCards } from "./CompetitorSpeedScoreCards";
+import { CompetitorPsiSparkline } from "./CompetitorPsiSparkline";
 import { RowStrategicNotepad, StrategicCompetitorNote } from "./RowStrategicNotepad";
 import { HeaderMetricInfoTooltip } from "./HeaderMetricInfoTooltip";
+import { 
+  GoalTrackingSummaryPanel, 
+  GoalTrackingCell, 
+  calculateGoalProgress, 
+  KeywordGoalItem 
+} from "./GoalTrackingModule";
+import { AiStrategySummaryReportModal } from "./AiStrategySummaryReportModal";
+import { TableSaveAsExportMenu } from "./TableSaveAsExportMenu";
+import { TablePdfExportModal } from "./TablePdfExportModal";
+import { AdvancedExportSettingsModal } from "./AdvancedExportSettingsModal";
+import { 
+  loadAdvancedExportSettings, 
+  saveAdvancedExportSettings, 
+  AdvancedExportSettings 
+} from "../../utils/advancedExportConfig";
+import { CompetitorPerformanceRecommendationsDrawer } from "./CompetitorPerformanceRecommendationsDrawer";
+import { downloadMarketShareAndCompetitorPdf } from "../../utils/marketShareAndCompetitorPdfReport";
+import { exportRankingTableToExcel } from "../../utils/competitiveSeoExcelExport";
+import { 
+  AutoReportSchedulerModal, 
+  AutoReportScheduleConfig, 
+  calculateNextDelivery 
+} from "./AutoReportSchedulerModal";
+import { 
+  AiStrategySummaryReportData, 
+  generateFallbackAiStrategySummaryReport 
+} from "../../utils/aiStrategySummaryReportEngine";
 import { generateCompetitorData } from "../../utils/competitiveSeoUtils";
 
 export type RankingSortField = 
@@ -68,7 +124,9 @@ export type RankingSortField =
   | "difficulty" 
   | "comp1Rank" 
   | "comp2Rank" 
-  | "comp3Rank";
+  | "comp3Rank"
+  | "goalAttainment"
+  | "goalDeviation";
 
 /**
  * Escapes a cell value according to RFC 4180 CSV specifications:
@@ -273,6 +331,34 @@ export const CSV_COLUMN_OPTIONS: CsvColumnOption[] = [
     description: "Rakipleri geçmek için Gemini AI tarafından oluşturulan stratejik öneri",
     exampleValue: "Yerel semt iniş sayfası oluşturun",
     defaultEnabled: true
+  },
+  // 4. Gelişim İzleme & Hedef Metrikleri
+  {
+    id: "targetRank",
+    label: "Hedef Sıralama (Target Rank)",
+    category: "strategic",
+    categoryLabel: "🎯 Gelişim İzleme & Hedef Metrikleri",
+    description: "Kullanıcı tarafından belirlenen hedef Google SERP sırası",
+    exampleValue: "#1 (Liderlik)",
+    defaultEnabled: true
+  },
+  {
+    id: "goalAttainment",
+    label: "Hedef Başarım Oranı (%)",
+    category: "strategic",
+    categoryLabel: "🎯 Gelişim İzleme & Hedef Metrikleri",
+    description: "Mevcut pozisyonun hedefe göre başarım yüzdesi",
+    exampleValue: "%85",
+    defaultEnabled: true
+  },
+  {
+    id: "goalDeviation",
+    label: "Hedef Sapması (%)",
+    category: "strategic",
+    categoryLabel: "🎯 Gelişim İzleme & Hedef Metrikleri",
+    description: "Belirlenen hedef sıralamadan yüzdesel sapma (+/-)",
+    exampleValue: "-%15 Sapma",
+    defaultEnabled: true
   }
 ];
 
@@ -285,6 +371,7 @@ export interface SerializeRankingTableOptions {
   comp3Name?: string;
   competitors?: CompetitorContentMetric[];
   selectedColumnIds?: string[];
+  goals?: Record<string, KeywordGoalItem>;
 }
 
 /**
@@ -334,6 +421,9 @@ export function serializeRankingTableData(
       case "trafficOpportunity": return "Trafik Potansiyeli (Traffic Opportunity)";
       case "serpFeatures": return "SERP Özellikleri (SERP Features)";
       case "aiRecommendation": return "Gemini AI Stratejik Tavsiye (AI Recommendation)";
+      case "targetRank": return "Hedeflenen Sıralama (Target Rank)";
+      case "goalAttainment": return "Hedef Başarım Oranı (%)";
+      case "goalDeviation": return "Hedef Sapması (%)";
       default: return col.label;
     }
   });
@@ -387,6 +477,26 @@ export function serializeRankingTableData(
           return (r.serpFeatures || []).join("; ");
         case "aiRecommendation":
           return r.aiRecommendation || "";
+        case "targetRank": {
+          const compRanks = [r.comp1Rank, r.comp2Rank, r.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestComp = compRanks.length > 0 ? Math.min(...compRanks) : 1;
+          const tr = options.goals?.[r.id]?.targetRank || (r.userRank && r.userRank <= 3 ? 1 : 3);
+          return `#${tr}`;
+        }
+        case "goalAttainment": {
+          const compRanks = [r.comp1Rank, r.comp2Rank, r.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestComp = compRanks.length > 0 ? Math.min(...compRanks) : 1;
+          const tr = options.goals?.[r.id]?.targetRank || (r.userRank && r.userRank <= 3 ? 1 : 3);
+          const p = calculateGoalProgress(r.userRank, tr, bestComp);
+          return `%${p.attainmentPercent}`;
+        }
+        case "goalDeviation": {
+          const compRanks = [r.comp1Rank, r.comp2Rank, r.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestComp = compRanks.length > 0 ? Math.min(...compRanks) : 1;
+          const tr = options.goals?.[r.id]?.targetRank || (r.userRank && r.userRank <= 3 ? 1 : 3);
+          const p = calculateGoalProgress(r.userRank, tr, bestComp);
+          return p.deviationPercent >= 0 ? `+${p.deviationPercent}%` : `${p.deviationPercent}%`;
+        }
         default:
           return "";
       }
@@ -562,8 +672,35 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   onRefresh,
   className = ""
 }) => {
-  // View mode: Table view vs D3.js bar chart representation
-  const [viewMode, setViewMode] = useState<"table" | "chart">("table");
+  // View mode: Table view vs D3.js bar chart vs Market Share Pie Chart representation
+  const [viewMode, setViewMode] = useState<"table" | "chart" | "pie">("table");
+  const [isMarketSharePieVisible, setIsMarketSharePieVisible] = useState<boolean>(true);
+
+  // Professional Market Share & Competitor PDF Report Builder Modal (Marka Logosu & Özel Notlar ile Kapsamlı Rapor)
+  const [isReportBuilderModalOpen, setIsReportBuilderModalOpen] = useState<boolean>(false);
+  const [reportBuilderCustomRankings, setReportBuilderCustomRankings] = useState<CompetitorKeywordRanking[] | null>(null);
+
+  // External CSV Data Import Modal (Harici CSV dosyasından rakip verilerini otomatik eşleştirip yükleme)
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState<boolean>(false);
+  const [csvModalInitialText, setCsvModalInitialText] = useState<string>("");
+  const [csvModalInitialFileName, setCsvModalInitialFileName] = useState<string | null>(null);
+  const [csvModalInitialFileSize, setCsvModalInitialFileSize] = useState<string | null>(null);
+  const [csvModalInitialStep, setCsvModalInitialStep] = useState<number>(1);
+  const [isDraggingOverTable, setIsDraggingOverTable] = useState<boolean>(false);
+  const tableDragCounterRef = useRef<number>(0);
+
+  // D3.js Grafik Serileri Renk Teması Seçici state
+  const [colorTheme, setColorTheme] = useState<CompetitorColorPalette>(() => loadSavedColorTheme());
+  const [isColorThemeModalOpen, setIsColorThemeModalOpen] = useState<boolean>(false);
+
+  const handleApplyColorTheme = (newPalette: CompetitorColorPalette) => {
+    setColorTheme(newPalette);
+    saveColorTheme(newPalette);
+  };
+
+  // Gelişmiş Dışa Aktarma Ayarları Penceresi (PDF & JSON Özel Sıkıştırma Düzeyi ve Formatlama)
+  const [isAdvancedExportModalOpen, setIsAdvancedExportModalOpen] = useState<boolean>(false);
+  const [advancedExportSettings, setAdvancedExportSettings] = useState<AdvancedExportSettings>(() => loadAdvancedExportSettings());
 
   // Inline row edit state: enables editing competitor names and all metric values directly
   const [rowOverrides, setRowOverrides] = useState<Record<string, Partial<CompetitorKeywordRanking> & { competitorName?: string }>>({});
@@ -756,6 +893,155 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   const [isSpeedScoreCardsOpen, setIsSpeedScoreCardsOpen] = useState<boolean>(true);
   const [highlightedCompetitorSpeedId, setHighlightedCompetitorSpeedId] = useState<string | null>(null);
 
+  // Goal Tracking Mode (Gelişim İzleme Modu) State
+  const [isGoalTrackingMode, setIsGoalTrackingMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("seo_goal_tracking_mode");
+      return saved !== null ? saved === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [keywordGoals, setKeywordGoals] = useState<Record<string, KeywordGoalItem>>(() => {
+    try {
+      const saved = localStorage.getItem("seo_keyword_goals");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to parse keyword goals from localStorage:", e);
+    }
+    return {};
+  });
+
+  // Handler to update a single keyword target rank
+  const handleUpdateTarget = (itemId: string, targetRank: number) => {
+    setKeywordGoals((prev) => {
+      const updated: Record<string, KeywordGoalItem> = {
+        ...prev,
+        [itemId]: {
+          itemId,
+          targetRank,
+          updatedAt: new Date().toISOString()
+        }
+      };
+      try {
+        localStorage.setItem("seo_keyword_goals", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save keyword goals:", e);
+      }
+      return updated;
+    });
+  };
+
+  // Handler to apply bulk target rank across all visible/effective items
+  const handleApplyBulkTarget = (targetRank: number) => {
+    setKeywordGoals((prev) => {
+      const updated: Record<string, KeywordGoalItem> = { ...prev };
+      effectiveRankings.forEach((r) => {
+        updated[r.id] = {
+          itemId: r.id,
+          targetRank,
+          updatedAt: new Date().toISOString()
+        };
+      });
+      try {
+        localStorage.setItem("seo_keyword_goals", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save bulk keyword goals:", e);
+      }
+      return updated;
+    });
+  };
+
+  // Handler to dynamically set target = Math.max(1, bestCompRank - 1) for each item
+  const handleApplyDynamicBeatCompetitorTargets = () => {
+    setKeywordGoals((prev) => {
+      const updated: Record<string, KeywordGoalItem> = { ...prev };
+      effectiveRankings.forEach((r) => {
+        const compRanks = [r.comp1Rank, r.comp2Rank, r.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+        const bestComp = compRanks.length > 0 ? Math.min(...compRanks) : 1;
+        const targetRank = Math.max(1, bestComp - 1);
+        updated[r.id] = {
+          itemId: r.id,
+          targetRank,
+          updatedAt: new Date().toISOString()
+        };
+      });
+      try {
+        localStorage.setItem("seo_keyword_goals", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save dynamic beat competitor targets:", e);
+      }
+      return updated;
+    });
+  };
+
+  // Handler to reset all keyword targets
+  const handleResetGoals = () => {
+    setKeywordGoals({});
+    try {
+      localStorage.removeItem("seo_keyword_goals");
+    } catch (_) {}
+  };
+
+  // AI Strategy Summary Report State & Handlers
+  const [isStrategyReportModalOpen, setIsStrategyReportModalOpen] = useState<boolean>(false);
+  const [strategyReportData, setStrategyReportData] = useState<AiStrategySummaryReportData | null>(null);
+  const [isGeneratingStrategyReport, setIsGeneratingStrategyReport] = useState<boolean>(false);
+
+  const handleGenerateStrategyReport = async () => {
+    setIsGeneratingStrategyReport(true);
+    try {
+      const response = await fetch("/api/seo-strategy-summary-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rankings: effectiveRankings,
+          competitors: effectiveCompetitors,
+          userName: siteConfig?.companyName || userName || "JetKur",
+          userDomain: siteConfig?.customDomain || userDomain || "jetkur.com.tr",
+          userSpeedScore: 98,
+          keywordGoals,
+          strategicNotes
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        setStrategyReportData(result.data);
+      } else {
+        throw new Error("Invalid API response");
+      }
+    } catch (err) {
+      console.warn("API call failed or offline, generating comprehensive algorithmic fallback report:", err);
+      const fallback = generateFallbackAiStrategySummaryReport({
+        rankings: effectiveRankings,
+        competitors: effectiveCompetitors,
+        userName: siteConfig?.companyName || userName || "JetKur",
+        userDomain: siteConfig?.customDomain || userDomain || "jetkur.com.tr",
+        userSpeedScore: 98,
+        keywordGoals,
+        strategicNotes
+      });
+      setStrategyReportData(fallback);
+    } finally {
+      setIsGeneratingStrategyReport(false);
+    }
+  };
+
+  const handleOpenStrategyReport = () => {
+    setIsStrategyReportModalOpen(true);
+    if (!strategyReportData) {
+      handleGenerateStrategyReport();
+    }
+  };
+
   // Active Metric Rules Count
   const activeMetricFiltersCount = useMemo(() => {
     return (
@@ -828,9 +1114,9 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     } else {
       setSortBy(field);
       // Sensible default directions:
-      // Search volume and Gap are best viewed highest first (desc)
+      // Search volume, Gap, and Goal Attainment are best viewed highest first (desc)
       // Ranks and Names are best viewed ascending (#1 best rank, A-Z)
-      if (field === "volume" || field === "gap") {
+      if (field === "volume" || field === "gap" || field === "goalAttainment") {
         setSortOrder("desc");
       } else {
         setSortOrder("asc");
@@ -868,6 +1154,269 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [downloadNotification, setDownloadNotification] = useState<string | null>(null);
   const [isCsvCopied, setIsCsvCopied] = useState<boolean>(false);
+
+  // PDF Export Modal State
+  const [isPdfExportModalOpen, setIsPdfExportModalOpen] = useState<boolean>(false);
+  const [pdfExportData, setPdfExportData] = useState<CompetitorKeywordRanking[]>([]);
+  const [pdfExportScopeLabel, setPdfExportScopeLabel] = useState<string>("Tüm Tablo Verileri");
+
+  const handleOpenPdfExportModal = (data: CompetitorKeywordRanking[], scopeLabel: string) => {
+    setPdfExportData(data);
+    setPdfExportScopeLabel(scopeLabel);
+    setIsPdfExportModalOpen(true);
+  };
+
+  // Automated Weekly Report Scheduler State
+  const [isAutoReportModalOpen, setIsAutoReportModalOpen] = useState<boolean>(false);
+
+  // Impact Analysis & Correlation Heatmap Modal State
+  const [isImpactAnalysisModalOpen, setIsImpactAnalysisModalOpen] = useState<boolean>(false);
+
+  // 3D Scatter Correlation & Market Positioning Modal State
+  const [is3DScatterModalOpen, setIs3DScatterModalOpen] = useState<boolean>(false);
+
+  // Competitor Performance Recommendations Drawer State
+  const [isRecommendationsDrawerOpen, setIsRecommendationsDrawerOpen] = useState<boolean>(false);
+  const [selectedCompetitorForRecommendations, setSelectedCompetitorForRecommendations] = useState<string | null>(null);
+
+  // One-Click Market Share & Competitor Benchmark PDF Generation State
+  const [isGeneratingMarketSharePdf, setIsGeneratingMarketSharePdf] = useState<boolean>(false);
+
+  const handleDownloadMarketSharePdf = async () => {
+    if (isGeneratingMarketSharePdf) return;
+    setIsGeneratingMarketSharePdf(true);
+    setDownloadNotification("Pazar Payı ve Rekabet Analiz Raporu oluşturuluyor...");
+    try {
+      const filename = await downloadMarketShareAndCompetitorPdf(
+        effectiveRankings,
+        effectiveCompetitors,
+        userName,
+        userDomain,
+        {
+          companyName: userName,
+          domain: userDomain,
+          sector: siteConfig?.sector || "E-Ticaret & Yerel Hizmetler"
+        }
+      );
+      setDownloadNotification(`Pazar Payı ve Rekabet Analiz Raporu (${filename}) başarıyla indirildi.`);
+      setTimeout(() => setDownloadNotification(null), 4500);
+    } catch (err) {
+      console.error("Market Share PDF error:", err);
+      setDownloadNotification("Rapor oluşturulurken bir hata meydana geldi. Lütfen tekrar deneyin.");
+      setTimeout(() => setDownloadNotification(null), 4000);
+    } finally {
+      setIsGeneratingMarketSharePdf(false);
+    }
+  };
+
+  // Export ONLY Selected Rows to PDF (Seçilileri PDF Yap)
+  const handleDownloadSelectedPdf = async () => {
+    if (selectedRankings.length === 0 || isGeneratingMarketSharePdf) return;
+    setIsGeneratingMarketSharePdf(true);
+    setDownloadNotification(`Seçili ${selectedRankings.length} anahtar kelime için PDF raporu hazırlanıyor...`);
+    try {
+      const filename = await downloadMarketShareAndCompetitorPdf(
+        selectedRankings,
+        effectiveCompetitors,
+        userName,
+        userDomain,
+        {
+          companyName: userName,
+          domain: userDomain,
+          reportTitle: `Seçili Anahtar Kelimeler & Pazar Payı Raporu (${selectedRankings.length} Kelime)`,
+          sector: siteConfig?.sector || "E-Ticaret & Yerel Hizmetler"
+        }
+      );
+      setDownloadNotification(`Seçili ${selectedRankings.length} kelime için PDF raporu (${filename}) başarıyla indirildi.`);
+      setTimeout(() => setDownloadNotification(null), 4500);
+    } catch (err) {
+      console.error("Selected PDF download error:", err);
+      // Fallback to table PDF modal
+      handleOpenPdfExportModal(selectedRankings, `Seçili ${selectedRankings.length} Anahtar Kelime`);
+    } finally {
+      setIsGeneratingMarketSharePdf(false);
+    }
+  };
+
+  // Open Custom Report Builder for Selected Rows
+  const handleOpenSelectedReportBuilder = () => {
+    if (selectedRankings.length === 0) return;
+    setReportBuilderCustomRankings(selectedRankings);
+    setIsReportBuilderModalOpen(true);
+  };
+
+  // Handle CSV Import Completion
+  const handleCsvImportComplete = (
+    newRankings: CompetitorKeywordRanking[],
+    mode: CsvImportMode,
+    stats: { totalParsed: number; addedCount: number; updatedCount: number }
+  ) => {
+    if (newRankings.length === 0) return;
+
+    if (mode === "replace") {
+      const allExistingIds = baseRankings.map((r) => r.id);
+      setDeletedRowIds(allExistingIds);
+      setClonedRows([]);
+      setRowOverrides({});
+      setAddedRows(newRankings);
+      setDownloadNotification(`Tablo sıfırlandı ve CSV'den ${newRankings.length} anahtar kelime yüklendi.`);
+    } else if (mode === "append") {
+      setAddedRows((prev) => [...prev, ...newRankings]);
+      setDownloadNotification(`CSV'den ${newRankings.length} yeni anahtar kelime tablonun sonuna eklendi.`);
+    } else {
+      // Smart Upsert
+      const existingKeywordMap = new Map<string, string>();
+      effectiveRankings.forEach((r) => {
+        existingKeywordMap.set(r.keyword.toLowerCase().trim(), r.id);
+      });
+
+      const itemsToAppend: CompetitorKeywordRanking[] = [];
+      const newOverrides: Record<string, Partial<CompetitorKeywordRanking>> = {};
+
+      newRankings.forEach((item) => {
+        const cleanKw = item.keyword.toLowerCase().trim();
+        const matchId = existingKeywordMap.get(cleanKw);
+        if (matchId) {
+          newOverrides[matchId] = {
+            monthlyVolume: item.monthlyVolume,
+            difficulty: item.difficulty,
+            userRank: item.userRank,
+            comp1Rank: item.comp1Rank,
+            comp2Rank: item.comp2Rank,
+            comp3Rank: item.comp3Rank,
+            status: item.status,
+            gap: item.gap,
+            trafficOpportunity: item.trafficOpportunity,
+            aiRecommendation: item.aiRecommendation,
+            serpFeatures: item.serpFeatures,
+            searchIntent: item.searchIntent
+          };
+        } else {
+          itemsToAppend.push(item);
+        }
+      });
+
+      if (Object.keys(newOverrides).length > 0) {
+        setRowOverrides((prev) => ({ ...prev, ...newOverrides }));
+      }
+      if (itemsToAppend.length > 0) {
+        setAddedRows((prev) => [...prev, ...itemsToAppend]);
+      }
+
+      const updatedCount = Object.keys(newOverrides).length;
+      const addedCount = itemsToAppend.length;
+      setDownloadNotification(
+        `CSV verileri akıllıca birleştirildi: ${updatedCount} mevcut kelime güncellendi, ${addedCount} yeni kelime tabloya eklendi.`
+      );
+    }
+
+    setTimeout(() => {
+      setDownloadNotification(null);
+    }, 5500);
+
+    if (searchTerm) setSearchTerm("");
+  };
+
+  // Handlers for dropping CSV directly onto the table or via Quick Upload Bar
+  const handleProcessCsvFile = (file: File) => {
+    if (!file) return;
+    setCsvModalInitialFileName(file.name);
+    setCsvModalInitialFileSize(`${(file.size / 1024).toFixed(1)} KB`);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      if (content) {
+        setCsvModalInitialText(content);
+        setCsvModalInitialStep(2); // Jump directly to Veri Eşleştirme Sihirbazı (Step 2)!
+        setIsCsvImportModalOpen(true);
+        setDownloadNotification(`"${file.name}" yüklendi. Veri Eşleştirme Sihirbazı hazır.`);
+        setTimeout(() => setDownloadNotification(null), 4500);
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const handleTableDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    tableDragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOverTable(true);
+    }
+  };
+
+  const handleTableDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleTableDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    tableDragCounterRef.current -= 1;
+    if (tableDragCounterRef.current <= 0) {
+      setIsDraggingOverTable(false);
+      tableDragCounterRef.current = 0;
+    }
+  };
+
+  const handleTableDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOverTable(false);
+    tableDragCounterRef.current = 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      handleProcessCsvFile(file);
+    }
+  };
+
+  const handleQuickUploadSample = () => {
+    const csvContent = generateSampleCsvTemplate(
+      userName,
+      effectiveCompetitors[0]?.name || "1. Rakip",
+      effectiveCompetitors[1]?.name || "2. Rakip",
+      effectiveCompetitors[2]?.name || "3. Rakip"
+    );
+    setCsvModalInitialText(csvContent);
+    setCsvModalInitialFileName("ornek-rakip-verileri.csv");
+    setCsvModalInitialFileSize("1.4 KB");
+    setCsvModalInitialStep(2);
+    setIsCsvImportModalOpen(true);
+    setDownloadNotification("Örnek rakip verileri yüklendi. Veri Eşleştirme Sihirbazı açıldı.");
+    setTimeout(() => setDownloadNotification(null), 4500);
+  };
+
+  const handleOpenWizardDirectly = () => {
+    setCsvModalInitialStep(1);
+    setIsCsvImportModalOpen(true);
+  };
+  const [autoReportConfig, setAutoReportConfig] = useState<AutoReportScheduleConfig>(() => {
+    try {
+      const saved = localStorage.getItem("seo_weekly_auto_report_schedule_config");
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return {
+      enabled: true,
+      frequency: "weekly",
+      dayOfWeek: 1, // Pazartesi
+      deliveryTime: "09:00",
+      recipientEmail: siteConfig?.email || "selimoyan@gmail.com",
+      ccEmails: "yonetim@jetkur.com.tr",
+      format: "both",
+      scope: "all",
+      includeAiSummary: true,
+      includeCriticalChanges: true,
+      emailSubjectTemplate: `[Haftalık SEO Özeti] ${userDomain} Rakip Sıralama & Fırsat Analizi`
+    };
+  });
+
+  const autoReportNextDelivery = useMemo(() => {
+    return calculateNextDelivery(autoReportConfig.dayOfWeek, autoReportConfig.deliveryTime);
+  }, [autoReportConfig.dayOfWeek, autoReportConfig.deliveryTime]);
 
   // CSV Column Customization State
   const [selectedCsvColumns, setSelectedCsvColumns] = useState<string[]>(DEFAULT_SELECTED_CSV_COLUMNS);
@@ -1124,6 +1673,30 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           }
         } else if (sortBy === "difficulty") {
           diff = a.difficulty - b.difficulty;
+        } else if (sortBy === "goalAttainment") {
+          const compRanksA = [a.comp1Rank, a.comp2Rank, a.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestCompA = compRanksA.length > 0 ? Math.min(...compRanksA) : 1;
+          const trA = keywordGoals[a.id]?.targetRank || (a.userRank && a.userRank <= 3 ? 1 : 3);
+          const progA = calculateGoalProgress(a.userRank, trA, bestCompA);
+
+          const compRanksB = [b.comp1Rank, b.comp2Rank, b.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestCompB = compRanksB.length > 0 ? Math.min(...compRanksB) : 1;
+          const trB = keywordGoals[b.id]?.targetRank || (b.userRank && b.userRank <= 3 ? 1 : 3);
+          const progB = calculateGoalProgress(b.userRank, trB, bestCompB);
+
+          diff = progA.attainmentPercent - progB.attainmentPercent;
+        } else if (sortBy === "goalDeviation") {
+          const compRanksA = [a.comp1Rank, a.comp2Rank, a.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestCompA = compRanksA.length > 0 ? Math.min(...compRanksA) : 1;
+          const trA = keywordGoals[a.id]?.targetRank || (a.userRank && a.userRank <= 3 ? 1 : 3);
+          const progA = calculateGoalProgress(a.userRank, trA, bestCompA);
+
+          const compRanksB = [b.comp1Rank, b.comp2Rank, b.comp3Rank].filter((n): n is number => n !== null && n !== undefined);
+          const bestCompB = compRanksB.length > 0 ? Math.min(...compRanksB) : 1;
+          const trB = keywordGoals[b.id]?.targetRank || (b.userRank && b.userRank <= 3 ? 1 : 3);
+          const progB = calculateGoalProgress(b.userRank, trB, bestCompB);
+
+          diff = progA.deviationPercent - progB.deviationPercent;
         }
 
         // Always position newly added competitor rows at the bottom of the table
@@ -1153,7 +1726,8 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     minTrafficOpportunity,
     maxRankLimit,
     activeMetricPreset,
-    strategicNotes
+    strategicNotes,
+    keywordGoals
   ]);
 
   // Copy Keyword action
@@ -1185,7 +1759,8 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       comp2Name: comp2.name,
       comp3Name: comp3.name,
       competitors: effectiveCompetitors,
-      selectedColumnIds: selectedCsvColumns
+      selectedColumnIds: selectedCsvColumns,
+      goals: keywordGoals
     });
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1221,7 +1796,8 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       comp2Name: comp2.name,
       comp3Name: comp3.name,
       competitors: effectiveCompetitors,
-      selectedColumnIds: selectedCsvColumns
+      selectedColumnIds: selectedCsvColumns,
+      goals: keywordGoals
     });
 
     // Construct CSV with UTF-8 BOM for Microsoft Excel & Google Sheets compatibility
@@ -1238,6 +1814,75 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
 
     setDownloadNotification(`Tablodaki tüm veriler (${dataToExport.length} satır, ${selectedCsvColumns.length} sütun) başarıyla CSV formatında dışa aktarıldı ve indirildi!`);
     setTimeout(() => setDownloadNotification(null), 3500);
+  };
+
+  // Export to Excel (.xlsx) Function
+  // Serializes all data records from the competitor ranking table directly into a native Microsoft Excel (.xlsx) workbook,
+  // includes auto-sized columns and an executive summary KPI sheet, then programmatically triggers a browser file download.
+  const handleExportExcel = (exportAllTableData: boolean = true) => {
+    const dataToExport = exportAllTableData
+      ? (effectiveRankings.length > 0 ? effectiveRankings : filteredAndSortedRankings)
+      : (filteredAndSortedRankings.length > 0 ? filteredAndSortedRankings : effectiveRankings);
+
+    if (!dataToExport || dataToExport.length === 0) {
+      setDownloadNotification("Dışa aktarılacak veri bulunamadı.");
+      setTimeout(() => setDownloadNotification(null), 3000);
+      return;
+    }
+
+    try {
+      const dateSlug = new Date().toISOString().slice(0, 10);
+      const customFilename = `seo-rakip-kiyaslama-tum-veriler-${dataToExport.length}satir-${dateSlug}.xlsx`;
+      const filename = exportRankingTableToExcel(
+        dataToExport,
+        {
+          userName,
+          comp1Name: comp1.name,
+          comp2Name: comp2.name,
+          comp3Name: comp3.name,
+          competitors: effectiveCompetitors,
+          selectedColumnIds: selectedCsvColumns,
+          goals: keywordGoals
+        },
+        customFilename
+      );
+
+      setDownloadNotification(`Tablodaki tüm veriler (${dataToExport.length} satır, ${selectedCsvColumns.length} sütun) başarıyla Excel (.xlsx) olarak dışa aktarıldı ve indirildi! (${filename})`);
+      setTimeout(() => setDownloadNotification(null), 4000);
+    } catch (err) {
+      console.error("Excel export error:", err);
+      setDownloadNotification("Excel dosyası oluşturulurken bir hata oluştu.");
+      setTimeout(() => setDownloadNotification(null), 3500);
+    }
+  };
+
+  // Export Selected Rows to Excel (.xlsx)
+  const handleExportSelectedExcel = () => {
+    if (selectedRankings.length === 0) return;
+    try {
+      const dateSlug = new Date().toISOString().slice(0, 10);
+      const customFilename = `seo-rakip-kiyaslama-secilenler-${selectedRankings.length}satir-${dateSlug}.xlsx`;
+      const filename = exportRankingTableToExcel(
+        selectedRankings,
+        {
+          userName,
+          comp1Name: comp1.name,
+          comp2Name: comp2.name,
+          comp3Name: comp3.name,
+          competitors: effectiveCompetitors,
+          selectedColumnIds: selectedCsvColumns,
+          goals: keywordGoals
+        },
+        customFilename
+      );
+
+      setDownloadNotification(`${selectedRankings.length} seçili satır başarıyla Excel (.xlsx) olarak dışa aktarıldı ve indirildi! (${filename})`);
+      setTimeout(() => setDownloadNotification(null), 4000);
+    } catch (err) {
+      console.error("Excel export error:", err);
+      setDownloadNotification("Excel dosyası oluşturulurken bir hata oluştu.");
+      setTimeout(() => setDownloadNotification(null), 3500);
+    }
   };
 
   // Checkbox selection helper functions & derived state
@@ -1318,7 +1963,8 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       comp2Name: comp2.name,
       comp3Name: comp3.name,
       competitors: effectiveCompetitors,
-      selectedColumnIds: selectedCsvColumns
+      selectedColumnIds: selectedCsvColumns,
+      goals: keywordGoals
     });
 
     const csvContent = "\uFEFF" + csvString;
@@ -1346,7 +1992,8 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       comp2Name: comp2.name,
       comp3Name: comp3.name,
       competitors: effectiveCompetitors,
-      selectedColumnIds: selectedCsvColumns
+      selectedColumnIds: selectedCsvColumns,
+      goals: keywordGoals
     });
 
     if (navigator?.clipboard?.writeText) {
@@ -1757,12 +2404,82 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     }
   };
 
+  // Competitor filter callback from Market Share Pie Chart module
+  const handleCompetitorFilterFromPie = (filterKey: "all" | "comp1" | "comp2" | "comp3" | "leading" | "outranked") => {
+    if (filterKey === "leading" || filterKey === "outranked") {
+      setStatusFilter(filterKey);
+      setTopEntityFilter("all");
+    } else if (filterKey === "comp1" || filterKey === "comp2" || filterKey === "comp3") {
+      setTopEntityFilter(filterKey);
+      setStatusFilter("all");
+    } else {
+      setTopEntityFilter("all");
+      setStatusFilter("all");
+    }
+    const filterName =
+      filterKey === "comp1"
+        ? comp1.name
+        : filterKey === "comp2"
+        ? comp2.name
+        : filterKey === "comp3"
+        ? comp3.name
+        : filterKey === "leading"
+        ? "Lider Olduğunuz Kelimelere"
+        : "Tüm Kelimelere";
+    setSaveToast(`Tablo ${filterName} göre filtrelendi.`);
+    setTimeout(() => setSaveToast(null), 3500);
+
+    setTimeout(() => {
+      const el = document.getElementById("search-input-rankings") || document.getElementById("table-container-competitive");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+  };
+
   return (
     <div 
       id="seo-competitor-comparison-table" 
       data-testid="seo-competitor-comparison-table" 
-      className={`space-y-6 ${className}`}
+      className={`space-y-6 relative ${className}`}
+      onDragEnter={handleTableDragEnter}
+      onDragOver={handleTableDragOver}
+      onDragLeave={handleTableDragLeave}
+      onDrop={handleTableDrop}
     >
+      {/* Full-Table Drag & Drop Upload Overlay */}
+      {isDraggingOverTable && (
+        <div
+          id="seo-table-drag-drop-overlay"
+          data-testid="seo-table-drag-drop-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md border-4 border-dashed border-teal-400 pointer-events-none animate-in fade-in"
+        >
+          <div className="text-center space-y-4 max-w-lg p-8 rounded-3xl bg-slate-900/95 border border-teal-500/50 shadow-2xl shadow-teal-500/30">
+            <div className="w-20 h-20 rounded-3xl bg-teal-500/20 text-teal-300 border-2 border-teal-400/60 flex items-center justify-center mx-auto animate-bounce shadow-inner">
+              <UploadCloud className="w-10 h-10 text-teal-400" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-2xl font-black text-white tracking-tight">
+                CSV Dosyasını Tabloya Bırakın
+              </h3>
+              <p className="text-sm text-teal-200">
+                Bıraktığınız anda <strong>Veri Eşleştirme Sihirbazı</strong> açılacak ve metrikleriniz otomatik haritalanacaktır.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-teal-300 text-xs font-mono font-bold border border-teal-500/30">
+                .csv
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-teal-300 text-xs font-mono font-bold border border-teal-500/30">
+                .tsv
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-teal-300 text-xs font-mono font-bold border border-teal-500/30">
+                .txt
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 1. MODULE HEADER & OVERVIEW */}
       <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-slate-800 relative overflow-hidden">
@@ -1783,6 +2500,185 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[11px] font-mono">
                 {effectiveRankings.length} Anahtar Kelime
               </span>
+
+              {/* Automated Weekly Report Scheduler Header Badge */}
+              <button
+                type="button"
+                id="btn-header-auto-report-badge"
+                data-testid="header-auto-report-badge"
+                onClick={() => setIsAutoReportModalOpen(true)}
+                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+                  autoReportConfig.enabled
+                    ? "bg-indigo-500/25 text-indigo-200 border-indigo-400/40 hover:bg-indigo-500/35 hover:border-indigo-300"
+                    : "bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200"
+                }`}
+                title="Haftalık otomatik raporlama zamanlayıcısını yapılandırın veya test raporu gönderin"
+              >
+                <CalendarClock className="w-3.5 h-3.5 text-indigo-400" />
+                <span>
+                  {autoReportConfig.enabled
+                    ? `Haftalık Rapor: Aktif (${autoReportConfig.recipientEmail})`
+                    : "Haftalık Rapor: Kapalı"}
+                </span>
+                {autoReportConfig.enabled && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
+
+              {/* Impact Analysis Header Badge */}
+              <button
+                type="button"
+                id="btn-header-impact-analysis-badge"
+                data-testid="header-impact-analysis-badge"
+                onClick={() => setIsImpactAnalysisModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-purple-500/20 text-purple-200 border-purple-400/40 hover:bg-purple-500/30 hover:border-purple-300 shadow-xs"
+                title="Rakip metrikleri ile belirlenen hedefler arasındaki korelasyonu ve ısı haritasını açın"
+              >
+                <Activity className="w-3.5 h-3.5 text-purple-300" />
+                <span>Etki Analizi</span>
+                <span className="px-1.5 py-0.2 rounded bg-purple-900 text-purple-300 font-mono text-[9px] border border-purple-500/30 flex items-center gap-0.5">
+                  <Flame className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                  <span>Isı Haritası</span>
+                </span>
+              </button>
+
+              {/* 3D Scatter Correlation Header Badge */}
+              <button
+                type="button"
+                id="btn-header-3d-scatter-badge"
+                data-testid="header-3d-scatter-badge"
+                onClick={() => setIs3DScatterModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-sky-500/20 text-sky-200 border-sky-400/40 hover:bg-sky-500/30 hover:border-sky-300 shadow-xs"
+                title="Rakip verilerini ve anahtar kelimeleri 3D düzlemde görselleştiren korelasyon dağılım grafiğini açın"
+              >
+                <Box className="w-3.5 h-3.5 text-sky-300" />
+                <span>3D Korelasyon</span>
+                <span className="px-1.5 py-0.2 rounded bg-sky-900 text-sky-300 font-mono text-[9px] border border-sky-500/30 flex items-center gap-0.5">
+                  <Compass className="w-2.5 h-2.5 text-sky-400" />
+                  <span>Pazar Dağılımı</span>
+                </span>
+              </button>
+
+              {/* Performance Improvement Recommendations Header Badge */}
+              <button
+                type="button"
+                id="btn-header-recommendations-badge"
+                data-testid="header-recommendations-badge"
+                onClick={() => {
+                  setSelectedCompetitorForRecommendations("all");
+                  setIsRecommendationsDrawerOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-emerald-500/20 text-emerald-200 border-emerald-400/40 hover:bg-emerald-500/30 hover:border-emerald-300 shadow-xs"
+                title="Tablodaki metrikleri analiz ederek her rakip için 'Performans İyileştirme Önerileri' sunan paneli açın"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>Performans Önerileri</span>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 font-mono text-[9px] border border-emerald-500/30 flex items-center gap-0.5">
+                  <Zap className="w-2.5 h-2.5 text-amber-400" />
+                  <span>Aksiyon Planı</span>
+                </span>
+              </button>
+
+              {/* Pazar Payı ve Rekabet Analiz Raporu Header Badge Button */}
+              <button
+                type="button"
+                id="btn-header-market-share-pdf-badge"
+                data-testid="header-market-share-pdf-badge"
+                onClick={handleDownloadMarketSharePdf}
+                disabled={isGeneratingMarketSharePdf}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-rose-500/20 text-rose-200 border-rose-400/40 hover:bg-rose-500/30 hover:border-rose-300 shadow-xs disabled:opacity-60"
+                title="Tüm rakip verilerini birleştirerek tek tıkla profesyonel Pazar Payı ve Rekabet Analiz Raporu (PDF) indirin"
+              >
+                {isGeneratingMarketSharePdf ? (
+                  <Loader2 className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                ) : (
+                  <FileDown className="w-3.5 h-3.5 text-rose-400" />
+                )}
+                <span>Pazar Payı Raporu</span>
+                <span className="px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 font-mono text-[9px] border border-rose-500/30 flex items-center gap-0.5">
+                  <Award className="w-2.5 h-2.5 text-amber-400" />
+                  <span>Tek Tık PDF</span>
+                </span>
+              </button>
+
+              {/* Profesyonel Rapor Oluşturucu (Logo & Özel Notlar) Header Badge Button */}
+              <button
+                type="button"
+                id="btn-header-open-report-builder"
+                data-testid="header-open-report-builder-badge"
+                onClick={() => setIsReportBuilderModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-purple-500/20 text-purple-200 border-purple-400/40 hover:bg-purple-500/30 hover:border-purple-300 shadow-xs"
+                title="Tüm rakip verilerini ve pazar payı analizini tek bir kapsamlı PDF dosyası olarak indirebileceğiniz, marka logolarını ve özel notları içeren profesyonel rapor oluşturma aracını açın"
+              >
+                <FileText className="w-3.5 h-3.5 text-purple-300" />
+                <span>Rapor Oluşturucu</span>
+                <span className="px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 font-mono text-[9px] border border-purple-500/30 flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                  <span>Logo & Özel Not</span>
+                </span>
+              </button>
+
+              {/* Pazar Payı Pasta Grafiği Header Badge Button */}
+              <button
+                type="button"
+                id="btn-header-market-share-pie-badge"
+                data-testid="header-market-share-pie-badge"
+                onClick={() => {
+                  setIsMarketSharePieVisible(true);
+                  if (viewMode === "chart") setViewMode("table");
+                  setTimeout(() => {
+                    const el = document.getElementById("seo-competitor-market-share-pie-chart-module");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                  }, 60);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-amber-500/20 text-amber-200 border-amber-400/40 hover:bg-amber-500/30 hover:border-amber-300 shadow-xs"
+                title="Tüm rakiplerin metriklerini karşılaştıran ve pazar payı dağılımını gösteren Pazar Payı Pasta Grafiği modülüne git"
+              >
+                <PieChart className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pazar Payı Pasta Grafiği</span>
+                <span className="px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 font-mono text-[9px] border border-amber-500/30 flex items-center gap-0.5">
+                  <TrendingUp className="w-2.5 h-2.5 text-amber-400" />
+                  <span>% Dağılım</span>
+                </span>
+              </button>
+
+              {/* CSV İçe Aktar (CSV Import & Auto-Mapping) Header Badge */}
+              <button
+                type="button"
+                id="btn-header-import-csv"
+                data-testid="header-import-csv-badge"
+                onClick={() => setIsCsvImportModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-emerald-500/20 text-emerald-200 border-emerald-400/40 hover:bg-emerald-500/30 hover:border-emerald-300 shadow-xs"
+                title="Harici bir CSV dosyasındaki rakip verilerini tabloya yükleyin ve otomatik eşleştirin"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-emerald-300" />
+                <span>CSV İçe Aktar</span>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 font-mono text-[9px] border border-emerald-500/30 flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                  <span>Otomatik Eşleştir</span>
+                </span>
+              </button>
+
+              {/* D3 Grafik Renk Teması Seçici Header Badge */}
+              <button
+                type="button"
+                id="btn-header-color-theme-badge"
+                data-testid="header-color-theme-badge"
+                onClick={() => setIsColorThemeModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer bg-amber-500/20 text-amber-200 border-amber-400/40 hover:bg-amber-500/30 hover:border-amber-300 shadow-xs"
+                title="D3.js grafik serilerinin renk paletini ve rakip renklerini kişiselleştirin"
+              >
+                <Palette className="w-3.5 h-3.5 text-amber-400" />
+                <span>Renk Teması</span>
+                <div className="flex items-center -space-x-1 ml-0.5">
+                  <span className="w-2 h-2 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.user }} />
+                  <span className="w-2 h-2 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp1 }} />
+                  <span className="w-2 h-2 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp2 }} />
+                  <span className="w-2 h-2 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp3 }} />
+                </div>
+              </button>
             </div>
 
             <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5 tracking-tight">
@@ -1799,7 +2695,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           {/* Quick Actions Header: CSV Export Button & View Mode Toggle */}
           <div className="flex items-center gap-2.5 flex-wrap">
             
-            {/* View Mode Toggle: Table View vs D3.js Bar Chart */}
+            {/* View Mode Toggle: Table View vs Market Share Pie Chart vs D3.js Bar Chart */}
             <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-700 shadow-inner">
               <button
                 type="button"
@@ -1814,6 +2710,31 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>Tablo Görünümü</span>
+              </button>
+
+              <button
+                type="button"
+                id="toggle-pie-chart-view-btn"
+                data-testid="toggle-pie-chart-view-btn"
+                onClick={() => {
+                  setViewMode("pie");
+                  setIsMarketSharePieVisible(true);
+                  setTimeout(() => {
+                    const el = document.getElementById("seo-competitor-market-share-pie-chart-module");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                  }, 60);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "pie"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Pazar Payı Pasta Grafiği görünümüne geç"
+              >
+                <PieChart className="w-3.5 h-3.5" />
+                <span>Pazar Payı Pasta Grafiği</span>
               </button>
 
               <button
@@ -2093,6 +3014,25 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
               )}
             </div>
 
+            {/* D3.js Grafik Serileri Renk Teması Seçici Butonu */}
+            <button
+              type="button"
+              id="btn-open-color-theme-selector"
+              data-testid="open-color-theme-selector-btn"
+              onClick={() => setIsColorThemeModalOpen(true)}
+              className="px-3.5 py-2 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-amber-500/30 hover:border-amber-400 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-95"
+              title="D3.js çubuk ve pasta grafiklerindeki rakip serilerinin renklerini özelleştirin"
+            >
+              <Palette className="w-4 h-4 text-amber-400" />
+              <span>Renk Teması</span>
+              <div className="flex items-center -space-x-1 ml-0.5">
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.user }} />
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp1 }} />
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp2 }} />
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-900" style={{ backgroundColor: colorTheme.comp3 }} />
+              </div>
+            </button>
+
             {/* Düzenleme Araç Çubuğu Toggle Button (Header) */}
             <button
               type="button"
@@ -2148,21 +3088,268 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
               )}
             </button>
 
-            {/* Dışa Aktar (Export as CSV) Button */}
+            {/* CSV İçe Aktar (Import External CSV) Button */}
             <button
               type="button"
-              id="btn-export-as-csv"
-              data-testid="export-as-csv-button"
-              data-action="export-csv"
-              onClick={() => handleExportCsv(true)}
-              className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20 active:scale-95 group"
-              title="Tablodaki tüm verileri CSV formatında indirin (Dışa Aktar)"
-              aria-label="Dışa Aktar"
+              id="btn-import-competitor-csv"
+              data-testid="import-competitor-csv-button"
+              data-action="open-csv-import"
+              onClick={() => setIsCsvImportModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white border border-emerald-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-700/25 active:scale-95 group"
+              title="Harici bir CSV dosyasındaki rakip verilerini tabloya otomatik olarak yükleyin ve eşleştirin"
+              aria-label="CSV Dosyasından Veri İçe Aktar"
             >
-              <Download className="w-4 h-4 text-white group-hover:translate-y-0.5 transition-transform" />
-              <span>Dışa Aktar</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-emerald-700/80 text-emerald-100 text-[10px] font-black border border-emerald-400/30">
-                CSV
+              <UploadCloud className="w-4 h-4 text-emerald-200 group-hover:scale-110 group-hover:-translate-y-0.5 transition-transform" />
+              <span>CSV İçe Aktar</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-black border border-emerald-400/40">
+                Yükle
+              </span>
+            </button>
+
+            {/* AI Strateji Özet Raporu Button */}
+            <button
+              type="button"
+              id="btn-ai-strategy-summary-report"
+              data-testid="ai-strategy-summary-report-button"
+              data-action="open-ai-strategy-report"
+              onClick={handleOpenStrategyReport}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-300/80 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-400/20 active:scale-95 group"
+              title="Tablodaki verileri analiz eden ve stratejik iyileştirme önerileri içeren AI Strateji Özet Raporunu görüntüleyin"
+              aria-label="AI Strateji Özet Raporu Oluştur"
+            >
+              <Sparkles className="w-4 h-4 text-slate-950 group-hover:rotate-12 transition-transform" />
+              <span>AI Strateji Özet Raporu</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black shadow-xs">
+                AI Rapor
+              </span>
+            </button>
+
+            {/* Farklı Kaydet (Save As: CSV, PDF, JSON) Menu */}
+            <TableSaveAsExportMenu
+              allRankings={effectiveRankings}
+              filteredRankings={filteredAndSortedRankings}
+              selectedRankings={selectedRankings}
+              userName={userName}
+              userDomain={userDomain}
+              competitors={effectiveCompetitors}
+              goals={keywordGoals}
+              strategicNotes={strategicNotes}
+              selectedCsvColumns={selectedCsvColumns}
+              onOpenPdfModal={handleOpenPdfExportModal}
+              onOpenAutoReportScheduler={() => setIsAutoReportModalOpen(true)}
+              onOpenImpactAnalysis={() => setIsImpactAnalysisModalOpen(true)}
+              onOpen3DScatterPlot={() => setIs3DScatterModalOpen(true)}
+              onOpenPerformanceRecommendations={() => {
+                setSelectedCompetitorForRecommendations(null);
+                setIsRecommendationsDrawerOpen(true);
+              }}
+              onExportMarketSharePdf={handleDownloadMarketSharePdf}
+              onOpenAdvancedExportSettings={() => setIsAdvancedExportModalOpen(true)}
+              onOpenCsvImport={() => setIsCsvImportModalOpen(true)}
+              onNotification={(msg) => {
+                setDownloadNotification(msg);
+                setTimeout(() => setDownloadNotification(null), 3500);
+              }}
+            />
+
+            {/* Pazar Payı ve Rekabet Analiz Raporu (Single-Click Market Share & Competitor PDF) Button */}
+            <button
+              type="button"
+              id="btn-export-market-share-pdf"
+              data-testid="export-market-share-pdf-button"
+              data-action="export-market-share-pdf"
+              onClick={handleDownloadMarketSharePdf}
+              disabled={isGeneratingMarketSharePdf}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-700 via-indigo-600 to-indigo-800 hover:from-rose-600 hover:to-indigo-700 text-white border border-rose-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-700/25 active:scale-95 group disabled:opacity-75 disabled:cursor-not-allowed"
+              title="Tüm rakip verilerini birleştirerek tek bir tıklamayla PDF formatında profesyonel 'Pazar Payı ve Rekabet Analiz Raporu' oluşturun ve indirin"
+              aria-label="Pazar Payı ve Rekabet Analiz Raporu PDF İndir"
+            >
+              {isGeneratingMarketSharePdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-amber-300 animate-spin" />
+                  <span>PDF Hazırlanıyor...</span>
+                </>
+              ) : (
+                <>
+                  <FileDown className="w-4 h-4 text-amber-300 group-hover:scale-110 group-hover:-translate-y-0.5 transition-transform" />
+                  <span>Pazar Payı Raporu</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-950/80 text-rose-300 text-[10px] font-black border border-rose-400/40 flex items-center gap-1">
+                    <Award className="w-3 h-3 text-amber-400" />
+                    <span>Tek Tık PDF</span>
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* Profesyonel Rapor Oluşturma Aracı (Marka Logosu & Özel Notlar ile Kapsamlı PDF) Button */}
+            <button
+              type="button"
+              id="btn-open-market-share-report-builder"
+              data-testid="open-market-share-report-builder-button"
+              data-action="open-market-share-report-builder"
+              onClick={() => setIsReportBuilderModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white border border-indigo-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-indigo-600/25 active:scale-95 group"
+              title="Tüm rakip verilerini ve pazar payı analizini tek bir kapsamlı PDF dosyası olarak indirebileceğiniz, marka logolarını ve özel notları içeren profesyonel rapor oluşturma aracını açın"
+              aria-label="Profesyonel Rapor Oluşturma Aracı Aç"
+            >
+              <FileText className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
+              <span>Rapor Oluşturma Aracı</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-950/80 text-amber-300 text-[10px] font-black border border-indigo-400/40 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>Logo & Notlar</span>
+              </span>
+            </button>
+
+            {/* Performans İyileştirme Önerileri (Competitor Performance Recommendations Drawer) Button */}
+            <button
+              type="button"
+              id="btn-open-performance-recommendations-drawer"
+              data-testid="open-performance-recommendations-drawer-button"
+              data-action="open-performance-recommendations-drawer"
+              onClick={() => {
+                setSelectedCompetitorForRecommendations(null);
+                setIsRecommendationsDrawerOpen(true);
+              }}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-600 to-indigo-700 hover:from-emerald-600 hover:to-indigo-600 text-white border border-emerald-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-700/25 active:scale-95 group"
+              title="Tablodaki metrikleri analiz ederek her rakip için özelleştirilmiş 'Performans İyileştirme Önerileri' sunan tıklanabilir yan paneli açın"
+              aria-label="Performans İyileştirme Önerileri Yan Paneli"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 group-hover:scale-110 group-hover:rotate-12 transition-transform" />
+              <span>Performans Önerileri</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-black border border-emerald-400/40 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-amber-400" />
+                <span>Yan Panel</span>
+              </span>
+            </button>
+
+            {/* 3D Korelasyon Dağılım Grafiği (3D Scatter & Market Positioning Plane) Button */}
+            <button
+              type="button"
+              id="btn-open-3d-scatter-correlation"
+              data-testid="open-3d-scatter-correlation-button"
+              data-action="open-3d-scatter-correlation"
+              onClick={() => setIs3DScatterModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-700 via-indigo-600 to-purple-700 hover:from-sky-600 hover:to-purple-600 text-white border border-sky-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-sky-700/25 active:scale-95 group"
+              title="Rakip verilerini ve anahtar kelimeleri 3D koordinat düzleminde (X, Y, Z eksenleri) görselleştirerek pazar konumlandırmasını ve korelasyonunu analiz eden interaktif 3D katman"
+              aria-label="3D Korelasyon Dağılım Grafiği"
+            >
+              <Box className="w-4 h-4 text-sky-200 group-hover:scale-110 group-hover:rotate-12 transition-transform" />
+              <span>3D Korelasyon</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-sky-950/80 text-sky-300 text-[10px] font-black border border-sky-400/40 flex items-center gap-1">
+                <Compass className="w-3 h-3 text-sky-400" />
+                <span>3D Düzlem</span>
+              </span>
+            </button>
+
+            {/* Etki Analizi (Impact Analysis & Correlation Heatmap Overlay) Button */}
+            <button
+              type="button"
+              id="btn-open-impact-analysis"
+              data-testid="open-impact-analysis-button"
+              data-action="open-impact-analysis"
+              onClick={() => setIsImpactAnalysisModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-600 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white border border-purple-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-purple-700/25 active:scale-95 group"
+              title="Seçili rakip metrikleri (hız, görünürlük, kelime sayısı, KD) ile belirlenen hedefler arasındaki korelasyonu ve başarıyı en çok etkileyen faktörleri gösteren Isı Haritası katmanı"
+              aria-label="Etki Analizi Isı Haritası"
+            >
+              <Activity className="w-4 h-4 text-purple-200 group-hover:scale-110 transition-transform" />
+              <span>Etki Analizi</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-950/80 text-purple-300 text-[10px] font-black border border-purple-400/40 flex items-center gap-1">
+                <Flame className="w-3 h-3 text-amber-400 animate-pulse" />
+                <span>Isı Haritası</span>
+              </span>
+            </button>
+
+            {/* Otomatik Raporlama (Automated Weekly Report Scheduler) Button */}
+            <button
+              type="button"
+              id="btn-auto-report-schedule"
+              data-testid="auto-report-schedule-button"
+              data-action="open-auto-report-scheduler"
+              onClick={() => setIsAutoReportModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 hover:from-indigo-600 hover:to-indigo-700 text-white border border-indigo-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-indigo-700/25 active:scale-95 group"
+              title="Tablodaki verilerin haftalık otomatik özet raporu olarak kayıtlı e-posta adresine PDF/CSV formatında gönderilmesini sağlayan Otomatik Raporlama zamanlayıcısı"
+              aria-label="Otomatik Raporlama Zamanlayıcısı"
+            >
+              <CalendarClock className="w-4 h-4 text-indigo-200 group-hover:rotate-12 transition-transform" />
+              <span>Otomatik Raporlama</span>
+              {autoReportConfig.enabled ? (
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-black border border-emerald-400/40 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Haftalık: Aktif</span>
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded-full bg-slate-950/70 text-slate-400 text-[10px] font-bold border border-slate-700">
+                  Zamanlayıcı
+                </span>
+              )}
+            </button>
+
+            {/* Excel Olarak Dışa Aktar (.xlsx) Quick Button */}
+            <button
+              type="button"
+              id="btn-export-as-excel"
+              data-testid="export-as-excel-button"
+              data-action="export-excel"
+              onClick={() => handleExportExcel(true)}
+              className="px-4 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-800/30 active:scale-95 group"
+              title="Tablodaki tüm verileri doğrudan .xlsx (Microsoft Excel) formatında indirin"
+              aria-label="Excel Olarak Dışa Aktar"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />
+              <span>Excel Olarak Dışa Aktar</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-black border border-emerald-400/40">
+                .xlsx
+              </span>
+            </button>
+
+            {/* Dışa Aktar (Export as CSV) Buton Grubu & Gelişmiş Ayarlar Butonu */}
+            <div className="inline-flex items-center rounded-2xl shadow-md shadow-emerald-600/25">
+              <button
+                type="button"
+                id="btn-export-as-csv"
+                data-testid="export-as-csv-button"
+                data-action="export-csv"
+                onClick={() => handleExportCsv(true)}
+                className="px-4 py-2 rounded-l-2xl bg-emerald-600 hover:bg-emerald-500 text-white border-y border-l border-emerald-400/40 text-xs font-black flex items-center gap-2 transition-all cursor-pointer active:scale-95 group"
+                title="Tablodaki tüm verileri CSV formatında indirin (Dışa Aktar)"
+                aria-label="Dışa Aktar"
+              >
+                <Download className="w-4 h-4 text-white group-hover:translate-y-0.5 transition-transform" />
+                <span>Dışa Aktar</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-700/80 text-emerald-100 text-[10px] font-black border border-emerald-400/30">
+                  CSV
+                </span>
+              </button>
+              <button
+                type="button"
+                id="btn-export-as-csv-advanced-settings"
+                data-testid="export-as-csv-advanced-settings-button"
+                data-action="open-advanced-export-settings"
+                onClick={() => setIsAdvancedExportModalOpen(true)}
+                className="px-2.5 py-2 rounded-r-2xl bg-emerald-700 hover:bg-emerald-600 text-emerald-100 border border-emerald-400/50 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 group"
+                title="Dışa Aktarma Gelişmiş Ayarları (PDF & JSON Özel Sıkıştırma ve Formatlama Penceresi)"
+                aria-label="Dışa Aktarma Gelişmiş Ayarlarını Aç"
+              >
+                <Sliders className="w-3.5 h-3.5 text-emerald-200 group-hover:rotate-45 transition-transform" />
+              </button>
+            </div>
+
+            {/* Gelişmiş Dışa Aktarma Butonu (PDF & JSON Özel Sıkıştırma ve Formatlama Penceresi) */}
+            <button
+              type="button"
+              id="btn-open-advanced-export-settings"
+              data-testid="open-advanced-export-settings-button"
+              data-action="open-advanced-export-settings"
+              onClick={() => setIsAdvancedExportModalOpen(true)}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-indigo-800 hover:from-emerald-600 hover:to-indigo-700 text-white border border-emerald-400/50 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-teal-900/30 active:scale-95 group"
+              title="PDF ve JSON dosyaları için özel sıkıştırma düzeyi (Düşük/Orta/Yüksek) ve veri formatlama seçenekleri penceresini açın"
+              aria-label="Gelişmiş Dışa Aktar (PDF & JSON)"
+            >
+              <Sliders className="w-4 h-4 text-emerald-200 group-hover:scale-110 group-hover:rotate-12 transition-transform" />
+              <span>Gelişmiş Dışa Aktar</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-950/70 text-emerald-300 text-[10px] font-black border border-emerald-400/30">
+                PDF &bull; JSON
               </span>
             </button>
 
@@ -2285,6 +3472,32 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
         </div>
       </div>
 
+      {/* 1.2 HIZLI CSV YÜKLEME VE VERİ EŞLEŞTİRME SİHİRBAZI BARI */}
+      <QuickCsvUploadBar
+        onFileSelected={handleProcessCsvFile}
+        onOpenWizard={handleOpenWizardDirectly}
+        onLoadSample={handleQuickUploadSample}
+        userName={userName}
+        competitors={effectiveCompetitors}
+        totalKeywordsCount={effectiveRankings.length}
+      />
+
+      {/* 1.5 PAZAR PAYI PASTA GRAFİĞİ & RAKİP METRİKLERİ KIYASLAMA MODÜLÜ */}
+      {isMarketSharePieVisible && (
+        <CompetitorMarketSharePieChart
+          rankings={effectiveRankings}
+          competitors={effectiveCompetitors}
+          userName={userName}
+          userDomain={userDomain}
+          colorPalette={colorTheme}
+          onOpenColorThemeSelector={() => setIsColorThemeModalOpen(true)}
+          onSelectCompetitorFilter={handleCompetitorFilterFromPie}
+          onExportMarketSharePdf={handleDownloadMarketSharePdf}
+          onOpenReportBuilder={() => setIsReportBuilderModalOpen(true)}
+          onExportExcel={() => handleExportExcel(true)}
+        />
+      )}
+
       {/* 2. TOP 5 KEYWORDS SELECTOR STRIP (HER RAKİP İÇİN EN ÖNEMLİ 5 KELİME) */}
       <div className="p-3.5 rounded-2xl bg-slate-900 text-white border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -2328,7 +3541,43 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           rankings={filteredAndSortedRankings}
           userName={userName}
           competitors={effectiveCompetitors}
+          colorPalette={colorTheme}
+          onOpenColorThemeSelector={() => setIsColorThemeModalOpen(true)}
         />
+      ) : viewMode === "pie" ? (
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 text-center space-y-4 shadow-xl">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+            <PieChart className="w-6 h-6" />
+          </div>
+          <div className="space-y-1 max-w-lg mx-auto">
+            <h4 className="text-base font-black text-white">
+              Pazar Payı Pasta Grafiği ve Rakip Kıyaslama Modu
+            </h4>
+            <p className="text-xs text-slate-400">
+              Yukarıdaki interaktif pasta grafiğinden rakiplerin pazar paylarını ve organik görünürlüklerini inceleyin. 
+              Detaylı anahtar kelime tablosuna geçmek için aşağıdaki butona tıklayabilirsiniz.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs inline-flex items-center gap-2 cursor-pointer shadow-md transition-all"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Tablo Görünümüne Geç</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadMarketSharePdf}
+              disabled={isGeneratingMarketSharePdf}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs inline-flex items-center gap-2 cursor-pointer shadow-md transition-all disabled:opacity-60"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>PDF Rapor İndir</span>
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           {/* 3.0 DYNAMIC METRIC FILTERING & SORTING PANEL */}
@@ -2368,6 +3617,19 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
             onToggleOpen={() => setIsSpeedScoreCardsOpen((prev) => !prev)}
             highlightedCompetitorId={highlightedCompetitorSpeedId}
           />
+
+          {/* 3.0.2 GELİŞİM İZLEME MODU (GOAL TRACKING SUMMARY PANEL) */}
+          {isGoalTrackingMode && (
+            <GoalTrackingSummaryPanel
+              totalItems={effectiveRankings.length}
+              goals={keywordGoals}
+              rankings={effectiveRankings}
+              onApplyBulkTarget={handleApplyBulkTarget}
+              onApplyDynamicBeatCompetitorTargets={handleApplyDynamicBeatCompetitorTargets}
+              onResetGoals={handleResetGoals}
+              onClose={() => setIsGoalTrackingMode(false)}
+            />
+          )}
 
           {/* 3.1 SEARCH, STATUS, INTENT & SORT CONTROLS */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
@@ -2468,24 +3730,59 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   <option value="comp1Rank-asc">1. Rakip Sıralaması ({comp1.name.split(" ")[0]})</option>
                   <option value="comp2Rank-asc">2. Rakip Sıralaması ({comp2.name.split(" ")[0]})</option>
                   <option value="comp3Rank-asc">3. Rakip Sıralaması ({comp3.name.split(" ")[0]})</option>
+                  <option value="goalAttainment-desc">Hedef Başarım Oranı (En Yüksek %)</option>
+                  <option value="goalAttainment-asc">Hedef Başarım Oranı (En Düşük %)</option>
+                  <option value="goalDeviation-asc">Hedef Sapması (Hedefe En Yakın / Sıfır Sapma)</option>
+                  <option value="goalDeviation-desc">Hedef Sapması (En Yüksek Sapma)</option>
                 </select>
 
-                {/* Dışa Aktar Button (Toolbar) */}
+                {/* Excel Olarak Dışa Aktar Button (Toolbar) */}
                 <button
                   type="button"
-                  id="btn-table-toolbar-export-csv"
-                  data-testid="table-toolbar-export-csv-btn"
-                  onClick={() => handleExportCsv(true)}
-                  className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs border border-emerald-500 shrink-0"
-                  title="Tablodaki tüm verileri CSV formatında indirin"
-                  aria-label="Dışa Aktar"
+                  id="btn-table-toolbar-export-excel"
+                  data-testid="table-toolbar-export-excel-btn"
+                  data-action="export-excel"
+                  onClick={() => handleExportExcel(true)}
+                  className="py-1.5 px-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs border border-emerald-500/80 shrink-0"
+                  title="Tablodaki tüm verileri doğrudan .xlsx (Excel) formatında indirin"
+                  aria-label="Excel Olarak Dışa Aktar"
                 >
-                  <Download className="w-3.5 h-3.5 text-white" />
-                  <span>Dışa Aktar</span>
-                  <span className="px-1.5 py-0.2 rounded bg-emerald-800 text-emerald-100 text-[10px] font-black">
-                    CSV
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>Excel Olarak Dışa Aktar</span>
+                  <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 text-[10px] font-black">
+                    .xlsx
                   </span>
                 </button>
+
+                {/* Dışa Aktar Button (Toolbar) & Gelişmiş Ayarlar */}
+                <div className="inline-flex items-center rounded-xl shadow-xs shrink-0">
+                  <button
+                    type="button"
+                    id="btn-table-toolbar-export-csv"
+                    data-testid="table-toolbar-export-csv-btn"
+                    onClick={() => handleExportCsv(true)}
+                    className="py-1.5 px-3.5 rounded-l-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border-y border-l border-emerald-500"
+                    title="Tablodaki tüm verileri CSV formatında indirin"
+                    aria-label="Dışa Aktar"
+                  >
+                    <Download className="w-3.5 h-3.5 text-white" />
+                    <span>Dışa Aktar</span>
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-800 text-emerald-100 text-[10px] font-black">
+                      CSV
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-table-toolbar-advanced-export"
+                    data-testid="table-toolbar-advanced-export-btn"
+                    onClick={() => setIsAdvancedExportModalOpen(true)}
+                    className="py-1.5 px-2 rounded-r-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-emerald-200 text-xs font-bold flex items-center transition-all cursor-pointer border border-emerald-400/60"
+                    title="Gelişmiş Dışa Aktarma Ayarları (PDF & JSON Sıkıştırma ve Formatlama)"
+                    aria-label="Gelişmiş Dışa Aktarma Ayarları"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-emerald-200 hover:scale-110 transition-transform" />
+                  </button>
+                </div>
 
                 {/* Metrik Filtreleme Paneli Aç/Kapat Butonu (Toolbar) */}
                 <button
@@ -2569,6 +3866,37 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   }`}>
                     {notesCount}
                   </span>
+                </button>
+
+                {/* Gelişim İzleme Modu (Hedef Değer & Sapma) Toggle Button */}
+                <button
+                  type="button"
+                  id="btn-toggle-goal-tracking-mode"
+                  data-testid="btn-toggle-goal-tracking-mode"
+                  onClick={() => {
+                    setIsGoalTrackingMode((prev) => {
+                      const next = !prev;
+                      try {
+                        localStorage.setItem("seo_goal_tracking_mode", String(next));
+                      } catch (_) {}
+                      return next;
+                    });
+                  }}
+                  className={`py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 active:scale-95 ${
+                    isGoalTrackingMode
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700 shadow-indigo-600/25 ring-2 ring-indigo-300"
+                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                  }`}
+                  title="Kullanıcıların rakip metriklerine göre Hedef Değer sütunu ekleyebileceği ve sapmaları yüzdesel gösteren Gelişim İzleme modunu açın/kapatın"
+                >
+                  <Target className={`w-3.5 h-3.5 ${isGoalTrackingMode ? "text-amber-300" : "text-indigo-600"}`} />
+                  <span>Gelişim İzleme</span>
+                  <span className={`px-1.5 py-0.2 rounded-full font-black text-[10px] ${
+                    isGoalTrackingMode ? "bg-amber-400 text-slate-950 font-mono" : "bg-slate-200 text-slate-700 font-mono"
+                  }`}>
+                    {isGoalTrackingMode ? "Aktif" : "Kapalı"}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isGoalTrackingMode ? "rotate-180" : ""}`} />
                 </button>
               </div>
             </div>
@@ -2702,6 +4030,35 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   <span>Ayrı Grafikte Karşılaştır</span>
                 </button>
 
+                {/* Action 1.5: Export Selected as PDF (Seçilileri PDF Yap) */}
+                <button
+                  type="button"
+                  id="btn-bulk-export-pdf"
+                  data-testid="bulk-export-pdf-button"
+                  data-action="export-pdf-selected"
+                  onClick={handleDownloadSelectedPdf}
+                  disabled={isGeneratingMarketSharePdf}
+                  className={`px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-600/30 active:scale-95 border border-indigo-400/40 ${
+                    isGeneratingMarketSharePdf ? "opacity-75 cursor-wait" : ""
+                  }`}
+                  title="Seçili anahtar kelimeleri içeren profesyonel Pazar Payı ve Rekabet Analiz Raporunu PDF olarak indirin"
+                >
+                  {isGeneratingMarketSharePdf ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                      <span>PDF Hazırlanıyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Seçilileri PDF Yap</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-slate-950/80 text-amber-300 text-[10px] font-black border border-indigo-400/40">
+                        PDF
+                      </span>
+                    </>
+                  )}
+                </button>
+
                 {/* Action 2: Bulk Add to Targets */}
                 {onApplyKeyword && (
                   <button
@@ -2730,7 +4087,24 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   <span>Sütunları Özelleştir ({selectedCsvColumns.length})</span>
                 </button>
 
-                {/* Action 3: Export Selected as CSV */}
+                {/* Action 3: Export Selected as Excel */}
+                <button
+                  type="button"
+                  id="btn-bulk-export-excel"
+                  data-testid="bulk-export-excel-button"
+                  data-action="export-excel-selected"
+                  onClick={() => handleExportSelectedExcel()}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                  title="Yalnızca seçilen satırları doğrudan .xlsx (Excel) formatında indirin"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>Seçilileri Excel İndir</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px] font-black">
+                    .xlsx
+                  </span>
+                </button>
+
+                {/* Action 3.5: Export Selected as CSV */}
                 <button
                   type="button"
                   id="btn-bulk-export-csv"
@@ -3338,6 +4712,43 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                       </div>
                     </th>
 
+                    {/* Header 3.5: Goal Tracking Mode (Hedef Değer & Gelişim Sapması) */}
+                    {isGoalTrackingMode && (
+                      <th 
+                        scope="col"
+                        id="th-col-goal-tracking"
+                        data-testid="th-goal-tracking"
+                        onClick={() => handleHeaderSort("goalAttainment")}
+                        className={`py-3.5 px-3.5 font-black uppercase tracking-wider text-[11px] min-w-[170px] bg-indigo-950 text-amber-300 border-r border-indigo-800/80 cursor-pointer transition-colors group ${
+                          sortBy === "goalAttainment" ? "bg-indigo-900 text-amber-300 ring-1 ring-amber-400" : "hover:bg-indigo-900/80"
+                        }`}
+                        title="Hedef Başarım Yüzdesine göre sırala (Artan / Azalan)"
+                        aria-sort={sortBy === "goalAttainment" ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <button
+                          type="button"
+                          id="sort-col-goal-attainment"
+                          data-testid="sort-col-goal-attainment-btn"
+                          className="w-full flex items-center justify-between gap-1 text-left text-inherit cursor-pointer focus:outline-hidden"
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Target className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">Hedef Değer & Gelişim</span>
+                            <HeaderMetricInfoTooltip
+                              id="th-goal-tracking"
+                              title="Hedef Değer & Gelişim İzleme"
+                              description="Belirlenen hedef pozisyona göre (%100 tam hedef, pozitif % hedefin önünde, negatif % geride) ilerleme ve sapma analizidir."
+                              formula="Başarım Oranı: 100% - ((Mevcut - Hedef) / 20 * 100)"
+                              benchmark="Rakiplerin önüne geçmek için hedef sıra belirlenir ve sapma yüzdesi canlı hesaplanır."
+                              tag="Gelişim İzleme"
+                              align="left"
+                            />
+                          </div>
+                          {renderSortIcon("goalAttainment")}
+                        </button>
+                      </th>
+                    )}
+
                     {/* Header 4: Competitor Name */}
                     <th 
                       scope="col"
@@ -3403,20 +4814,37 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono truncate">{comp1.domain}</div>
                       </button>
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsSpeedScoreCardsOpen(true);
-                          setHighlightedCompetitorSpeedId(comp1.id || "comp-1");
-                          const el = document.getElementById("competitor-speed-score-cards-panel");
-                          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                        className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[9px] font-mono font-bold border border-amber-500/40 transition-colors"
-                        title={`${comp1.name} Google PageSpeed: 74/100 • LCP: 3.4s`}
-                      >
-                        <Zap className="w-2.5 h-2.5 text-amber-400" />
-                        <span>PSI {comp1.speedScore || 74}</span>
-                        <span className="text-rose-300 font-sans font-bold">LCP 3.4s</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSpeedScoreCardsOpen(true);
+                            setHighlightedCompetitorSpeedId(comp1.id || "comp-1");
+                            const el = document.getElementById("competitor-speed-score-cards-panel");
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[9px] font-mono font-bold border border-amber-500/40 transition-colors cursor-pointer"
+                          title={`${comp1.name} Google PageSpeed: 74/100 • LCP: 3.4s`}
+                        >
+                          <Zap className="w-2.5 h-2.5 text-amber-400" />
+                          <span>PSI {comp1.speedScore || 74}</span>
+                          <span className="text-rose-300 font-sans font-bold">LCP 3.4s</span>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-header-comp1-recommendations"
+                          data-testid="header-comp1-recommendations-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCompetitorForRecommendations(comp1.id || "comp-1");
+                            setIsRecommendationsDrawerOpen(true);
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/25 hover:bg-indigo-500/40 text-indigo-200 text-[9px] font-bold border border-indigo-400/40 transition-colors cursor-pointer"
+                          title={`${comp1.name} için Performans İyileştirme Önerilerini Görüntüle`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                          <span>Öneriler</span>
+                        </button>
                       </div>
                     </th>
 
@@ -3452,20 +4880,37 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono truncate">{comp2.domain}</div>
                       </button>
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsSpeedScoreCardsOpen(true);
-                          setHighlightedCompetitorSpeedId(comp2.id || "comp-2");
-                          const el = document.getElementById("competitor-speed-score-cards-panel");
-                          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                        className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[9px] font-mono font-bold border border-emerald-500/40 transition-colors"
-                        title={`${comp2.name} Google PageSpeed: 81/100 • LCP: 2.7s`}
-                      >
-                        <Zap className="w-2.5 h-2.5 text-emerald-400" />
-                        <span>PSI {comp2.speedScore || 81}</span>
-                        <span className="text-emerald-300 font-sans font-bold">LCP 2.7s</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSpeedScoreCardsOpen(true);
+                            setHighlightedCompetitorSpeedId(comp2.id || "comp-2");
+                            const el = document.getElementById("competitor-speed-score-cards-panel");
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[9px] font-mono font-bold border border-emerald-500/40 transition-colors cursor-pointer"
+                          title={`${comp2.name} Google PageSpeed: 81/100 • LCP: 2.7s`}
+                        >
+                          <Zap className="w-2.5 h-2.5 text-emerald-400" />
+                          <span>PSI {comp2.speedScore || 81}</span>
+                          <span className="text-emerald-300 font-sans font-bold">LCP 2.7s</span>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-header-comp2-recommendations"
+                          data-testid="header-comp2-recommendations-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCompetitorForRecommendations(comp2.id || "comp-2");
+                            setIsRecommendationsDrawerOpen(true);
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/25 hover:bg-indigo-500/40 text-indigo-200 text-[9px] font-bold border border-indigo-400/40 transition-colors cursor-pointer"
+                          title={`${comp2.name} için Performans İyileştirme Önerilerini Görüntüle`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                          <span>Öneriler</span>
+                        </button>
                       </div>
                     </th>
 
@@ -3501,20 +4946,37 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono truncate">{comp3.domain}</div>
                       </button>
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsSpeedScoreCardsOpen(true);
-                          setHighlightedCompetitorSpeedId(comp3.id || "comp-3");
-                          const el = document.getElementById("competitor-speed-score-cards-panel");
-                          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                        className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[9px] font-mono font-bold border border-rose-500/40 transition-colors"
-                        title={`${comp3.name} Google PageSpeed: 62/100 • LCP: 4.6s`}
-                      >
-                        <Zap className="w-2.5 h-2.5 text-rose-400" />
-                        <span>PSI {comp3.speedScore || 62}</span>
-                        <span className="text-rose-300 font-sans font-bold">LCP 4.6s</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSpeedScoreCardsOpen(true);
+                            setHighlightedCompetitorSpeedId(comp3.id || "comp-3");
+                            const el = document.getElementById("competitor-speed-score-cards-panel");
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[9px] font-mono font-bold border border-rose-500/40 transition-colors cursor-pointer"
+                          title={`${comp3.name} Google PageSpeed: 62/100 • LCP: 4.6s`}
+                        >
+                          <Zap className="w-2.5 h-2.5 text-rose-400" />
+                          <span>PSI {comp3.speedScore || 62}</span>
+                          <span className="text-rose-300 font-sans font-bold">LCP 4.6s</span>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-header-comp3-recommendations"
+                          data-testid="header-comp3-recommendations-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCompetitorForRecommendations(comp3.id || "comp-3");
+                            setIsRecommendationsDrawerOpen(true);
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/25 hover:bg-indigo-500/40 text-indigo-200 text-[9px] font-bold border border-indigo-400/40 transition-colors cursor-pointer"
+                          title={`${comp3.name} için Performans İyileştirme Önerilerini Görüntüle`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                          <span>Öneriler</span>
+                        </button>
                       </div>
                     </th>
 
@@ -3612,7 +5074,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <tbody className="divide-y divide-slate-100">
                   {filteredAndSortedRankings.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-400">
+                      <td colSpan={isGoalTrackingMode ? 12 : 11} className="py-12 text-center text-slate-400">
                         {statusFilter === "selected" ? (
                           <div className="space-y-1.5 max-w-sm mx-auto">
                             <CheckCircle2 className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
@@ -3671,10 +5133,10 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
 
                       // Top competitor info
                       const compList = [
-                        { name: comp1.name, domain: comp1.domain, rank: item.comp1Rank },
-                        { name: comp2.name, domain: comp2.domain, rank: item.comp2Rank },
-                        { name: comp3.name, domain: comp3.domain, rank: item.comp3Rank }
-                      ].filter((c): c is { name: string; domain: string; rank: number } => c.rank !== null)
+                        { name: comp1.name, domain: comp1.domain, rank: item.comp1Rank, speedScore: comp1.speedScore || 74 },
+                        { name: comp2.name, domain: comp2.domain, rank: item.comp2Rank, speedScore: comp2.speedScore || 81 },
+                        { name: comp3.name, domain: comp3.domain, rank: item.comp3Rank, speedScore: comp3.speedScore || 62 }
+                      ].filter((c): c is { name: string; domain: string; rank: number; speedScore: number } => c.rank !== null)
                        .sort((a, b) => a.rank - b.rank);
                       const topComp = compList[0];
 
@@ -3703,7 +5165,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 data-testid={`row-edit-validation-banner-${item.id}`}
                                 className="bg-rose-100/95 border-t-2 border-x-2 border-rose-500 shadow-xs animate-in fade-in duration-150"
                               >
-                                <td colSpan={11} className="py-2.5 px-3">
+                                <td colSpan={isGoalTrackingMode ? 12 : 11} className="py-2.5 px-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                                     <div className="flex items-center gap-2 text-rose-900 font-bold">
                                       <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 animate-bounce" />
@@ -3739,22 +5201,32 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 hasValidationErrors ? "bg-rose-50/80 border-y-2 border-rose-500" : "bg-amber-50/95 border-y-2 border-amber-500"
                               } shadow-md transition-all`}
                             >
-                              {/* 0. Row Status / Edit Active Indicator */}
+                              {/* 0. Row Status / Selection Checkbox & Edit Indicator */}
                               <td className="py-3 px-2.5 align-middle text-center">
-                                <div className="flex flex-col items-center justify-center gap-1">
+                                <div className="flex flex-col items-center justify-center gap-1.5">
+                                  <input
+                                    type="checkbox"
+                                    id={`select-ranking-editing-${item.id}`}
+                                    data-testid={`select-checkbox-editing-${item.id}`}
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectRow(item.id)}
+                                    className="w-4 h-4 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 cursor-pointer transition-colors"
+                                    title={`"${item.keyword || 'Yeni Rakip'}" kelimesini seç`}
+                                    aria-label={`"${item.keyword || 'Yeni Rakip'}" satırını seç`}
+                                  />
                                   <span 
-                                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${
+                                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${
                                       hasValidationErrors ? "bg-rose-500 text-white" : "bg-amber-500 text-white"
                                     } font-bold text-xs shadow-xs`}
                                     title={hasValidationErrors ? "Sayısal doğrulama hatası mevcut" : "Satır içi düzenleme modu aktif"}
                                   >
                                     {hasValidationErrors ? (
-                                      <AlertTriangle className="w-3.5 h-3.5" />
+                                      <AlertTriangle className="w-3 h-3" />
                                     ) : (
-                                      <Pencil className="w-3.5 h-3.5 animate-pulse" />
+                                      <Pencil className="w-3 h-3 animate-pulse" />
                                     )}
                                   </span>
-                                  <span className={`text-[9px] font-black ${hasValidationErrors ? "text-rose-800" : "text-amber-800"}`}>
+                                  <span className={`text-[8px] font-black ${hasValidationErrors ? "text-rose-800" : "text-amber-800"}`}>
                                     {hasValidationErrors ? "HATA" : "DÜZENLE"}
                                   </span>
                                 </div>
@@ -3922,6 +5394,21 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                   )}
                                 </div>
                               </td>
+
+                              {/* Goal Tracking Column in Edit Mode */}
+                              {isGoalTrackingMode && (
+                                <td className="py-3 px-3 align-top bg-indigo-50/40 border-r border-indigo-100 min-w-[170px]">
+                                  <GoalTrackingCell
+                                    itemId={item.id}
+                                    keyword={editFormData.keyword || item.keyword}
+                                    currentRank={numUserRank}
+                                    bestCompRank={bestCompRankPreview}
+                                    bestCompName={editFormData.competitorName || topComp?.name || "Rakip"}
+                                    targetRank={keywordGoals[item.id]?.targetRank || (numUserRank && numUserRank <= 3 ? 1 : 3)}
+                                    onUpdateTarget={handleUpdateTarget}
+                                  />
+                                </td>
+                              )}
 
                               {/* 4. Competitor Name Column */}
                               <td className="py-3 px-2.5 align-top min-w-[140px]">
@@ -4461,13 +5948,43 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     </span>
                                   )}
                                 </div>
+
+                                {/* Siteniz PageSpeed Mini-Sparkline */}
+                                <div className="pt-0.5">
+                                  <CompetitorPsiSparkline
+                                    competitorName={userName || "Siteniz"}
+                                    currentScore={98}
+                                    userScore={98}
+                                    width={48}
+                                    height={16}
+                                    showScoreBadge={true}
+                                    showDelta={false}
+                                    isUser={true}
+                                    id={`sparkline-user-${item.id}`}
+                                  />
+                                </div>
                               </div>
                             </td>
+
+                            {/* Goal Tracking Mode Cell (Hedef Değer, Başarım % & Sapma) */}
+                            {isGoalTrackingMode && (
+                              <td className="py-3 px-3 align-top bg-indigo-50/25 border-r border-indigo-100 min-w-[170px]">
+                                <GoalTrackingCell
+                                  itemId={item.id}
+                                  keyword={item.keyword}
+                                  currentRank={item.userRank}
+                                  bestCompRank={bestCompRank}
+                                  bestCompName={topComp?.name || "Lider Rakip"}
+                                  targetRank={keywordGoals[item.id]?.targetRank || (item.userRank && item.userRank <= 3 ? 1 : 3)}
+                                  onUpdateTarget={handleUpdateTarget}
+                                />
+                              </td>
+                            )}
 
                             {/* 4. Competitor Name (Leading Competitor) Column */}
                             <td className="py-3.5 px-3 align-top">
                               {((item as any).competitorName || topComp) ? (
-                                <div className="space-y-0.5">
+                                <div className="space-y-1">
                                   <div 
                                     className="font-bold text-xs text-slate-900 truncate max-w-[130px] flex items-center gap-1" 
                                     title={(item as any).competitorName || topComp?.name}
@@ -4481,6 +5998,21 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     {topComp?.rank && <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded">#{topComp.rank}</span>}
                                     <span className="text-slate-400 font-mono truncate max-w-[85px]">{topComp?.domain || "Özel"}</span>
                                   </div>
+
+                                  {/* Google PageSpeed Insights mini-sparkline for Leading Competitor */}
+                                  <div className="pt-0.5">
+                                    <CompetitorPsiSparkline
+                                      competitorName={(item as any).competitorName || topComp?.name || comp1.name}
+                                      competitorDomain={topComp?.domain || comp1.domain}
+                                      currentScore={topComp?.speedScore || ((item as any).competitorName ? 74 : comp1.speedScore || 74)}
+                                      userScore={98}
+                                      width={64}
+                                      height={18}
+                                      showScoreBadge={true}
+                                      showDelta={true}
+                                      id={`sparkline-lead-${item.id}`}
+                                    />
+                                  </div>
                                 </div>
                               ) : (
                                 <span className="text-slate-400 text-xs">-</span>
@@ -4489,7 +6021,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
 
                             {/* 5. Competitor 1 Rank */}
                             <td className="py-3.5 px-3 align-top">
-                              <div className="space-y-0.5">
+                              <div className="space-y-1">
                                 <div className="font-mono font-bold text-xs text-slate-800">
                                   {item.comp1Rank ? (
                                     <span className={item.comp1Rank === 1 ? "text-amber-600 font-black" : ""}>
@@ -4502,12 +6034,25 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
                                   {comp1.name.split(" ")[0]}
                                 </div>
+                                <div className="pt-0.5">
+                                  <CompetitorPsiSparkline
+                                    competitorName={comp1.name}
+                                    competitorDomain={comp1.domain}
+                                    currentScore={comp1.speedScore || 74}
+                                    userScore={98}
+                                    width={48}
+                                    height={16}
+                                    showScoreBadge={true}
+                                    showDelta={false}
+                                    id={`sparkline-comp1-${item.id}`}
+                                  />
+                                </div>
                               </div>
                             </td>
 
                             {/* 6. Competitor 2 Rank */}
                             <td className="py-3.5 px-3 align-top">
-                              <div className="space-y-0.5">
+                              <div className="space-y-1">
                                 <div className="font-mono font-bold text-xs text-slate-800">
                                   {item.comp2Rank ? (
                                     <span className={item.comp2Rank === 1 ? "text-amber-600 font-black" : ""}>
@@ -4520,12 +6065,25 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
                                   {comp2.name.split(" ")[0]}
                                 </div>
+                                <div className="pt-0.5">
+                                  <CompetitorPsiSparkline
+                                    competitorName={comp2.name}
+                                    competitorDomain={comp2.domain}
+                                    currentScore={comp2.speedScore || 81}
+                                    userScore={98}
+                                    width={48}
+                                    height={16}
+                                    showScoreBadge={true}
+                                    showDelta={false}
+                                    id={`sparkline-comp2-${item.id}`}
+                                  />
+                                </div>
                               </div>
                             </td>
 
                             {/* 7. Competitor 3 Rank */}
                             <td className="py-3.5 px-3 align-top">
-                              <div className="space-y-0.5">
+                              <div className="space-y-1">
                                 <div className="font-mono font-bold text-xs text-slate-800">
                                   {item.comp3Rank ? (
                                     <span className={item.comp3Rank === 1 ? "text-amber-600 font-black" : ""}>
@@ -4537,6 +6095,19 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
                                   {comp3.name.split(" ")[0]}
+                                </div>
+                                <div className="pt-0.5">
+                                  <CompetitorPsiSparkline
+                                    competitorName={comp3.name}
+                                    competitorDomain={comp3.domain}
+                                    currentScore={comp3.speedScore || 62}
+                                    userScore={98}
+                                    width={48}
+                                    height={16}
+                                    showScoreBadge={true}
+                                    showDelta={false}
+                                    id={`sparkline-comp3-${item.id}`}
+                                  />
                                 </div>
                               </div>
                             </td>
@@ -4690,7 +6261,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                               data-testid={`row-notepad-${item.id}`}
                               className="bg-amber-50/50 border-y-2 border-amber-300 shadow-inner"
                             >
-                              <td colSpan={11} className="p-3 sm:p-4">
+                              <td colSpan={isGoalTrackingMode ? 12 : 11} className="p-3 sm:p-4">
                                 <RowStrategicNotepad
                                   itemId={item.id}
                                   keyword={item.keyword}
@@ -4710,7 +6281,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                           {/* Expanded Row Details */}
                           {isExpanded && (
                             <tr className="bg-indigo-50/30 border-b border-indigo-100">
-                              <td colSpan={11} className="p-4 sm:p-5">
+                              <td colSpan={isGoalTrackingMode ? 12 : 11} className="p-4 sm:p-5">
                                 <div className="p-4 rounded-2xl bg-white border border-indigo-200 shadow-xs space-y-3">
                                   <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
                                     <div className="flex items-center gap-2">
@@ -4780,6 +6351,103 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                       <p className="text-indigo-800 text-[11px] font-medium">
                                         "{userName} | En Hızlı {item.keyword} & Şeffaf Fiyat Garantisi"
                                       </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Google PageSpeed Insights 6-Ay Geçmiş Denetim Matrisi */}
+                                  <div className="p-3.5 rounded-xl bg-slate-900 text-white border border-slate-800 space-y-2.5 shadow-xs">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <Zap className="w-4 h-4 text-amber-400" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">
+                                          Google PageSpeed Insights • Son 6 Denetim Geçmiş Skor Kıyaslaması
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-400">
+                                        Mobil SERP Sıralama Avantajı: Siteniz 98/100 ile tüm rakiplerin önünde
+                                      </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                                      {/* Siteniz */}
+                                      <div className="p-2.5 rounded-lg bg-slate-800/90 border border-emerald-500/50 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-emerald-300">★ {userName || "Siteniz"}</span>
+                                          <span className="text-[11px] font-mono font-black text-emerald-400">98 / 100</span>
+                                        </div>
+                                        <CompetitorPsiSparkline
+                                          competitorName={userName || "Siteniz"}
+                                          currentScore={98}
+                                          userScore={98}
+                                          isUser={true}
+                                          width={110}
+                                          height={24}
+                                          showScoreBadge={false}
+                                          showDelta={true}
+                                          id={`sparkline-exp-user-${item.id}`}
+                                        />
+                                        <div className="text-[9px] text-emerald-400/90 font-medium">✓ CWV Geçti • LCP 1.2s • Lider Trend</div>
+                                      </div>
+
+                                      {/* 1. Rakip */}
+                                      <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/80 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-slate-200 truncate max-w-[90px]">{comp1.name}</span>
+                                          <span className="text-[11px] font-mono font-black text-amber-400">{comp1.speedScore || 74} / 100</span>
+                                        </div>
+                                        <CompetitorPsiSparkline
+                                          competitorName={comp1.name}
+                                          competitorDomain={comp1.domain}
+                                          currentScore={comp1.speedScore || 74}
+                                          userScore={98}
+                                          width={110}
+                                          height={24}
+                                          showScoreBadge={false}
+                                          showDelta={true}
+                                          id={`sparkline-exp-comp1-${item.id}`}
+                                        />
+                                        <div className="text-[9px] text-amber-400/90">⚠️ LCP 3.4s • Sitenizden 24 Puan Yavaş</div>
+                                      </div>
+
+                                      {/* 2. Rakip */}
+                                      <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/80 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-slate-200 truncate max-w-[90px]">{comp2.name}</span>
+                                          <span className="text-[11px] font-mono font-black text-emerald-400">{comp2.speedScore || 81} / 100</span>
+                                        </div>
+                                        <CompetitorPsiSparkline
+                                          competitorName={comp2.name}
+                                          competitorDomain={comp2.domain}
+                                          currentScore={comp2.speedScore || 81}
+                                          userScore={98}
+                                          width={110}
+                                          height={24}
+                                          showScoreBadge={false}
+                                          showDelta={true}
+                                          id={`sparkline-exp-comp2-${item.id}`}
+                                        />
+                                        <div className="text-[9px] text-slate-400">⚠️ LCP 2.7s • Son 6 denetimde -4 düşüş</div>
+                                      </div>
+
+                                      {/* 3. Rakip */}
+                                      <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/80 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-slate-200 truncate max-w-[90px]">{comp3.name}</span>
+                                          <span className="text-[11px] font-mono font-black text-rose-400">{comp3.speedScore || 62} / 100</span>
+                                        </div>
+                                        <CompetitorPsiSparkline
+                                          competitorName={comp3.name}
+                                          competitorDomain={comp3.domain}
+                                          currentScore={comp3.speedScore || 62}
+                                          userScore={98}
+                                          width={110}
+                                          height={24}
+                                          showScoreBadge={false}
+                                          showDelta={true}
+                                          id={`sparkline-exp-comp3-${item.id}`}
+                                        />
+                                        <div className="text-[9px] text-rose-400/90">🚨 LCP 4.6s • CWV Başarısız • Fırsat</div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -4874,6 +6542,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
             competitors={effectiveCompetitors}
             userName={userName}
             userDomain={userDomain}
+            colorPalette={colorTheme}
           />
 
           {/* 4. D3.JS BAR CHART SUMMARY OF SELECTED DATA DISTRIBUTION */}
@@ -4882,6 +6551,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
             allRankings={filteredAndSortedRankings.length > 0 ? filteredAndSortedRankings : effectiveRankings}
             userName={userName}
             competitors={effectiveCompetitors}
+            colorPalette={colorTheme}
             onSelectAll={handleSelectAllRows}
             onClearSelection={clearSelection}
           />
@@ -4903,6 +6573,208 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           }
         }}
         onExportSelectedCsv={handleExportSelectedCsv}
+      />
+
+      {/* 5. AI STRATEGY SUMMARY REPORT MODAL */}
+      <AiStrategySummaryReportModal
+        isOpen={isStrategyReportModalOpen}
+        onClose={() => setIsStrategyReportModalOpen(false)}
+        reportData={strategyReportData}
+        isLoading={isGeneratingStrategyReport}
+        onRegenerate={handleGenerateStrategyReport}
+        userName={userName}
+        userDomain={userDomain}
+      />
+
+      {/* 6. TABLE PDF EXPORT MODAL */}
+      <TablePdfExportModal
+        isOpen={isPdfExportModalOpen}
+        onClose={() => setIsPdfExportModalOpen(false)}
+        rankings={pdfExportData}
+        userName={userName}
+        userDomain={userDomain}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        strategicNotes={strategicNotes}
+        scopeLabel={pdfExportScopeLabel}
+        onDownloadMarketSharePdf={handleDownloadMarketSharePdf}
+      />
+
+      {/* 7. AUTOMATED WEEKLY REPORT SCHEDULER MODAL */}
+      <AutoReportSchedulerModal
+        isOpen={isAutoReportModalOpen}
+        onClose={() => setIsAutoReportModalOpen(false)}
+        allRankings={effectiveRankings}
+        filteredRankings={filteredAndSortedRankings}
+        selectedRankings={selectedRankings}
+        userName={userName}
+        userDomain={userDomain}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        strategicNotes={strategicNotes}
+        selectedCsvColumns={selectedCsvColumns}
+        defaultUserEmail={siteConfig?.email || "selimoyan@gmail.com"}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 3500);
+        }}
+        onScheduleUpdated={(cfg) => setAutoReportConfig(cfg)}
+      />
+
+      {/* 8. COMPETITOR GOAL IMPACT ANALYSIS & HEATMAP OVERLAY MODAL */}
+      <CompetitorGoalImpactAnalysisModal
+        isOpen={isImpactAnalysisModalOpen}
+        onClose={() => setIsImpactAnalysisModalOpen(false)}
+        rankings={effectiveRankings}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        userName={userName}
+        userDomain={userDomain}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 3500);
+        }}
+      />
+
+      {/* 9. COMPETITOR 3D SCATTER CORRELATION & MARKET POSITIONING MODAL */}
+      <Competitor3DScatterPlotModal
+        isOpen={is3DScatterModalOpen}
+        onClose={() => setIs3DScatterModalOpen(false)}
+        rankings={effectiveRankings}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        userName={userName}
+        userDomain={userDomain}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 3500);
+        }}
+      />
+
+      {/* 10. COMPETITOR PERFORMANCE RECOMMENDATIONS DRAWER (Yan Panel) */}
+      <CompetitorPerformanceRecommendationsDrawer
+        isOpen={isRecommendationsDrawerOpen}
+        onClose={() => setIsRecommendationsDrawerOpen(false)}
+        rankings={effectiveRankings}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        userName={userName}
+        userDomain={userDomain}
+        initialCompetitorId={selectedCompetitorForRecommendations}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 3500);
+        }}
+      />
+
+      {/* 11. PROFESYONEL PAZAR PAYI VE REKABET ANALİZ RAPORU OLUŞTURUCU (PDF, MARKA LOGOSU & ÖZEL NOTLAR) */}
+      <MarketShareReportBuilderModal
+        isOpen={isReportBuilderModalOpen}
+        onClose={() => {
+          setIsReportBuilderModalOpen(false);
+          setReportBuilderCustomRankings(null);
+        }}
+        rankings={reportBuilderCustomRankings || effectiveRankings}
+        competitors={effectiveCompetitors.map((c) => ({
+          name: c.name,
+          domain: c.domain,
+          visibilityScore: c.visibilityScore,
+          speedScore: c.speedScore,
+          domainAuthority: c.domainAuthority,
+          keywordCount: c.keywordCount,
+          rank: c.rank
+        }))}
+        userName={userName}
+        userDomain={userDomain}
+        strategicNotes={strategicNotes}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 3500);
+        }}
+      />
+
+      {/* 12. KAYAN TOPLU AKSİYON MENÜSÜ (FLOATING BULK ACTION BAR) */}
+      <FloatingBulkActionBar
+        selectedCount={selectedRankings.length}
+        totalCount={effectiveRankings.length}
+        selectedKeywords={selectedRankings.map((r) => r.keyword).filter(Boolean)}
+        onBulkDelete={handleBulkDeleteSelected}
+        onExportSelectedPdf={handleDownloadSelectedPdf}
+        onOpenReportBuilder={handleOpenSelectedReportBuilder}
+        onExportSelectedExcel={handleExportSelectedExcel}
+        onCompareSelected={() => setIsComparisonModalOpen(true)}
+        onClearSelection={clearSelection}
+        onSelectAll={handleSelectAllRows}
+        isAllSelected={isAllSelected}
+        isGeneratingPdf={isGeneratingMarketSharePdf}
+        onBulkAddToTargets={onApplyKeyword ? handleBulkAddToTargets : undefined}
+      />
+
+      {/* 13. HARİCİ CSV VERİSİ İÇE AKTARMA VE OTOMATİK EŞLEŞTİRME MODALI */}
+      <CompetitorCsvImportModal
+        isOpen={isCsvImportModalOpen}
+        onClose={() => {
+          setIsCsvImportModalOpen(false);
+          setCsvModalInitialText("");
+          setCsvModalInitialFileName(null);
+          setCsvModalInitialFileSize(null);
+          setCsvModalInitialStep(1);
+        }}
+        existingRankings={effectiveRankings}
+        userName={userName}
+        competitors={effectiveCompetitors.map((c) => ({
+          name: c.name,
+          domain: c.domain
+        }))}
+        initialRawText={csvModalInitialText}
+        initialFileName={csvModalInitialFileName || undefined}
+        initialFileSize={csvModalInitialFileSize || undefined}
+        initialStep={csvModalInitialStep}
+        onImportComplete={handleCsvImportComplete}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 4500);
+        }}
+      />
+
+      {/* 14. D3.JS GRAFİK SERİLERİ RENK TEMASI SEÇİCİ MODALI */}
+      <CompetitorColorThemeModal
+        isOpen={isColorThemeModalOpen}
+        onClose={() => setIsColorThemeModalOpen(false)}
+        currentPalette={colorTheme}
+        onApplyPalette={handleApplyColorTheme}
+        userName={userName}
+        competitors={effectiveCompetitors.map((c) => ({
+          name: c.name,
+          domain: c.domain
+        }))}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 4000);
+        }}
+      />
+
+      {/* 15. GELİŞMİŞ DIŞA AKTARMA AYARLARI PENCERESİ (PDF & JSON Özel Sıkıştırma ve Formatlama) */}
+      <AdvancedExportSettingsModal
+        isOpen={isAdvancedExportModalOpen}
+        onClose={() => setIsAdvancedExportModalOpen(false)}
+        allRankings={effectiveRankings}
+        filteredRankings={filteredAndSortedRankings}
+        selectedRankings={selectedRankings}
+        userName={userName}
+        userDomain={userDomain}
+        competitors={effectiveCompetitors}
+        goals={keywordGoals}
+        strategicNotes={strategicNotes}
+        initialSettings={advancedExportSettings}
+        onSettingsChange={(newSettings) => {
+          setAdvancedExportSettings(newSettings);
+          saveAdvancedExportSettings(newSettings);
+        }}
+        onNotification={(msg) => {
+          setDownloadNotification(msg);
+          setTimeout(() => setDownloadNotification(null), 4000);
+        }}
       />
     </div>
   );

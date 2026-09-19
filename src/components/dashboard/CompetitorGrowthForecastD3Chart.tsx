@@ -24,8 +24,16 @@ import {
   Download,
   Image as ImageIcon,
   FileCode,
-  FileImage
+  FileImage,
+  StickyNote
 } from "lucide-react";
+import { CompetitorColorPalette } from "../../utils/competitorColorTheme";
+import { 
+  ForecastMonthAnnotationBox, 
+  MonthForecastAnnotation, 
+  DEFAULT_MONTH_PRESETS 
+} from "./ForecastMonthAnnotationBox";
+import { ForecastMonthInsightPopover } from "./ForecastMonthInsightPopover";
 
 export type ForecastMetricType = "traffic" | "visibility" | "rankingScore";
 export type ForecastScenarioType = "realistic" | "aggressive" | "conservative";
@@ -35,10 +43,11 @@ interface CompetitorGrowthForecastD3ChartProps {
   competitors: CompetitorContentMetric[];
   userName: string;
   userDomain?: string;
+  colorPalette?: CompetitorColorPalette;
   className?: string;
 }
 
-interface MonthlyDataPoint {
+export interface MonthlyDataPoint {
   monthIndex: number;
   monthLabel: string;
   monthName: string;
@@ -64,6 +73,7 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
   competitors = [],
   userName = "Siteniz",
   userDomain = "sitemiz.com.tr",
+  colorPalette,
   className = ""
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +100,76 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [isSaveMenuOpen, setIsSaveMenuOpen] = useState<boolean>(false);
   const saveMenuRef = useRef<HTMLDivElement>(null);
+
+  // Interactive Monthly Forecast Notes (Annotation Box) States
+  const [selectedAnnotationMonth, setSelectedAnnotationMonth] = useState<number>(1);
+  const [isAnnotationBoxOpen, setIsAnnotationBoxOpen] = useState<boolean>(true);
+  const [monthNotes, setMonthNotes] = useState<Record<number, MonthForecastAnnotation>>(() => {
+    try {
+      const saved = localStorage.getItem("seo_d3_monthly_forecast_notes_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to read forecast notes from localStorage:", e);
+    }
+    // Seed initial strategic notes from presets
+    const initialNotes: Record<number, MonthForecastAnnotation> = {};
+    const date = new Date();
+    const monthNames = [
+      "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", 
+      "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    ];
+    for (let m = 0; m <= 6; m++) {
+      const futureDate = new Date(date.getFullYear(), date.getMonth() + m, 1);
+      const mName = `${monthNames[futureDate.getMonth()]} ${futureDate.getFullYear()}`;
+      const preset = DEFAULT_MONTH_PRESETS[m];
+      if (preset) {
+        initialNotes[m] = {
+          monthIndex: m,
+          monthLabel: m === 0 ? "Şu An (0. Ay)" : `+${m}. Ay`,
+          monthName: mName,
+          text: preset.text,
+          category: preset.category,
+          updatedAt: new Date().toLocaleDateString("tr-TR")
+        };
+      }
+    }
+    return initialNotes;
+  });
+
+  // Interactive Insight Popover on Data Point Click States
+  const [activeInsightMonth, setActiveInsightMonth] = useState<number | null>(null);
+  const [insightPopoverPos, setInsightPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [isInsightPopoverOpen, setIsInsightPopoverOpen] = useState<boolean>(false);
+  const [insightEntityContext, setInsightEntityContext] = useState<{
+    id: "user" | "comp1" | "comp2" | "comp3";
+    name: string;
+    color: string;
+    value: number;
+  } | null>(null);
+
+  const handleOpenInsightPopover = (
+    monthIndex: number,
+    pos: { x: number; y: number },
+    entityContext?: { id: "user" | "comp1" | "comp2" | "comp3"; name: string; color: string; value: number } | null
+  ) => {
+    setActiveInsightMonth(monthIndex);
+    setSelectedAnnotationMonth(monthIndex);
+    setInsightPopoverPos(pos);
+    setInsightEntityContext(entityContext || null);
+    setIsInsightPopoverOpen(true);
+  };
+
+  const handleCloseInsightPopover = () => {
+    setIsInsightPopoverOpen(false);
+    setActiveInsightMonth(null);
+    setInsightPopoverPos(null);
+    setInsightEntityContext(null);
+  };
 
   // Close Save Menu on Click Outside or Escape
   useEffect(() => {
@@ -121,28 +201,28 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       id: "user",
       name: userName,
       domain: userDomain,
-      color: "#059669", // Emerald-600
+      color: colorPalette?.user || "#059669", // Emerald-600 / dynamic
       isUser: true
     },
     {
       id: "comp1",
       name: comp1.name,
       domain: comp1.domain,
-      color: "#e11d48" // Rose-600
+      color: colorPalette?.comp1 || "#e11d48" // Rose-600 / dynamic
     },
     {
       id: "comp2",
       name: comp2.name,
       domain: comp2.domain,
-      color: "#d97706" // Amber-600
+      color: colorPalette?.comp2 || "#d97706" // Amber-600 / dynamic
     },
     {
       id: "comp3",
       name: comp3.name,
       domain: comp3.domain,
-      color: "#7c3aed" // Violet-600
+      color: colorPalette?.comp3 || "#7c3aed" // Violet-600 / dynamic
     }
-  ], [userName, userDomain, comp1, comp2, comp3]);
+  ], [userName, userDomain, comp1, comp2, comp3, colorPalette]);
 
   // Responsive ResizeObserver
   useEffect(() => {
@@ -342,8 +422,8 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
     svg.selectAll("*").remove();
 
     const width = containerWidth;
-    const height = 340;
-    const margin = { top: 28, right: 36, bottom: 44, left: 62 };
+    const height = 350;
+    const margin = { top: 32, right: 36, bottom: 44, left: 62 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -504,17 +584,58 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
             .attr("r", 9)
             .attr("fill", cfg.color)
             .attr("fill-opacity", 0.25)
-            .attr("class", "animate-ping");
+            .attr("class", "animate-ping pointer-events-none");
         }
 
-        g.append("circle")
+        const dotG = g.append("g")
+          .attr("class", `d3-dot-group cursor-pointer`)
+          .attr("id", `d3-dot-${cfg.id}-m${d.monthIndex}`)
+          .attr("data-testid", `d3-dot-${cfg.id}-m${d.monthIndex}`);
+
+        // Transparent hit-target for easy clicking
+        dotG.append("circle")
           .attr("cx", cx)
           .attr("cy", cy)
-          .attr("r", cfg.isUser ? 4.5 : 3.5)
+          .attr("r", 14)
+          .attr("fill", "transparent")
+          .attr("cursor", "pointer");
+
+        // Visible circle dot
+        dotG.append("circle")
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("r", cfg.isUser ? 5 : 3.8)
           .attr("fill", "#ffffff")
           .attr("stroke", cfg.color)
-          .attr("stroke-width", cfg.isUser ? 2.5 : 2)
-          .attr("class", "transition-transform hover:scale-150 cursor-pointer");
+          .attr("stroke-width", cfg.isUser ? 3 : 2)
+          .attr("class", "transition-all duration-200 hover:scale-150 cursor-pointer");
+
+        // Active halo ring if this month is active in Insight Popover
+        if (activeInsightMonth === d.monthIndex && cfg.isUser) {
+          dotG.append("circle")
+            .attr("cx", cx)
+            .attr("cy", cy)
+            .attr("r", 9.5)
+            .attr("fill", "none")
+            .attr("stroke", "#f59e0b")
+            .attr("stroke-width", 2.5)
+            .attr("class", "animate-pulse pointer-events-none");
+        }
+
+        // Direct click on dot triggers Insight Popover
+        dotG.on("click", (event) => {
+          event.stopPropagation();
+          handleOpenInsightPopover(
+            d.monthIndex,
+            { x: cx + margin.left, y: cy + margin.top },
+            {
+              id: cfg.id,
+              name: cfg.name,
+              color: cfg.color,
+              value: d.values[cfg.id]
+            }
+          );
+        });
       });
     });
 
@@ -607,9 +728,80 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
         crosshair.attr("opacity", 0);
         setHoveredPoint(null);
         setTooltipPos(null);
+      })
+      .on("click", function (event) {
+        const [mx] = d3.pointer(event);
+        const monthFrac = xScale.invert(mx);
+        const nearestMonth = Math.max(0, Math.min(6, Math.round(monthFrac)));
+        const snappedX = xScale(nearestMonth);
+        const userVal = forecastData[nearestMonth]?.values.user || 0;
+        const userY = yScale(userVal);
+        handleOpenInsightPopover(
+          nearestMonth,
+          { x: snappedX + margin.left, y: userY + margin.top },
+          {
+            id: "user",
+            name: userName,
+            color: "#059669",
+            value: userVal
+          }
+        );
       });
 
-  }, [forecastData, containerWidth, visibleEntities, selectedMetric]);
+    // Month Interactive Annotation Pins / Badges above each month column
+    const annotationPinsGroup = g.append("g")
+      .attr("class", "annotation-pins-layer");
+
+    forecastData.forEach((d) => {
+      const xPos = xScale(d.monthIndex);
+      const note = monthNotes[d.monthIndex];
+      const hasNote = Boolean(note && note.text && note.text.trim());
+      const isCurrentSelected = d.monthIndex === selectedAnnotationMonth || d.monthIndex === activeInsightMonth;
+
+      const pinG = annotationPinsGroup.append("g")
+        .attr("class", "month-annotation-pin cursor-pointer")
+        .attr("transform", `translate(${xPos}, -14)`)
+        .on("click", (event) => {
+          event.stopPropagation();
+          const userVal = d.values.user;
+          const userY = yScale(userVal);
+          handleOpenInsightPopover(
+            d.monthIndex,
+            { x: xPos + margin.left, y: userY + margin.top },
+            {
+              id: "user",
+              name: userName,
+              color: "#059669",
+              value: userVal
+            }
+          );
+        });
+
+      // Pin background pill
+      pinG.append("rect")
+        .attr("x", -23)
+        .attr("y", -10)
+        .attr("width", 46)
+        .attr("height", 20)
+        .attr("rx", 10)
+        .attr("fill", isCurrentSelected ? "#f59e0b" : hasNote ? "#0f172a" : "#f8fafc")
+        .attr("stroke", isCurrentSelected ? "#b45309" : hasNote ? "#f59e0b" : "#cbd5e1")
+        .attr("stroke-width", isCurrentSelected ? 2 : hasNote ? 1.5 : 1)
+        .attr("cursor", "pointer")
+        .attr("opacity", 0.95);
+
+      // Pin text
+      pinG.append("text")
+        .attr("text-anchor", "middle")
+        .attr("y", 3.5)
+        .attr("font-size", "9.5px")
+        .attr("font-weight", "800")
+        .attr("fill", isCurrentSelected ? "#0f172a" : hasNote ? "#fbbf24" : "#64748b")
+        .attr("cursor", "pointer")
+        .text(hasNote ? `📝 M${d.monthIndex}` : `+ Not`);
+    });
+
+  }, [forecastData, containerWidth, visibleEntities, selectedMetric, monthNotes, selectedAnnotationMonth, activeInsightMonth]);
 
   // Strategic Insights Calculations
   const userStart = forecastData[0]?.values.user || 1;
@@ -812,6 +1004,74 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
     }
   };
 
+  // Monthly Strategic Forecast Note Handlers
+  const handleSaveNote = (
+    monthIndex: number, 
+    text: string, 
+    category: MonthForecastAnnotation["category"]
+  ) => {
+    const point = forecastData[monthIndex] || forecastData[0];
+    const newNote: MonthForecastAnnotation = {
+      monthIndex,
+      monthLabel: point?.monthLabel || (monthIndex === 0 ? "Şu An (0. Ay)" : `+${monthIndex}. Ay`),
+      monthName: point?.monthName || "",
+      text,
+      category,
+      updatedAt: new Date().toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    };
+
+    setMonthNotes((prev) => {
+      const updated = { ...prev, [monthIndex]: newNote };
+      try {
+        localStorage.setItem("seo_d3_monthly_forecast_notes_v1", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed saving note to localStorage:", e);
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteNote = (monthIndex: number) => {
+    setMonthNotes((prev) => {
+      const updated = { ...prev };
+      delete updated[monthIndex];
+      try {
+        localStorage.setItem("seo_d3_monthly_forecast_notes_v1", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed deleting note from localStorage:", e);
+      }
+      return updated;
+    });
+  };
+
+  const handleResetNotesToDefaults = () => {
+    const resetNotes: Record<number, MonthForecastAnnotation> = {};
+    forecastData.forEach((pt) => {
+      const preset = DEFAULT_MONTH_PRESETS[pt.monthIndex];
+      if (preset) {
+        resetNotes[pt.monthIndex] = {
+          monthIndex: pt.monthIndex,
+          monthLabel: pt.monthLabel,
+          monthName: pt.monthName,
+          text: preset.text,
+          category: preset.category,
+          updatedAt: new Date().toLocaleDateString("tr-TR")
+        };
+      }
+    });
+    setMonthNotes(resetNotes);
+    try {
+      localStorage.setItem("seo_d3_monthly_forecast_notes_v1", JSON.stringify(resetNotes));
+    } catch (e) {
+      console.error("Failed resetting notes in localStorage:", e);
+    }
+  };
+
   return (
     <div 
       id="seo-competitor-growth-forecast-d3-chart"
@@ -942,6 +1202,37 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
                 </div>
               )}
             </div>
+
+            {/* Tahmin Notları Toggle Button */}
+            <button
+              type="button"
+              id="btn-toggle-forecast-notes-box"
+              data-testid="btn-toggle-forecast-notes-box"
+              onClick={() => {
+                setIsAnnotationBoxOpen(prev => !prev);
+                if (!isAnnotationBoxOpen) {
+                  setTimeout(() => {
+                    const box = document.getElementById("d3-monthly-forecast-annotation-box");
+                    if (box) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }, 60);
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                isAnnotationBoxOpen
+                  ? "bg-amber-500 text-slate-950 border-amber-400 shadow-xs"
+                  : "bg-white/10 hover:bg-white/20 text-white border-white/15"
+              }`}
+              title="Her ay için özel tahmin notu ve stratejik kilometre taşları açıklama kutusunu aç/kapat"
+              aria-expanded={isAnnotationBoxOpen}
+            >
+              <StickyNote className="w-3.5 h-3.5 text-amber-300" />
+              <span>Tahmin Notları</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-black ${
+                isAnnotationBoxOpen ? "bg-slate-900 text-amber-300" : "bg-white/20 text-white"
+              }`}>
+                {Object.keys(monthNotes).filter(k => monthNotes[Number(k)]?.text?.trim()).length}/7
+              </span>
+            </button>
 
             <button
               type="button"
@@ -1216,9 +1507,33 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
               </span>
             </div>
 
-            {/* Quick Export Buttons */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-400 font-bold hidden md:inline">Grafiği Dışa Aktar:</span>
+            {/* Quick Export & Quick Note Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Quick Button to Jump / Edit Selected Month Note */}
+              <button
+                type="button"
+                id="btn-quick-open-forecast-notes"
+                data-testid="btn-quick-open-forecast-notes"
+                onClick={() => {
+                  setIsAnnotationBoxOpen(true);
+                  const box = document.getElementById("d3-monthly-forecast-annotation-box");
+                  if (box) {
+                    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                title="Aylık tahmin notu ve stratejik kilometre taşları açıklama kutusuna git"
+              >
+                <StickyNote className="w-3 h-3 text-amber-600" />
+                <span>Tahmin Notu ({selectedAnnotationMonth === 0 ? "0. Ay" : `+${selectedAnnotationMonth}. Ay`})</span>
+                <span className="px-1 py-0.2 rounded bg-amber-200/90 text-amber-900 text-[9px] font-mono font-black">
+                  {monthNotes[selectedAnnotationMonth]?.text ? "Dolu" : "+Ekle"}
+                </span>
+              </button>
+
+              <div className="h-3 w-px bg-slate-200 hidden sm:block" />
+
+              <span className="text-[11px] text-slate-400 font-bold hidden md:inline">Dışa Aktar:</span>
               <button
                 type="button"
                 id="btn-quick-export-png"
@@ -1336,11 +1651,64 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
                       );
                     })}
                 </div>
+
+                {/* Custom Monthly Forecast Note Preview in Tooltip */}
+                {monthNotes[hoveredPoint.monthIndex]?.text && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-700/80">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-amber-300 pb-1">
+                      <span className="flex items-center gap-1">
+                        <StickyNote className="w-3 h-3 text-amber-400" />
+                        <span>Aylık Tahmin Notu ({hoveredPoint.monthLabel})</span>
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400 px-1 py-0.2 rounded bg-slate-800">
+                        Tıkla & Düzenle
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-200 leading-snug bg-slate-800/90 p-1.5 rounded-lg border border-slate-700/70 line-clamp-2">
+                      {monthNotes[hoveredPoint.monthIndex].text}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Interactive Strategic Insight Popover on Data Point Click */}
+            {isInsightPopoverOpen && activeInsightMonth !== null && insightPopoverPos && (
+              <ForecastMonthInsightPopover
+                isOpen={isInsightPopoverOpen}
+                onClose={handleCloseInsightPopover}
+                monthData={forecastData[activeInsightMonth] || forecastData[0]}
+                monthIndex={activeInsightMonth}
+                currentNote={monthNotes[activeInsightMonth]}
+                onSaveNote={handleSaveNote}
+                onDeleteNote={handleDeleteNote}
+                position={insightPopoverPos}
+                containerWidth={containerWidth}
+                selectedMetric={selectedMetric}
+                userName={userName}
+                competitors={competitors}
+                entityContext={insightEntityContext}
+              />
             )}
           </div>
 
-          {/* 3. 6-Month Projected Growth Rate Summary Cards */}
+          {/* 3. Interactive Monthly Forecast Annotation Box */}
+          {isAnnotationBoxOpen && (
+            <ForecastMonthAnnotationBox
+              months={forecastData}
+              selectedMonthIndex={selectedAnnotationMonth}
+              onSelectMonth={(idx) => setSelectedAnnotationMonth(idx)}
+              notes={monthNotes}
+              onSaveNote={handleSaveNote}
+              onDeleteNote={handleDeleteNote}
+              onResetDefaults={handleResetNotesToDefaults}
+              selectedMetric={selectedMetric}
+              userName={userName}
+              competitors={competitors}
+            />
+          )}
+
+          {/* 4. 6-Month Projected Growth Rate Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* User Card */}
             <div 

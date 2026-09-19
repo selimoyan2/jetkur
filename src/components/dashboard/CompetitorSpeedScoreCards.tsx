@@ -20,6 +20,7 @@ import {
   Info
 } from "lucide-react";
 import { CompetitorContentMetric } from "../../types";
+import { CompetitorPsiSparkline } from "./CompetitorPsiSparkline";
 
 export interface CompetitorSpeedData {
   id: string;
@@ -521,6 +522,26 @@ export const CompetitorSpeedScoreCards: React.FC<CompetitorSpeedScoreCardsProps>
                       </div>
                     </div>
 
+                    {/* Historical PageSpeed Sparkline Trend */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800 mb-3 text-xs">
+                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-amber-400" />
+                        <span>Son 6 Denetim PSI:</span>
+                      </span>
+                      <CompetitorPsiSparkline
+                        competitorName={item.name}
+                        competitorDomain={item.domain}
+                        currentScore={currentMetrics.score}
+                        userScore={98}
+                        isUser={item.isUser}
+                        width={76}
+                        height={20}
+                        showScoreBadge={false}
+                        showDelta={true}
+                        id={`sparkline-card-${item.id}`}
+                      />
+                    </div>
+
                     {/* Core Web Vitals Key Trio Breakdown */}
                     <div className="space-y-1.5 mb-3.5">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
@@ -648,6 +669,22 @@ export const CompetitorSpeedScoreCards: React.FC<CompetitorSpeedScoreCardsProps>
                           width: `${Math.max(5, s)}%`,
                           backgroundColor: col.stroke,
                         }}
+                      />
+                    </div>
+
+                    {/* Historical Mini-Sparkline */}
+                    <div className="shrink-0 hidden md:block">
+                      <CompetitorPsiSparkline
+                        competitorName={prof.name}
+                        competitorDomain={prof.domain}
+                        currentScore={s}
+                        userScore={98}
+                        isUser={prof.isUser}
+                        width={60}
+                        height={18}
+                        showScoreBadge={false}
+                        showDelta={true}
+                        id={`sparkline-benchmark-${prof.id}`}
                       />
                     </div>
 

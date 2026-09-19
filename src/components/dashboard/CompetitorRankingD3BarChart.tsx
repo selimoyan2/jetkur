@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { CompetitorKeywordRanking, CompetitorContentMetric } from "../../types";
-import { Trophy, Info, Sparkles, SlidersHorizontal, BarChart3, ArrowUpDown } from "lucide-react";
+import { Trophy, Info, Sparkles, SlidersHorizontal, BarChart3, ArrowUpDown, Palette } from "lucide-react";
+import { CompetitorColorPalette, DEFAULT_COMPETITOR_PALETTE } from "../../utils/competitorColorTheme";
 
 interface CompetitorRankingD3BarChartProps {
   rankings: CompetitorKeywordRanking[];
   userName: string;
   competitors: CompetitorContentMetric[];
+  colorPalette?: CompetitorColorPalette;
+  onOpenColorThemeSelector?: () => void;
   className?: string;
 }
 
@@ -14,6 +17,8 @@ export const CompetitorRankingD3BarChart: React.FC<CompetitorRankingD3BarChartPr
   rankings,
   userName,
   competitors,
+  colorPalette,
+  onOpenColorThemeSelector,
   className = ""
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,11 +33,13 @@ export const CompetitorRankingD3BarChart: React.FC<CompetitorRankingD3BarChartPr
   const comp2 = competitors[1] || { name: "2. Rakip", domain: "rakip2.com", rank: 2 };
   const comp3 = competitors[2] || { name: "3. Rakip", domain: "rakip3.com", rank: 3 };
 
+  const activePalette = colorPalette || DEFAULT_COMPETITOR_PALETTE;
+
   const entities = [
-    { key: "user", label: `Siteniz (${userName})`, color: "#f59e0b", badgeColor: "bg-amber-400 text-slate-950" },
-    { key: "comp1", label: `1. Rakip (${comp1.name.split(" ")[0]})`, color: "#ef4444", badgeColor: "bg-rose-500 text-white" },
-    { key: "comp2", label: `2. Rakip (${comp2.name.split(" ")[0]})`, color: "#0ea5e9", badgeColor: "bg-sky-500 text-white" },
-    { key: "comp3", label: `3. Rakip (${comp3.name.split(" ")[0]})`, color: "#10b981", badgeColor: "bg-emerald-500 text-white" }
+    { key: "user", label: `Siteniz (${userName})`, color: activePalette.user, badgeColor: "bg-amber-400 text-slate-950" },
+    { key: "comp1", label: `1. Rakip (${comp1.name.split(" ")[0]})`, color: activePalette.comp1, badgeColor: "bg-rose-500 text-white" },
+    { key: "comp2", label: `2. Rakip (${comp2.name.split(" ")[0]})`, color: activePalette.comp2, badgeColor: "bg-sky-500 text-white" },
+    { key: "comp3", label: `3. Rakip (${comp3.name.split(" ")[0]})`, color: activePalette.comp3, badgeColor: "bg-emerald-500 text-white" }
   ];
 
   // Process data for D3 chart
@@ -336,6 +343,27 @@ export const CompetitorRankingD3BarChart: React.FC<CompetitorRankingD3BarChartPr
               <option value="gap" className="bg-slate-900">Sıralama Farkı (Gap)</option>
             </select>
           </div>
+
+          {/* Color Theme Selector Trigger */}
+          {onOpenColorThemeSelector && (
+            <button
+              type="button"
+              id="btn-d3-chart-color-theme"
+              data-testid="d3-chart-color-theme-btn"
+              onClick={onOpenColorThemeSelector}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-amber-400/50 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="D3.js grafik serilerinin renklerini özelleştirin"
+            >
+              <Palette className="w-3.5 h-3.5 text-amber-400" />
+              <span>Renk Teması</span>
+              <div className="flex items-center gap-0.5 ml-0.5">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activePalette.user }} />
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activePalette.comp1 }} />
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activePalette.comp2 }} />
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activePalette.comp3 }} />
+              </div>
+            </button>
+          )}
         </div>
       </div>
 

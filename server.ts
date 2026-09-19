@@ -17,6 +17,7 @@ import { generateFallbackSeoTrendForecast } from "./src/utils/seoTrendForecastEn
 import { generatePricingIntelligence } from "./src/utils/aiPricingIntelligenceEngine";
 import { generateFallbackGlobalSeoReport } from "./src/utils/aiGlobalSeoEngine";
 import { generateFallbackAiSeoContentAssistant } from "./src/utils/aiSeoContentAssistantEngine";
+import { generateFallbackAiStrategySummaryReport } from "./src/utils/aiStrategySummaryReportEngine";
 
 dotenv.config();
 
@@ -653,6 +654,127 @@ JSON Şeması:
         city: req.body?.city,
         customDomain: req.body?.domain
       } as any);
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
+    }
+  });
+
+  // Real-time AI Strategy Summary Report for Competitive Keyword Ranking Table
+  app.post("/api/seo-strategy-summary-report", async (req, res) => {
+    try {
+      const {
+        rankings = [],
+        competitors = [],
+        userName = "Siteniz",
+        userDomain = "siteniz.com",
+        userSpeedScore = 98,
+        keywordGoals = {},
+        strategicNotes = {}
+      } = req.body;
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackAiStrategySummaryReport({
+          rankings,
+          competitors,
+          userName,
+          userDomain,
+          userSpeedScore,
+          keywordGoals,
+          strategicNotes
+        });
+        return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+      }
+
+      // Compact rankings representation for LLM prompt
+      const rankingSummary = rankings.map((r: any) => ({
+        keyword: r.keyword,
+        intent: r.searchIntent,
+        volume: r.monthlyVolume,
+        kd: r.difficulty,
+        userRank: r.userRank,
+        comp1Rank: r.comp1Rank,
+        comp2Rank: r.comp2Rank,
+        comp3Rank: r.comp3Rank,
+        gap: r.gap,
+        goal: keywordGoals[r.id]?.targetRank || (r.userRank && r.userRank <= 3 ? 1 : 3),
+        note: strategicNotes[r.id]?.text || ""
+      }));
+
+      const compSummary = competitors.map((c: any) => ({
+        name: c.name,
+        domain: c.domain,
+        speedScore: c.speedScore
+      }));
+
+      const prompt = `Sen Türkiye'nin en yetkin SEO Stratejisti ve Arama Motoru Algoritma Danışmanısın.
+Kullanıcının SEO Rakip Kıyaslama Tablosundaki güncel SERP sıralamalarını, rakiplerin konumlarını ve hedeflerini analiz et.
+Sitenin ve rakiplerin güncel verilerini baz alarak somut, aksiyon alınabilir ve ölçülebilir bir 'AI Strateji Özet Raporu' hazırla.
+
+SİTE PROFİLİ:
+- İsim: ${userName}
+- Domain: ${userDomain}
+- Google PageSpeed Skoru: ${userSpeedScore}/100 (Core Web Vitals GEÇTİ)
+
+RAKİPLER:
+${JSON.stringify(compSummary, null, 2)}
+
+TABLODAKİ ANAHTAR KELİMELER VE SERP SIRALAMALARI (${rankings.length} Kelime):
+${JSON.stringify(rankingSummary, null, 2)}
+
+İSTENEN ANALİZLER:
+1. executiveSummary: Yönetici Özeti. Mevcut rekabet tablosunun genel değerlendirmesi, güçlü olunan ve geride kalınan alanlar.
+2. serpMarketShare: Siteniz ve 3 rakip arasındaki yüzdesel tahmini organik SERP görünürlük payı ve kısa verdict değerlendirmesi. (userName, userSharePercent, comp1Name, comp1SharePercent, comp2Name, comp2SharePercent, comp3Name, comp3SharePercent, verdict)
+3. swotHighlights: Sitenin rakiplere göre Güçlü Yönleri (strengths), Zayıf Yönleri (weaknesses), Fırsatları (opportunities) ve Tehditleri (threats).
+4. strategicRecommendations: En az 4 adet önceliklendirilmiş stratejik eylem kartı. (id, title, category: "quick_win" | "content_gap" | "speed_cwv" | "commercial_intent" | "defensive", categoryLabel, priority: "high" | "medium" | "low", priorityScore: 0-100, targetKeywords, currentStatus, actionableSteps, expectedGain, effort).
+5. priorityKeywordOpportunities: Tablodaki en kritik anahtar kelimeler için taktiksel eylem tavsiyeleri (keyword, volume, difficulty, userRank, bestCompRank, bestCompName, gap, targetRank, tacticalAdvice).
+6. technicalLeverageSummary: Sitenin ${userSpeedScore}/100 hız avantajını rakipleri geçmek için nasıl bir avantaja dönüştürebileceği (userSpeedScore, bestCompetitorSpeedScore, speedAdvantagePoints, coreWebVitalsStatus, speedStrategyAdvice).
+7. goalAttainmentForecast: Tablodaki hedeflerin gerçekleşme oranı ve tahmini trafik artışı (totalKeywords, onTrackCount, criticalGapCount, averageAttainmentPercent, projectedTrafficGrowthPercent).
+8. thirtyDayActionPlan: 4 haftalık adım adım uygulama planı (phase, timeline, focusArea, tasks).
+
+Lütfen yanıtını SADECE geçerli bir JSON nesnesi olarak döndür. Markdown bloğu (\`\`\`json ...) ile sarabilirsin.`;
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini API timeout")), 10000)
+      );
+
+      const generatePromise = ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.3
+        }
+      });
+
+      const response: any = await Promise.race([generatePromise, timeoutPromise]);
+
+      const responseText = response.text ? response.text.trim() : "";
+      const cleanedJson = responseText.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsed = JSON.parse(cleanedJson);
+
+      parsed.reportId = `strategy-report-gemini-${Date.now()}`;
+      parsed.generatedAt = new Date().toLocaleDateString("tr-TR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      parsed.source = "gemini";
+
+      return res.json({ success: true, source: "gemini", data: parsed });
+    } catch (err: any) {
+      console.error("AI Strategy Summary Report error, serving fallback:", err);
+      const fallback = generateFallbackAiStrategySummaryReport({
+        rankings: req.body?.rankings || [],
+        competitors: req.body?.competitors || [],
+        userName: req.body?.userName,
+        userDomain: req.body?.userDomain,
+        userSpeedScore: req.body?.userSpeedScore || 98,
+        keywordGoals: req.body?.keywordGoals || {},
+        strategicNotes: req.body?.strategicNotes || {}
+      });
       return res.json({ success: true, source: "fallback_recovery", data: fallback });
     }
   });

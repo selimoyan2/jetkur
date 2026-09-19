@@ -13,6 +13,7 @@ import {
   Filter,
   ArrowRight
 } from "lucide-react";
+import { CompetitorColorPalette } from "../../utils/competitorColorTheme";
 
 export type DistributionMode = "rankTier" | "searchIntent" | "gapStatus";
 
@@ -21,6 +22,7 @@ interface SelectedDataDistributionD3ChartProps {
   allRankings: CompetitorKeywordRanking[];
   userName: string;
   competitors: CompetitorContentMetric[];
+  colorPalette?: CompetitorColorPalette;
   onSelectAll?: () => void;
   onClearSelection?: () => void;
   className?: string;
@@ -31,6 +33,7 @@ export const SelectedDataDistributionD3Chart: React.FC<SelectedDataDistributionD
   allRankings,
   userName,
   competitors,
+  colorPalette,
   onSelectAll,
   onClearSelection,
   className = ""
@@ -101,12 +104,18 @@ export const SelectedDataDistributionD3Chart: React.FC<SelectedDataDistributionD
   }, [activeData]);
 
   // Entities for Rank Tier Comparison
-  const entities = useMemo(() => [
-    { key: "user", label: `Siteniz (${userName})`, shortName: "Siteniz", color: "#f59e0b", badgeClass: "bg-amber-400 text-slate-950 border-amber-300" },
-    { key: "comp1", label: `1. Rakip (${comp1.name.split(" ")[0]})`, shortName: comp1.name.split(" ")[0], color: "#f43f5e", badgeClass: "bg-rose-500 text-white border-rose-400" },
-    { key: "comp2", label: `2. Rakip (${comp2.name.split(" ")[0]})`, shortName: comp2.name.split(" ")[0], color: "#0ea5e9", badgeClass: "bg-sky-500 text-white border-sky-400" },
-    { key: "comp3", label: `3. Rakip (${comp3.name.split(" ")[0]})`, shortName: comp3.name.split(" ")[0], color: "#10b981", badgeClass: "bg-emerald-500 text-white border-emerald-400" }
-  ], [userName, comp1.name, comp2.name, comp3.name]);
+  const entities = useMemo(() => {
+    const userColor = colorPalette?.user || "#f59e0b";
+    const c1Color = colorPalette?.comp1 || "#f43f5e";
+    const c2Color = colorPalette?.comp2 || "#0ea5e9";
+    const c3Color = colorPalette?.comp3 || "#10b981";
+    return [
+      { key: "user", label: `Siteniz (${userName})`, shortName: "Siteniz", color: userColor, badgeClass: "bg-amber-400 text-slate-950 border-amber-300" },
+      { key: "comp1", label: `1. Rakip (${comp1.name.split(" ")[0]})`, shortName: comp1.name.split(" ")[0], color: c1Color, badgeClass: "bg-rose-500 text-white border-rose-400" },
+      { key: "comp2", label: `2. Rakip (${comp2.name.split(" ")[0]})`, shortName: comp2.name.split(" ")[0], color: c2Color, badgeClass: "bg-sky-500 text-white border-sky-400" },
+      { key: "comp3", label: `3. Rakip (${comp3.name.split(" ")[0]})`, shortName: comp3.name.split(" ")[0], color: c3Color, badgeClass: "bg-emerald-500 text-white border-emerald-400" }
+    ];
+  }, [userName, comp1.name, comp2.name, comp3.name, colorPalette]);
 
   // Render D3 chart when activeData, mode, or window size changes
   useEffect(() => {
