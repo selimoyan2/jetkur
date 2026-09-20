@@ -56,8 +56,13 @@ import {
   Loader2,
   PieChart,
   UploadCloud,
-  Palette
+  Palette,
+  GitCompare,
+  GripVertical,
+  Users,
+  ArrowUpRight
 } from "lucide-react";
+import { CompetitorDiffViewPanel } from "./CompetitorDiffViewPanel";
 import { CompetitorMarketSharePieChart } from "./CompetitorMarketSharePieChart";
 import { MarketShareReportBuilderModal } from "./MarketShareReportBuilderModal";
 import { CompetitorCsvImportModal, CsvImportMode } from "./CompetitorCsvImportModal";
@@ -84,6 +89,7 @@ import {
 import { CompetitorSpeedScoreCards } from "./CompetitorSpeedScoreCards";
 import { CompetitorPsiSparkline } from "./CompetitorPsiSparkline";
 import { RowStrategicNotepad, StrategicCompetitorNote } from "./RowStrategicNotepad";
+import { StrategicNotesDrawerPanel } from "./StrategicNotesDrawerPanel";
 import { HeaderMetricInfoTooltip } from "./HeaderMetricInfoTooltip";
 import { 
   GoalTrackingSummaryPanel, 
@@ -113,6 +119,27 @@ import {
   generateFallbackAiStrategySummaryReport 
 } from "../../utils/aiStrategySummaryReportEngine";
 import { generateCompetitorData } from "../../utils/competitiveSeoUtils";
+import { CompetitorTrendForecastModule } from "./CompetitorTrendForecastModule";
+import { CompetitorKeywordRowTrendSparkline } from "./CompetitorKeywordRowTrendSparkline";
+import { calculateCompetitorGrowthProfiles } from "../../utils/competitorGrowthEngine";
+import {
+  scanTableDiscrepancies,
+  getDiscrepancyCellClasses,
+  DiscrepancyBadge,
+  VisualDiscrepancyHighlighterPanel,
+  HeatmapMiniLegend,
+  DiscrepancyThreshold,
+  DiscrepancyFocusFilter
+} from "./VisualDiscrepancyHighlighter";
+import {
+  CompetitorGroupManagerPanel,
+  CompetitorGroup
+} from "./CompetitorGroupManagerPanel";
+import {
+  CompetitorKpiGoalManagerModule,
+  CustomKpiGoals,
+  DEFAULT_KPI_GOALS
+} from "./CompetitorKpiGoalManagerModule";
 
 export type RankingSortField = 
   | "userRank" 
@@ -126,7 +153,9 @@ export type RankingSortField =
   | "comp2Rank" 
   | "comp3Rank"
   | "goalAttainment"
-  | "goalDeviation";
+  | "goalDeviation"
+  | "trendGrowth"
+  | "manual";
 
 /**
  * Escapes a cell value according to RFC 4180 CSV specifications:
@@ -776,6 +805,17 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     return (competitors && competitors.length > 0) ? competitors : (fallbackData?.competitors || []);
   }, [competitors, fallbackData]);
 
+  // Algorithmic 6-Month Competitor Growth & Trend Profiles
+  const competitorGrowthProfiles = useMemo(() => {
+    return calculateCompetitorGrowthProfiles(
+      effectiveRankings,
+      effectiveCompetitors,
+      userName,
+      userDomain,
+      colorTheme
+    );
+  }, [effectiveRankings, effectiveCompetitors, userName, userDomain, colorTheme]);
+
   // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "selected" | "with_notes" | "outranked" | "leading" | "competing" | "trailing" | "missing">("all");
@@ -783,6 +823,27 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   const [topEntityFilter, setTopEntityFilter] = useState<"all" | "top5_overall" | "comp1" | "comp2" | "comp3">("all");
   const [sortBy, setSortBy] = useState<RankingSortField>("userRank");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // Row Drag-and-Drop Reordering State & Manual Row Order
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<"above" | "below" | null>(null);
+  const [lastManualOrderBackup, setLastManualOrderBackup] = useState<string[] | null>(null);
+
+  const [manualRowOrder, setManualRowOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`seo_manual_row_order_${userDomain}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load saved manual row order:", err);
+    }
+    return [];
+  });
 
   // Strategic Competitor Notes state (persisted to localStorage)
   const [strategicNotes, setStrategicNotes] = useState<Record<string, StrategicCompetitorNote>>(() => {
@@ -811,6 +872,9 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   // Track which competitor rows have their inline notepad open
   const [openNotepadIds, setOpenNotepadIds] = useState<Set<string>>(new Set());
   const [noteSaveToast, setNoteSaveToast] = useState<{ id: string; message: string } | null>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [hoveredNoteButtonId, setHoveredNoteButtonId] = useState<string | null>(null);
+  const [isStrategicNotesDrawerOpen, setIsStrategicNotesDrawerOpen] = useState<boolean>(false);
 
   // Toggle inline notepad open/closed for a row
   const toggleNotepad = (id: string) => {
@@ -880,6 +944,23 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       (n) => Boolean(n?.text?.trim())
     ).length;
   }, [strategicNotes]);
+
+  // Jump to row from Strategic Notes Drawer with smooth scroll and highlight
+  const handleJumpToRowFromDrawer = (rowId: string) => {
+    setIsStrategicNotesDrawerOpen(false);
+    setTimeout(() => {
+      const el = document.getElementById(`row-${rowId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-4", "ring-amber-400", "bg-amber-100/90");
+        setHoveredRowId(rowId);
+        setTimeout(() => {
+          el.classList.remove("ring-4", "ring-amber-400", "bg-amber-100/90");
+          setHoveredRowId((prev) => (prev === rowId ? null : prev));
+        }, 3000);
+      }
+    }, 150);
+  };
 
   // Dynamic Metric Filtering Panel states
   const [minVolume, setMinVolume] = useState<number>(0);
@@ -984,6 +1065,150 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     try {
       localStorage.removeItem("seo_keyword_goals");
     } catch (_) {}
+  };
+
+  // Diff View Mode (Farklılıkları Vurgula Modu) State
+  const [isDiffViewMode, setIsDiffViewMode] = useState<boolean>(false);
+  const [diffBaselineId, setDiffBaselineId] = useState<string>("");
+
+  const handleToggleDiffView = () => {
+    setIsDiffViewMode((prev) => {
+      const next = !prev;
+      if (next) {
+        if (selectedIds.size < 2 && effectiveRankings.length >= 2) {
+          const autoSelected = new Set([effectiveRankings[0].id, effectiveRankings[1].id]);
+          setSelectedIds(autoSelected);
+          setDiffBaselineId(effectiveRankings[0].id);
+        } else if (selectedIds.size >= 2) {
+          const firstSelected = Array.from(selectedIds)[0];
+          if (!diffBaselineId || !selectedIds.has(diffBaselineId)) {
+            setDiffBaselineId(firstSelected);
+          }
+        }
+        setTimeout(() => {
+          const el = document.getElementById("diff-view-highlight-panel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return next;
+    });
+  };
+
+  // 6-Month Trend Forecast Module & Column State
+  const [isTrendForecastModuleOpen, setIsTrendForecastModuleOpen] = useState<boolean>(true);
+  const [isTrendColumnVisible, setIsTrendColumnVisible] = useState<boolean>(true);
+
+  const handleToggleTrendForecastModule = () => {
+    setIsTrendForecastModuleOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setIsTrendColumnVisible(true);
+        setTimeout(() => {
+          const el = document.getElementById("seo-competitor-trend-forecast-module");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return next;
+    });
+  };
+
+  // Görsel Farklılık Vurgulayıcı (%20+ Otomatik Tarayıcı) State
+  const [isVisualDiscrepancyMode, setIsVisualDiscrepancyMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("seo_visual_discrepancy_mode");
+      return saved !== null ? saved === "true" : true; // default active
+    } catch {
+      return true;
+    }
+  });
+  const [discrepancyThreshold, setDiscrepancyThreshold] = useState<DiscrepancyThreshold>(20);
+  const [discrepancyFocusFilter, setDiscrepancyFocusFilter] = useState<DiscrepancyFocusFilter>("all");
+  const [onlyShowDiscrepancyRows, setOnlyShowDiscrepancyRows] = useState<boolean>(false);
+  const [isDiscrepancyPulseEnabled, setIsDiscrepancyPulseEnabled] = useState<boolean>(true);
+
+  const handleToggleVisualDiscrepancyMode = () => {
+    setIsVisualDiscrepancyMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("seo_visual_discrepancy_mode", String(next));
+      } catch (_) {}
+      if (next) {
+        setTimeout(() => {
+          const el = document.getElementById("visual-discrepancy-highlighter-panel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return next;
+    });
+  };
+
+  // Automatic computation of all metric variances across table
+  const discrepancyAnalysis = useMemo(() => {
+    return scanTableDiscrepancies(effectiveRankings, discrepancyThreshold, effectiveCompetitors);
+  }, [effectiveRankings, discrepancyThreshold, effectiveCompetitors]);
+
+  // Rakip Grubu Oluştur & Performans Ortalamaları Paneli State
+  const [isGroupManagerOpen, setIsGroupManagerOpen] = useState<boolean>(true);
+  const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
+  const [competitorGroups, setCompetitorGroups] = useState<CompetitorGroup[]>(() => {
+    try {
+      const saved = localStorage.getItem(`seo_competitor_groups_${userDomain || "default"}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
+
+  const handleToggleGroupManager = () => {
+    setIsGroupManagerOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          const el = document.getElementById("competitor-group-manager-panel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return next;
+    });
+  };
+
+  // Keep competitorGroups updated when localStorage updates
+  const refreshCompetitorGroups = () => {
+    try {
+      const saved = localStorage.getItem(`seo_competitor_groups_${userDomain || "default"}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setCompetitorGroups(parsed);
+      }
+    } catch (_) {}
+  };
+
+  // Özel KPI Hedef Belirleme & Rakip Kıyaslama Modülü State
+  const [isKpiGoalModuleOpen, setIsKpiGoalModuleOpen] = useState<boolean>(true);
+  const [customKpiGoals, setCustomKpiGoals] = useState<CustomKpiGoals>(() => {
+    try {
+      const saved = localStorage.getItem(`seo_competitor_kpi_goals_${userDomain || "default"}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_KPI_GOALS, ...parsed };
+      }
+    } catch (_) {}
+    return DEFAULT_KPI_GOALS;
+  });
+
+  const handleToggleKpiGoalModule = () => {
+    setIsKpiGoalModuleOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          const el = document.getElementById("competitor-kpi-goal-manager-module");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return next;
+    });
   };
 
   // AI Strategy Summary Report State & Handlers
@@ -1114,9 +1339,9 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     } else {
       setSortBy(field);
       // Sensible default directions:
-      // Search volume, Gap, and Goal Attainment are best viewed highest first (desc)
+      // Search volume, Gap, Goal Attainment, and Trend Growth are best viewed highest first (desc)
       // Ranks and Names are best viewed ascending (#1 best rank, A-Z)
-      if (field === "volume" || field === "gap" || field === "goalAttainment") {
+      if (field === "volume" || field === "gap" || field === "goalAttainment" || field === "trendGrowth") {
         setSortOrder("desc");
       } else {
         setSortOrder("asc");
@@ -1337,39 +1562,184 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
   };
 
   const handleTableDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    tableDragCounterRef.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
+      e.preventDefault();
+      e.stopPropagation();
+      tableDragCounterRef.current += 1;
       setIsDraggingOverTable(true);
     }
   };
 
   const handleTableDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   };
 
   const handleTableDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    tableDragCounterRef.current -= 1;
-    if (tableDragCounterRef.current <= 0) {
-      setIsDraggingOverTable(false);
-      tableDragCounterRef.current = 0;
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
+      e.preventDefault();
+      e.stopPropagation();
+      tableDragCounterRef.current -= 1;
+      if (tableDragCounterRef.current <= 0) {
+        setIsDraggingOverTable(false);
+        tableDragCounterRef.current = 0;
+      }
     }
   };
 
   const handleTableDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOverTable(false);
+      tableDragCounterRef.current = 0;
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        handleProcessCsvFile(file);
+      }
+    }
+  };
+
+  // --- TABLE ROW DRAG-AND-DROP REORDERING LOGIC ---
+  const reorderRows = (draggedId: string, targetId: string, position: "above" | "below") => {
+    if (draggedId === targetId) return;
+
+    const allEffectiveIds = effectiveRankings.map((r) => r.id);
+    let currentOrder: string[];
+
+    if (manualRowOrder.length > 0) {
+      currentOrder = [
+        ...manualRowOrder.filter((id) => allEffectiveIds.includes(id)),
+        ...allEffectiveIds.filter((id) => !manualRowOrder.includes(id))
+      ];
+    } else {
+      const visibleIds = filteredAndSortedRankings.map((r) => r.id);
+      const remainingIds = allEffectiveIds.filter((id) => !visibleIds.includes(id));
+      currentOrder = [...visibleIds, ...remainingIds];
+    }
+
+    const fromIdx = currentOrder.indexOf(draggedId);
+    const toIdx = currentOrder.indexOf(targetId);
+
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const previousOrder = [...currentOrder];
+    const newOrder = [...currentOrder];
+    const [removed] = newOrder.splice(fromIdx, 1);
+    const targetIdx = newOrder.indexOf(targetId);
+    const insertIdx = position === "above" ? targetIdx : targetIdx + 1;
+    newOrder.splice(insertIdx, 0, removed);
+
+    setManualRowOrder(newOrder);
+    setLastManualOrderBackup(previousOrder);
+    setSortBy("manual");
+    setSortOrder("asc");
+
+    try {
+      localStorage.setItem(`seo_manual_row_order_${userDomain}`, JSON.stringify(newOrder));
+    } catch {
+      // ignore
+    }
+
+    const item = effectiveRankings.find((r) => r.id === draggedId);
+    const kw = item?.keyword || "Satır";
+    setSaveToast(`"${kw}" başarıyla ${insertIdx + 1}. sıraya taşındı.`);
+    setTimeout(() => setSaveToast(null), 5000);
+  };
+
+  const moveRow = (id: string, direction: "up" | "down") => {
+    const visibleIds = filteredAndSortedRankings.map((r) => r.id);
+    const currentIdx = visibleIds.indexOf(id);
+    if (currentIdx === -1) return;
+
+    if (direction === "up" && currentIdx > 0) {
+      const targetId = visibleIds[currentIdx - 1];
+      reorderRows(id, targetId, "above");
+    } else if (direction === "down" && currentIdx < visibleIds.length - 1) {
+      const targetId = visibleIds[currentIdx + 1];
+      reorderRows(id, targetId, "below");
+    }
+  };
+
+  const handleUndoReorder = () => {
+    if (!lastManualOrderBackup) return;
+    setManualRowOrder(lastManualOrderBackup);
+    try {
+      localStorage.setItem(`seo_manual_row_order_${userDomain}`, JSON.stringify(lastManualOrderBackup));
+    } catch {}
+    setSaveToast("Satır taşıma işlemi geri alındı.");
+    setLastManualOrderBackup(null);
+    setTimeout(() => setSaveToast(null), 3500);
+  };
+
+  const handleResetManualOrder = () => {
+    setManualRowOrder([]);
+    setLastManualOrderBackup(null);
+    setSortBy("userRank");
+    setSortOrder("asc");
+    try {
+      localStorage.removeItem(`seo_manual_row_order_${userDomain}`);
+    } catch {}
+    setSaveToast("Satır sıralaması varsayılan düzene (Sitenizin Sıralaması) sıfırlandı.");
+    setTimeout(() => setSaveToast(null), 3500);
+  };
+
+  const handleRowDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedRowId(id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.setData("application/x-keyword-row", id);
+  };
+
+  const handleRowDragOver = (e: React.DragEvent, id: string) => {
+    if (!draggedRowId || draggedRowId === id) return;
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOverTable(false);
-    tableDragCounterRef.current = 0;
+    e.dataTransfer.dropEffect = "move";
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      handleProcessCsvFile(file);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? "above" : "below";
+
+    if (dragOverRowId !== id || dropPosition !== pos) {
+      setDragOverRowId(id);
+      setDropPosition(pos);
     }
+  };
+
+  const handleRowDragEnter = (e: React.DragEvent, id: string) => {
+    if (!draggedRowId || draggedRowId === id) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleRowDragLeave = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOverRowId === id) {
+      setDragOverRowId(null);
+      setDropPosition(null);
+    }
+  };
+
+  const handleRowDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedRowId && draggedRowId !== targetId) {
+      reorderRows(draggedRowId, targetId, dropPosition || "below");
+    }
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+    setDropPosition(null);
+  };
+
+  const handleRowDragEnd = () => {
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+    setDropPosition(null);
   };
 
   const handleQuickUploadSample = () => {
@@ -1617,11 +1987,45 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           return false;
         }
 
+        // Visual Discrepancy Highlighter: "Sadece Farklı Satırları Göster" filter
+        if (isVisualDiscrepancyMode && onlyShowDiscrepancyRows) {
+          const rowDiscs = discrepancyAnalysis.rowDiscrepancies[item.id] || [];
+          if (discrepancyFocusFilter === "positive_only") {
+            if (!rowDiscs.some((d) => d.direction === "positive")) return false;
+          } else if (discrepancyFocusFilter === "negative_only") {
+            if (!rowDiscs.some((d) => d.direction === "negative")) return false;
+          } else if (discrepancyFocusFilter === "extreme_only") {
+            if (!rowDiscs.some((d) => d.isExtreme)) return false;
+          } else {
+            if (rowDiscs.length === 0) return false;
+          }
+        }
+
+        // Competitor Group Filter (Seçilen Rakip Grubuna Göre Filtreleme)
+        if (activeGroupFilter) {
+          try {
+            const saved = localStorage.getItem(`seo_competitor_groups_${userDomain || "default"}`);
+            if (saved) {
+              const parsed: CompetitorGroup[] = JSON.parse(saved);
+              const activeGrp = parsed.find((g) => g.id === activeGroupFilter);
+              if (activeGrp && !activeGrp.keywordIds.includes(item.id)) {
+                return false;
+              }
+            }
+          } catch (_) {}
+        }
+
         return true;
       })
       .sort((a, b) => {
         let diff = 0;
-        if (sortBy === "gap") {
+        if (sortBy === "manual") {
+          const idxA = manualRowOrder.indexOf(a.id);
+          const idxB = manualRowOrder.indexOf(b.id);
+          const posA = idxA !== -1 ? idxA : 99999;
+          const posB = idxB !== -1 ? idxB : 99999;
+          diff = posA - posB;
+        } else if (sortBy === "gap") {
           const gapA = a.userRank === null ? 999 : a.gap;
           const gapB = b.userRank === null ? 999 : b.gap;
           diff = gapA - gapB;
@@ -1697,6 +2101,10 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           const progB = calculateGoalProgress(b.userRank, trB, bestCompB);
 
           diff = progA.deviationPercent - progB.deviationPercent;
+        } else if (sortBy === "trendGrowth") {
+          const rA = a.userRank === null ? 99 : a.userRank;
+          const rB = b.userRank === null ? 99 : b.userRank;
+          diff = rA - rB;
         }
 
         // Always position newly added competitor rows at the bottom of the table
@@ -1727,7 +2135,13 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
     maxRankLimit,
     activeMetricPreset,
     strategicNotes,
-    keywordGoals
+    keywordGoals,
+    manualRowOrder,
+    isVisualDiscrepancyMode,
+    onlyShowDiscrepancyRows,
+    discrepancyAnalysis,
+    discrepancyFocusFilter,
+    activeGroupFilter
   ]);
 
   // Copy Keyword action
@@ -1914,6 +2328,9 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
       filteredAndSortedRankings.some((r) => selectedIds.has(r.id)) && !isAllSelected
     );
   }, [filteredAndSortedRankings, selectedIds, isAllSelected]);
+
+  // Dynamic table column span considering active optional columns (including drag handle column)
+  const currentTableColSpan = 12 + (isGoalTrackingMode ? 1 : 0) + (isTrendColumnVisible ? 1 : 0);
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -2579,6 +2996,50 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 </span>
               </button>
 
+              {/* Görsel Farklılık Vurgulayıcı Header Badge */}
+              <button
+                type="button"
+                id="btn-header-variance-highlighter-badge"
+                data-testid="header-variance-highlighter-badge"
+                onClick={handleToggleVisualDiscrepancyMode}
+                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-xs ${
+                  isVisualDiscrepancyMode
+                    ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300/60 font-black"
+                    : "bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700"
+                }`}
+                title="Tablodaki tüm metrikleri otomatik tarayarak %20+ performans farklarını renklendiren Görsel Farklılık Vurgulayıcı modunu açın/kapatın"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isVisualDiscrepancyMode ? "text-slate-950 stroke-[2.5]" : "text-amber-400"}`} />
+                <span>Görsel Farklılık Vurgulayıcı</span>
+                <span className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-black ${
+                  isVisualDiscrepancyMode ? "bg-slate-950 text-amber-300" : "bg-indigo-950 text-amber-300 border border-indigo-500/30"
+                }`}>
+                  %{discrepancyThreshold}+ ({discrepancyAnalysis.highlightedCount})
+                </span>
+              </button>
+
+              {/* Rakip Grupları & Segment Analizi Header Badge */}
+              <button
+                type="button"
+                id="btn-header-competitor-groups-badge"
+                data-testid="header-competitor-groups-badge"
+                onClick={handleToggleGroupManager}
+                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-xs ${
+                  isGroupManagerOpen
+                    ? "bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/40 font-black"
+                    : "bg-slate-800/80 text-indigo-300 border-indigo-500/30 hover:bg-slate-700 hover:text-white"
+                }`}
+                title="Seçili rakipleri gruplayarak her grup için bağımsız performans ortalamaları hesaplayan Rakip Grupları panelini açın/kapatın"
+              >
+                <Users className="w-3.5 h-3.5 text-amber-400" />
+                <span>Rakip Grupları</span>
+                <span className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-black ${
+                  isGroupManagerOpen ? "bg-slate-950 text-amber-300" : "bg-indigo-950 text-indigo-300 border border-indigo-500/30"
+                }`}>
+                  {competitorGroups.length} Grup
+                </span>
+              </button>
+
               {/* Pazar Payı ve Rekabet Analiz Raporu Header Badge Button */}
               <button
                 type="button"
@@ -3053,6 +3514,81 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 {isEditToolbarOpen ? "Açık" : "Kapalı"}
               </span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isEditToolbarOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {/* Rakip Grubu Oluştur & Performans Ortalamaları Paneli Butonu */}
+            <button
+              type="button"
+              id="btn-open-competitor-group-panel"
+              data-testid="open-competitor-group-panel-button"
+              onClick={() => {
+                setIsGroupManagerOpen(true);
+                setTimeout(() => {
+                  const el = document.getElementById("competitor-group-manager-panel");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 60);
+              }}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border border-indigo-400/40 text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-indigo-600/25 active:scale-95 group"
+              title="Seçilen satırlardan veya otomatik kohortlardan yeni bir Rakip Grubu oluşturun ve bağımsız performans ortalamalarını hesaplayın"
+              aria-label="Rakip Grubu Oluştur"
+            >
+              <Users className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
+              <span>Rakip Grubu Oluştur</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-950/80 text-amber-300 text-[10px] font-black border border-indigo-400/40">
+                {competitorGroups.length > 0 ? `${competitorGroups.length} Grup` : "Yeni"}
+              </span>
+            </button>
+
+            {/* Hedef Belirleme (Custom KPI Targets & Competitor Benchmarking) Modülü Butonu */}
+            <button
+              type="button"
+              id="btn-open-kpi-goals-module"
+              data-testid="open-kpi-goals-module-button"
+              onClick={handleToggleKpiGoalModule}
+              className={`px-4 py-2 rounded-2xl border text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 group ${
+                isKpiGoalModuleOpen
+                  ? "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 border-amber-300 shadow-amber-400/25 ring-2 ring-amber-400/40"
+                  : "bg-gradient-to-r from-purple-700 via-indigo-600 to-indigo-800 hover:from-purple-600 hover:to-indigo-700 text-white border-purple-400/40 shadow-purple-900/30"
+              }`}
+              title="Rakiplerle karşılaştırmak için özel KPI hedefleri (Trafik Artış Hedefi, SEO Skor Hedefi, Top 3 Kapsama ve Sayfa Hızı) belirleyebileceğiniz 'Hedef Belirleme' modülünü açın"
+              aria-label="Hedef Belirleme Modülü Aç"
+              aria-expanded={isKpiGoalModuleOpen}
+            >
+              <Target className={`w-4 h-4 transition-transform group-hover:scale-110 ${isKpiGoalModuleOpen ? "text-slate-950 stroke-[2.5]" : "text-amber-300"}`} />
+              <span>Hedef Belirleme</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black border ${
+                isKpiGoalModuleOpen
+                  ? "bg-slate-950 text-amber-300 border-slate-900"
+                  : "bg-slate-950/80 text-amber-300 border-indigo-400/40"
+              }`}>
+                +%{customKpiGoals.trafficGrowthPercent} Trafik | {customKpiGoals.targetSeoScore} Skor
+              </span>
+            </button>
+
+            {/* Stratejik Notlar Yan Paneli Hızlı Erişim Butonu */}
+            <button
+              type="button"
+              id="btn-open-strategic-notes-drawer"
+              data-testid="btn-open-strategic-notes-drawer"
+              onClick={() => setIsStrategicNotesDrawerOpen(true)}
+              className={`px-4 py-2 rounded-2xl border text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 group ${
+                isStrategicNotesDrawerOpen
+                  ? "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-950 border-amber-300 shadow-amber-400/25 ring-2 ring-amber-400/40"
+                  : "bg-gradient-to-r from-slate-800 via-slate-800/95 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-amber-300 hover:text-amber-200 border-amber-500/40 hover:border-amber-400 shadow-slate-900/40"
+              }`}
+              title="Tablodaki satırlara hızlıca erişim sağlayıp notları yönetebileceğiniz 'Stratejik Notlar' yan panelini açın"
+              aria-label="Stratejik Notlar Yan Panelini Aç"
+              aria-expanded={isStrategicNotesDrawerOpen}
+            >
+              <StickyNote className={`w-4 h-4 transition-transform group-hover:scale-110 ${isStrategicNotesDrawerOpen ? "text-slate-950 stroke-[2.5]" : "text-amber-400"}`} />
+              <span>Stratejik Notlar</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                isStrategicNotesDrawerOpen
+                  ? "bg-slate-950 text-amber-300 border-slate-900"
+                  : "bg-amber-400/20 text-amber-300 border-amber-400/40"
+              }`}>
+                {notesCount} Not
+              </span>
             </button>
 
             {/* Download Selected as CSV Button */}
@@ -3715,6 +4251,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   title="Sıralama kriterini seçin"
                 >
                   <option value="userRank-asc">Sitenizin Sıralaması (En İyi Sıra - Keyword Rank)</option>
+                  <option value="manual-asc">Manuel Sıralama (Sürükle-Bırak Özel Sırası)</option>
                   <option value="userRank-desc">Sitenizin Sıralaması (En Düşük Sıra)</option>
                   <option value="volume-desc">Arama Hacmi (En Yüksek - Search Volume)</option>
                   <option value="volume-asc">Arama Hacmi (En Düşük - Low Volume)</option>
@@ -3898,6 +4435,66 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                   </span>
                   <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isGoalTrackingMode ? "rotate-180" : ""}`} />
                 </button>
+
+                {/* Farklılıkları Vurgula (Diff View) Modu Toggle Button */}
+                <button
+                  type="button"
+                  id="btn-toggle-diff-view-mode"
+                  data-testid="btn-toggle-diff-view-mode"
+                  onClick={handleToggleDiffView}
+                  className={`py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 active:scale-95 ${
+                    isDiffViewMode
+                      ? "bg-amber-400 hover:bg-amber-300 text-slate-950 border-amber-400 font-black shadow-amber-400/25 ring-2 ring-amber-300"
+                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                  }`}
+                  title="İki veya daha fazla rakip satırını seçerek aralarındaki metrik farklarını ve varyasyonları vurgulayan Diff View modunu açın/kapatın"
+                >
+                  <GitCompare className={`w-3.5 h-3.5 ${isDiffViewMode ? "text-slate-950 stroke-[2.5]" : "text-indigo-600"}`} />
+                  <span>Farklılıkları Vurgula</span>
+                  <span className={`px-1.5 py-0.2 rounded-full font-black text-[10px] font-mono ${
+                    isDiffViewMode ? "bg-slate-950 text-amber-300" : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {isDiffViewMode ? `Diff (${selectedRankings.length})` : "Diff View"}
+                  </span>
+                </button>
+
+                {/* 6 Aylık Trend Tahmin Çizgisi Modu Toggle Button */}
+                <button
+                  type="button"
+                  id="btn-toggle-trend-forecast-mode"
+                  data-testid="btn-toggle-trend-forecast-mode"
+                  onClick={handleToggleTrendForecastModule}
+                  className={`py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 active:scale-95 ${
+                    isTrendForecastModuleOpen
+                      ? "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 font-black shadow-indigo-600/25 ring-2 ring-indigo-400"
+                      : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                  }`}
+                  title="Her rakip için mevcut metriklerle hesaplanan önümüzdeki 6 ay öngörülen büyüme oranları ve d3.js Trend Tahmin Çizgisi modülünü açın/kapatın"
+                >
+                  <TrendingUp className={`w-3.5 h-3.5 ${isTrendForecastModuleOpen ? "text-amber-300 stroke-[2.5]" : "text-indigo-600"}`} />
+                  <span>Trend Tahmin Çizgisi</span>
+                  <span className={`px-1.5 py-0.2 rounded-full font-black text-[10px] font-mono ${
+                    isTrendForecastModuleOpen ? "bg-indigo-950 text-amber-300" : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {isTrendForecastModuleOpen ? "d3.js Aktif" : "6-Ay Tahmin"}
+                  </span>
+                </button>
+
+                {/* Stratejik Notlar Yan Paneli Hızlı Erişim Butonu (Tablo Üstü) */}
+                <button
+                  type="button"
+                  id="btn-toggle-notes-drawer-filterbar"
+                  data-testid="btn-toggle-notes-drawer-filterbar"
+                  onClick={() => setIsStrategicNotesDrawerOpen(true)}
+                  className="py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 active:scale-95 bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-300 hover:border-amber-400"
+                  title="Stratejik Notlar Yan Panelini açarak tüm satırların notlarını merkezi olarak inceleyin ve düzenleyin"
+                >
+                  <StickyNote className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Stratejik Notlar</span>
+                  <span className="px-1.5 py-0.2 rounded-full font-black text-[10px] font-mono bg-amber-200 text-amber-900 border border-amber-300">
+                    {notesCount} Not
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -3907,6 +4504,22 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <ArrowUpDown className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Hızlı Sıralama:</span>
               </span>
+
+              <button
+                type="button"
+                id="btn-sort-by-trend-growth"
+                onClick={() => handleHeaderSort("trendGrowth")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  sortBy === "trendGrowth"
+                    ? "bg-indigo-600 text-white shadow-xs font-black"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                title="6 aylık öngörülen büyüme trendine göre sırala (d3.js Engine)"
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                <span>6-Ay Trendi</span>
+                {renderSortIcon("trendGrowth")}
+              </button>
               
               <button
                 type="button"
@@ -3997,6 +4610,42 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <span>Fark (Gap)</span>
                 {renderSortIcon("gap")}
               </button>
+
+              <button
+                type="button"
+                id="btn-sort-by-manual"
+                data-testid="btn-sort-by-manual"
+                onClick={() => {
+                  setSortBy("manual");
+                  setSortOrder("asc");
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  sortBy === "manual"
+                    ? "bg-indigo-600 text-white shadow-xs font-black ring-2 ring-indigo-300"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                title="Manuel sıralama modunu aç (Sürükle-Bırak Özel Sırası)"
+              >
+                <GripVertical className="w-3.5 h-3.5 text-amber-300" />
+                <span>Manuel Sıra</span>
+                {manualRowOrder.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400" title="Özel sıralama kayıtlı" />
+                )}
+              </button>
+
+              {sortBy === "manual" && manualRowOrder.length > 0 && (
+                <button
+                  type="button"
+                  id="btn-reset-manual-order"
+                  data-testid="btn-reset-manual-order"
+                  onClick={handleResetManualOrder}
+                  className="px-2 py-1 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Manuel sıralamayı sıfırla ve varsayılan sıralamaya dön"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Sıfırla</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -4028,6 +4677,28 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
                   <span>Ayrı Grafikte Karşılaştır</span>
+                </button>
+
+                {/* Action 1.2: Farklılıkları Vurgula (Diff View) */}
+                <button
+                  type="button"
+                  id="btn-bulk-diff-view"
+                  data-testid="btn-bulk-diff-view"
+                  onClick={handleToggleDiffView}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 border ${
+                    isDiffViewMode
+                      ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300 shadow-amber-400/25"
+                      : "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/50 shadow-indigo-600/30"
+                  }`}
+                  title="Seçilen 2 veya daha fazla rakip satırı arasındaki metrik farklarını ve varyasyonlarını vurgulayın"
+                >
+                  <GitCompare className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{isDiffViewMode ? "Diff View Açık" : "Farklılıkları Vurgula"}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black ${
+                    isDiffViewMode ? "bg-slate-950 text-amber-300" : "bg-indigo-950 text-indigo-200"
+                  }`}>
+                    {selectedRankings.length >= 2 ? `${selectedRankings.length} Satır` : "Diff"}
+                  </span>
                 </button>
 
                 {/* Action 1.5: Export Selected as PDF (Seçilileri PDF Yap) */}
@@ -4177,6 +4848,17 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <span>{saveToast}</span>
               </div>
               <div className="flex items-center gap-2">
+                {lastManualOrderBackup && (
+                  <button
+                    type="button"
+                    id="btn-undo-reorder-toast"
+                    data-testid="btn-undo-reorder-toast"
+                    onClick={handleUndoReorder}
+                    className="text-xs font-bold text-indigo-700 underline hover:text-indigo-950 cursor-pointer transition-colors"
+                  >
+                    Taşımayı Geri Al
+                  </button>
+                )}
                 {deletedRowIds.length > 0 && (
                   <button
                     type="button"
@@ -4427,6 +5109,41 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                       <span>Yeni Satır Ekle & Düzenle</span>
                     </button>
 
+                    {/* Stratejik Notlar Quick Drawer Button */}
+                    <button
+                      type="button"
+                      id="btn-toolbar-open-strategic-notes"
+                      data-testid="btn-toolbar-open-strategic-notes"
+                      onClick={() => setIsStrategicNotesDrawerOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 hover:bg-amber-400 text-amber-900 hover:text-slate-950 border border-amber-400/80 text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
+                      title="Tüm satırlardaki stratejik notları görüntüleyin, yönetin ve satırlara hızlıca erişin"
+                    >
+                      <StickyNote className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Stratejik Notlar Paneli ({notesCount})</span>
+                    </button>
+
+                    {/* Görsel Farklılık Vurgulayıcı Quick Toggle Button */}
+                    <button
+                      type="button"
+                      id="btn-toolbar-toggle-visual-discrepancy"
+                      data-testid="btn-toolbar-toggle-visual-discrepancy"
+                      onClick={handleToggleVisualDiscrepancyMode}
+                      className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 border ${
+                        isVisualDiscrepancyMode
+                          ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300/60 font-black"
+                          : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                      }`}
+                      title="Metriklerde %20+ fark gösteren hücreleri ısı haritası prensibiyle renklendiren Görsel Farklılık Vurgulayıcı modunu açın/kapatın"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isVisualDiscrepancyMode ? "text-slate-950 stroke-[2.5]" : "text-amber-600"}`} />
+                      <span>Farklılık Vurgulayıcı</span>
+                      <span className={`px-1.5 py-0.2 rounded-md font-mono text-[9px] font-black ${
+                        isVisualDiscrepancyMode ? "bg-slate-950 text-amber-300" : "bg-amber-100 text-amber-900 border border-amber-300"
+                      }`}>
+                        %{discrepancyThreshold}+ ({discrepancyAnalysis.highlightedCount})
+                      </span>
+                    </button>
+
                     {/* If currently editing a row: Save & Cancel Buttons right in the toolbar */}
                     {editingRowId && editFormData && (
                       <div className="flex items-center gap-2">
@@ -4561,6 +5278,151 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
             )}
           </div>
 
+          {/* 3.1.9 FARKLILIKLARI VURGULA (DIFF VIEW) MODU PANELI */}
+          {isDiffViewMode && (
+            <CompetitorDiffViewPanel
+              selectedRankings={selectedRankings}
+              allRankings={effectiveRankings}
+              userName={userName}
+              competitors={effectiveCompetitors}
+              onClose={() => setIsDiffViewMode(false)}
+              baselineId={diffBaselineId || selectedRankings[0]?.id}
+              onSelectBaseline={(id) => setDiffBaselineId(id)}
+              onRemoveSelectedRow={(id) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  next.delete(id);
+                  return next;
+                });
+              }}
+              onAddRowToDiff={(id) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  next.add(id);
+                  return next;
+                });
+              }}
+              onFocusRowInTable={(id) => {
+                const el = document.getElementById(`row-${id}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+            />
+          )}
+
+          {/* 3.1.10 6 AYLIK TREND TAHMİN ÇİZGİSİ (D3.JS) & ÖNGÖRÜLEN BÜYÜME MODÜLÜ */}
+          {isTrendForecastModuleOpen && (
+            <CompetitorTrendForecastModule
+              rankings={effectiveRankings}
+              competitors={effectiveCompetitors}
+              userName={userName}
+              userDomain={userDomain}
+              colorPalette={colorTheme}
+              isColumnVisible={isTrendColumnVisible}
+              onToggleColumnVisibility={() => setIsTrendColumnVisible((prev) => !prev)}
+              onClose={() => setIsTrendForecastModuleOpen(false)}
+            />
+          )}
+
+          {/* 3.1.11 GÖRSEL FARKLILIK VURGULAYICI (%20+ METRİK FARKLARI) MODÜLÜ */}
+          {isVisualDiscrepancyMode && (
+            <VisualDiscrepancyHighlighterPanel
+              isActive={isVisualDiscrepancyMode}
+              analysis={discrepancyAnalysis}
+              threshold={discrepancyThreshold}
+              onChangeThreshold={(val) => setDiscrepancyThreshold(val)}
+              focusFilter={discrepancyFocusFilter}
+              onChangeFocusFilter={(f) => setDiscrepancyFocusFilter(f)}
+              onlyShowDiscrepancyRows={onlyShowDiscrepancyRows}
+              onToggleOnlyDiscrepancyRows={() => setOnlyShowDiscrepancyRows((prev) => !prev)}
+              isPulseEnabled={isDiscrepancyPulseEnabled}
+              onTogglePulse={() => setIsDiscrepancyPulseEnabled((prev) => !prev)}
+              onClose={() => setIsVisualDiscrepancyMode(false)}
+              onFocusRow={(id) => {
+                const el = document.getElementById(`row-${id}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+            />
+          )}
+
+          {/* 3.1.12 RAKİP GRUBU OLUŞTUR & KOHORT ANALİZ PANELİ */}
+          {isGroupManagerOpen && (
+            <CompetitorGroupManagerPanel
+              rankings={effectiveRankings}
+              competitors={effectiveCompetitors}
+              userName={userName}
+              userDomain={userDomain}
+              selectedRowIds={selectedIds}
+              onSelectRows={(ids) => setSelectedIds(new Set(ids))}
+              activeGroupFilter={activeGroupFilter}
+              onFilterByGroup={(groupId) => setActiveGroupFilter(groupId)}
+              onClose={() => setIsGroupManagerOpen(false)}
+            />
+          )}
+
+          {/* 3.1.13 HEDEF BELİRLEME (ÖZEL KPI HEDEFLERİ & RAKİP KIYASLAMA) MODÜLÜ */}
+          {isKpiGoalModuleOpen && (
+            <CompetitorKpiGoalManagerModule
+              rankings={effectiveRankings}
+              competitors={effectiveCompetitors}
+              userName={userName}
+              userDomain={userDomain}
+              onClose={() => setIsKpiGoalModuleOpen(false)}
+              onGoalsUpdated={(newGoals) => setCustomKpiGoals(newGoals)}
+            />
+          )}
+
+          {/* Aktif Grup Filtresi Bildirim Barı (Panel kapalıyken filtre aktif ise) */}
+          {activeGroupFilter && !isGroupManagerOpen && (
+            <div
+              id="active-group-filter-banner"
+              data-testid="active-group-filter-banner"
+              className="p-3.5 rounded-2xl bg-indigo-950 border border-indigo-500/50 text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-300" />
+                <span className="text-xs font-bold">
+                  Grup Filtresi Aktif:{" "}
+                  <strong className="text-amber-300 font-black">
+                    {competitorGroups.find((g) => g.id === activeGroupFilter)?.name || "Seçili Grup"}
+                  </strong>{" "}
+                  ({filteredAndSortedRankings.length} kelime gösteriliyor)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsGroupManagerOpen(true)}
+                  className="px-3 py-1 rounded-xl bg-indigo-800 hover:bg-indigo-700 text-xs font-bold text-white transition-colors cursor-pointer"
+                >
+                  Grubu İncele
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveGroupFilter(null)}
+                  className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  Filtreyi Kaldır
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Isı Haritası Lejantı & Yoğunluk Göstergesi (Visual Discrepancy Active Legend) */}
+          {isVisualDiscrepancyMode && (
+            <div className="mb-3">
+              <HeatmapMiniLegend
+                threshold={discrepancyThreshold}
+                positiveCount={discrepancyAnalysis.positiveCount}
+                negativeCount={discrepancyAnalysis.negativeCount}
+                opportunityCount={discrepancyAnalysis.opportunityCount}
+                onToggleSettings={() => {
+                  const el = document.getElementById("visual-discrepancy-highlighter-panel");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }}
+              />
+            </div>
+          )}
+
           {/* 3.2 THE COMPARISON TABLE */}
           <div className="rounded-3xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -4568,6 +5430,33 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <thead>
                   <tr className="bg-slate-900 text-white border-b border-slate-800 select-none">
                     
+                    {/* Header: Drag & Drop Manual Reorder */}
+                    <th 
+                      scope="col"
+                      id="th-col-drag"
+                      data-testid="th-drag"
+                      className={`py-3.5 px-2 w-12 text-center select-none cursor-pointer transition-colors group ${
+                        sortBy === "manual" ? "bg-indigo-950 text-amber-300 ring-1 ring-inset ring-amber-400/40" : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
+                      }`}
+                      onClick={() => {
+                        setSortBy("manual");
+                        setSortOrder("asc");
+                      }}
+                      title="Manuel Sıralama: Satırları sürükleyip bırakarak yukarı/aşağı taşıyın. Tıklayarak manuel sıralama modunu açın."
+                    >
+                      <button
+                        type="button"
+                        id="btn-th-manual-order"
+                        data-testid="btn-th-manual-order"
+                        className="w-full flex flex-col items-center justify-center gap-0.5 text-inherit cursor-pointer focus:outline-hidden"
+                      >
+                        <GripVertical className="w-4 h-4 mx-auto group-hover:text-amber-300 transition-colors" />
+                        <span className="text-[9px] font-mono font-bold leading-none">
+                          {sortBy === "manual" ? "Özel" : "#"}
+                        </span>
+                      </button>
+                    </th>
+
                     {/* Header 0: Master Checkbox */}
                     <th 
                       scope="col"
@@ -4746,6 +5635,50 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                           </div>
                           {renderSortIcon("goalAttainment")}
                         </button>
+                      </th>
+                    )}
+
+                    {/* Header 3.6: 6 Aylık Trend Tahmini (d3.js Engine) */}
+                    {isTrendColumnVisible && (
+                      <th 
+                        scope="col"
+                        id="th-col-trend-forecast"
+                        data-testid="th-trend-forecast"
+                        onClick={() => handleHeaderSort("trendGrowth")}
+                        className={`py-3.5 px-3 font-black uppercase tracking-wider text-[11px] min-w-[210px] bg-slate-900 border-r border-slate-800 cursor-pointer transition-colors group select-none ${
+                          sortBy === "trendGrowth" ? "bg-indigo-900 text-amber-300 ring-1 ring-amber-400" : "text-white hover:bg-slate-800/80"
+                        }`}
+                        title="6 aylık öngörülen büyüme trendine göre sırala (d3.js Sparkline)"
+                        aria-sort={sortBy === "trendGrowth" ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <button
+                          type="button"
+                          id="sort-col-trend-growth"
+                          data-testid="sort-col-trend-growth-btn"
+                          className="w-full flex items-center justify-between gap-1 text-left text-inherit cursor-pointer focus:outline-hidden"
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <TrendingUp className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">6-Ay Trend Tahmini</span>
+                            <span className="px-1 py-0.2 rounded bg-indigo-500/30 text-indigo-200 text-[9px] font-mono font-bold">
+                              d3.js
+                            </span>
+                            <HeaderMetricInfoTooltip
+                              id="th-trend-forecast"
+                              title="6 Aylık Büyüme & Trend Tahmin Çizgisi"
+                              description="Mevcut SEO metrikleri, SERP sırası, Google PageSpeed ve içerik üretim hızına dayanarak d3.js ile hesaplanan 6 aylık organik büyüme ve pozisyon simülasyonudur."
+                              formula="Ay 1 - Ay 6 Tahmini Sıralama Eğrisi (Siteniz vs. Rakipler)"
+                              benchmark="Pozitif trend eğrileri içerik yatırımının ve teknik SEO optimizasyonunun getirisi olarak SERP ilk 3 sıraya tırmanışı simüle eder."
+                              tag="d3.js Tahmin"
+                              align="left"
+                            />
+                          </div>
+                          {renderSortIcon("trendGrowth")}
+                        </button>
+                        <div className="text-[10px] text-slate-400 font-mono mt-1 flex items-center gap-1 font-normal lowercase">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                          <span>siteniz vs rakipler</span>
+                        </div>
                       </th>
                     )}
 
@@ -5074,7 +6007,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                 <tbody className="divide-y divide-slate-100">
                   {filteredAndSortedRankings.length === 0 ? (
                     <tr>
-                      <td colSpan={isGoalTrackingMode ? 12 : 11} className="py-12 text-center text-slate-400">
+                      <td colSpan={currentTableColSpan} className="py-12 text-center text-slate-400">
                         {statusFilter === "selected" ? (
                           <div className="space-y-1.5 max-w-sm mx-auto">
                             <CheckCircle2 className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
@@ -5165,7 +6098,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 data-testid={`row-edit-validation-banner-${item.id}`}
                                 className="bg-rose-100/95 border-t-2 border-x-2 border-rose-500 shadow-xs animate-in fade-in duration-150"
                               >
-                                <td colSpan={isGoalTrackingMode ? 12 : 11} className="py-2.5 px-3">
+                                <td colSpan={currentTableColSpan} className="py-2.5 px-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                                     <div className="flex items-center gap-2 text-rose-900 font-bold">
                                       <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 animate-bounce" />
@@ -5201,6 +6134,13 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 hasValidationErrors ? "bg-rose-50/80 border-y-2 border-rose-500" : "bg-amber-50/95 border-y-2 border-amber-500"
                               } shadow-md transition-all`}
                             >
+                              {/* Drag Handle Column (Locked in edit mode) */}
+                              <td className="py-3 px-2 align-middle text-center">
+                                <div className="flex flex-col items-center justify-center p-1 text-slate-300" title="Düzenleme sırasında satır taşınamaz">
+                                  <GripVertical className="w-4 h-4 opacity-40 cursor-not-allowed" />
+                                </div>
+                              </td>
+
                               {/* 0. Row Status / Selection Checkbox & Edit Indicator */}
                               <td className="py-3 px-2.5 align-middle text-center">
                                 <div className="flex flex-col items-center justify-center gap-1.5">
@@ -5706,7 +6646,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 data-testid={`row-notepad-edit-${item.id}`}
                                 className="bg-amber-50/50 border-y-2 border-amber-300 shadow-inner"
                               >
-                                <td colSpan={11} className="p-3 sm:p-4">
+                                <td colSpan={currentTableColSpan} className="p-3 sm:p-4">
                                   <RowStrategicNotepad
                                     itemId={item.id}
                                     keyword={item.keyword}
@@ -5731,16 +6671,95 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                           <tr 
                             id={`row-${item.id}`}
                             data-testid={`row-${item.id}`}
-                            className={`hover:bg-slate-50/80 transition-colors ${
-                            recentlyAddedId === item.id
+                            draggable={true}
+                            onMouseEnter={() => setHoveredRowId(item.id)}
+                            onMouseLeave={() => setHoveredRowId((prev) => (prev === item.id ? null : prev))}
+                            onDragStart={(e) => {
+                              const target = e.target as HTMLElement;
+                              if (target.closest("input, select, button, textarea, a")) {
+                                e.preventDefault();
+                                return;
+                              }
+                              handleRowDragStart(e, item.id);
+                            }}
+                            onDragOver={(e) => handleRowDragOver(e, item.id)}
+                            onDragEnter={(e) => handleRowDragEnter(e, item.id)}
+                            onDragLeave={(e) => handleRowDragLeave(e, item.id)}
+                            onDrop={(e) => handleRowDrop(e, item.id)}
+                            onDragEnd={handleRowDragEnd}
+                            className={`transition-all group group/row ${
+                            draggedRowId === item.id
+                              ? "opacity-30 bg-indigo-50/90 border-y-2 border-dashed border-indigo-500 scale-[0.995]"
+                              : dragOverRowId === item.id && dropPosition === "above"
+                              ? "border-t-4 border-t-indigo-600 bg-indigo-50/70 shadow-md ring-1 ring-indigo-300"
+                              : dragOverRowId === item.id && dropPosition === "below"
+                              ? "border-b-4 border-b-indigo-600 bg-indigo-50/70 shadow-md ring-1 ring-indigo-300"
+                              : isDiffViewMode && isSelected
+                              ? item.id === (diffBaselineId || selectedRankings[0]?.id)
+                                ? "bg-indigo-100/90 border-l-4 border-l-indigo-700 ring-2 ring-indigo-400 shadow-md"
+                                : "bg-amber-50/90 border-l-4 border-l-amber-500 ring-2 ring-amber-300 shadow-md"
+                              : isDiffViewMode
+                              ? "opacity-60 hover:opacity-100 transition-opacity"
+                              : recentlyAddedId === item.id
                               ? "bg-emerald-50/90 border-l-4 border-l-emerald-600 shadow-sm"
                               : recentlyClonedId === item.id
                               ? "bg-indigo-50/90 border-l-4 border-l-indigo-600 shadow-sm"
                               : isSelected 
                               ? "bg-indigo-50/80 border-l-4 border-l-indigo-600 shadow-2xs" 
-                              : idx % 2 === 1 ? "bg-slate-50/30" : ""
+                              : idx % 2 === 1 ? "bg-slate-50/30" : "hover:bg-slate-50/80"
                           }`}>
                             
+                            {/* Drag Handle Column */}
+                            <td className="py-3.5 px-2 align-middle text-center select-none">
+                              <div className="flex flex-col items-center justify-center gap-0.5">
+                                <div
+                                  id={`drag-handle-${item.id}`}
+                                  data-testid={`drag-handle-${item.id}`}
+                                  draggable={true}
+                                  onDragStart={(e) => handleRowDragStart(e, item.id)}
+                                  onDragEnd={handleRowDragEnd}
+                                  className="p-1 rounded-lg cursor-grab active:cursor-grabbing hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 transition-colors flex items-center justify-center group-hover:text-slate-600"
+                                  title={`"${item.keyword || 'Satır'}" satırını yukarı veya aşağı sürükleyin`}
+                                  aria-label={`"${item.keyword || 'Satır'}" satırını taşıma tutamağı`}
+                                >
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
+                                
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    id={`btn-move-up-${item.id}`}
+                                    data-testid={`btn-move-up-${item.id}`}
+                                    disabled={idx === 0}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveRow(item.id, "up");
+                                    }}
+                                    className="p-0.5 rounded hover:bg-indigo-100 text-slate-400 hover:text-indigo-700 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                                    title="Bir Satır Yukarı Taşı"
+                                    aria-label="Bir Satır Yukarı Taşı"
+                                  >
+                                    <ChevronUp className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    id={`btn-move-down-${item.id}`}
+                                    data-testid={`btn-move-down-${item.id}`}
+                                    disabled={idx === filteredAndSortedRankings.length - 1}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveRow(item.id, "down");
+                                    }}
+                                    className="p-0.5 rounded hover:bg-indigo-100 text-slate-400 hover:text-indigo-700 disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                                    title="Bir Satır Aşağı Taşı"
+                                    aria-label="Bir Satır Aşağı Taşı"
+                                  >
+                                    <ChevronDown className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+
                             {/* 0. Row Selection Checkbox */}
                             <td className="py-3.5 px-3 align-top text-center">
                               <div className="flex items-center justify-center pt-0.5">
@@ -5771,6 +6790,21 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     )}
                                   </span>
 
+                                  {/* Diff View Mode Badge */}
+                                  {isDiffViewMode && isSelected && (
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider font-mono border ${
+                                        item.id === (diffBaselineId || selectedRankings[0]?.id)
+                                          ? "bg-indigo-600 text-white border-indigo-700 shadow-xs"
+                                          : "bg-amber-400 text-slate-950 border-amber-500 shadow-xs"
+                                      }`}
+                                    >
+                                      {item.id === (diffBaselineId || selectedRankings[0]?.id)
+                                        ? "Diff Baz Ref"
+                                        : `Diff #${selectedRankings.findIndex((r) => r.id === item.id) + 1}`}
+                                    </span>
+                                  )}
+
                                   {item.id.includes("-copy-") && (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200">
                                       Kopya
@@ -5782,6 +6816,26 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                       Yeni
                                     </span>
                                   )}
+
+                                  {/* Competitor Group Membership Badges */}
+                                  {competitorGroups
+                                    .filter((g) => g.keywordIds.includes(item.id))
+                                    .map((g) => (
+                                      <span
+                                        key={g.id}
+                                        id={`badge-group-${g.id}-${item.id}`}
+                                        data-testid={`badge-group-${g.id}-${item.id}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveGroupFilter(activeGroupFilter === g.id ? null : g.id);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        title={`"${g.name}" grubuna dahil. Tıklayarak bu gruba göre filtreleyin.`}
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                                        <span>{g.name}</span>
+                                      </span>
+                                    ))}
                                   
                                   <button
                                     type="button"
@@ -5827,26 +6881,97 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     <Trash2 className="w-3 h-3" />
                                   </button>
 
-                                  <button
-                                    type="button"
-                                    id={`btn-quick-note-${item.id}`}
-                                    data-testid={`btn-quick-note-${item.id}`}
-                                    onClick={() => toggleNotepad(item.id)}
-                                    className={`p-1 rounded-md cursor-pointer transition-colors relative ${
-                                      itemNote
-                                        ? "text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300"
-                                        : isNotepadOpen
-                                        ? "text-amber-900 bg-amber-200 border border-amber-400"
-                                        : "text-slate-400 hover:text-amber-700 hover:bg-amber-50"
-                                    }`}
-                                    title={itemNote ? "Stratejik notu aç / düzenle" : `"${item.keyword}" rakip satırına stratejik not ekle`}
-                                    aria-label={`"${item.keyword}" satırına not ekle`}
+                                  {/* Quick Note Button with Hover Note Preview Bubble */}
+                                  <div 
+                                    className="relative inline-flex items-center"
+                                    onMouseEnter={() => setHoveredNoteButtonId(item.id)}
+                                    onMouseLeave={() => setHoveredNoteButtonId((prev) => (prev === item.id ? null : prev))}
                                   >
-                                    <StickyNote className="w-3 h-3" />
-                                    {itemNote && (
-                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" />
+                                    <button
+                                      type="button"
+                                      id={`btn-quick-note-${item.id}`}
+                                      data-testid={`btn-quick-note-${item.id}`}
+                                      onClick={() => toggleNotepad(item.id)}
+                                      className={`p-1 rounded-md cursor-pointer transition-colors relative ${
+                                        itemNote
+                                          ? "text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 shadow-2xs"
+                                          : isNotepadOpen
+                                          ? "text-amber-900 bg-amber-200 border border-amber-400"
+                                          : "text-slate-400 hover:text-amber-700 hover:bg-amber-50"
+                                      }`}
+                                      title={itemNote ? "Stratejik notu aç / düzenle (hover ile önizleyin)" : `"${item.keyword}" rakip satırına stratejik not ekle`}
+                                      aria-label={`"${item.keyword}" satırına not ekle`}
+                                    >
+                                      <StickyNote className="w-3 h-3" />
+                                      {itemNote && (
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white animate-pulse" />
+                                      )}
+                                    </button>
+
+                                    {/* Önizleme Balonu (Hover Preview Bubble) */}
+                                    {itemNote && itemNote.text && !isNotepadOpen && (
+                                      <div
+                                        id={`note-preview-bubble-${item.id}`}
+                                        data-testid={`note-preview-bubble-${item.id}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleNotepad(item.id);
+                                        }}
+                                        className={`absolute z-50 left-0 sm:left-auto sm:right-full sm:mr-2.5 bottom-full sm:bottom-auto sm:-top-2 mb-2 sm:mb-0 w-72 sm:w-80 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md text-white border border-amber-400/60 shadow-2xl transition-all duration-200 cursor-pointer pointer-events-auto select-none ${
+                                          hoveredRowId === item.id || hoveredNoteButtonId === item.id
+                                            ? "opacity-100 translate-y-0 visible scale-100"
+                                            : "opacity-0 translate-y-1 invisible scale-95 group-hover/row:opacity-100 group-hover/row:translate-y-0 group-hover/row:visible group-hover/row:scale-100"
+                                        }`}
+                                        title="Notun tamamını açmak ve düzenlemek için tıklayın"
+                                        aria-label={`"${item.keyword}" stratejik not önizleme balonu`}
+                                      >
+                                        {/* Balon Başlığı & Güncelleme Zamanı */}
+                                        <div className="flex items-center justify-between gap-1.5 border-b border-slate-800 pb-1.5 mb-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <StickyNote className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                            <span className="text-[11px] font-black text-amber-300 tracking-wide">
+                                              Stratejik Not Önizlemesi
+                                            </span>
+                                          </div>
+                                          {itemNote.updatedAt && (
+                                            <span className="text-[10px] text-slate-400 font-mono">
+                                              {itemNote.updatedAt}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Varsa Stratejik Etiketler (Tags) */}
+                                        {itemNote.tags && itemNote.tags.length > 0 && (
+                                          <div className="flex items-center gap-1 flex-wrap mb-1.5">
+                                            {itemNote.tags.map((tag, tIdx) => (
+                                              <span
+                                                key={tIdx}
+                                                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30"
+                                              >
+                                                {tag}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {/* Not Metni (Kırpılmış Parça) */}
+                                        <p className="text-xs text-slate-200 leading-relaxed font-normal line-clamp-3">
+                                          {itemNote.text.length > 130 ? itemNote.text.slice(0, 130) + "..." : itemNote.text}
+                                        </p>
+
+                                        {/* Alt Aksiyon & Düzenle İpucu */}
+                                        <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-amber-300 font-bold">
+                                          <span>Tamamını Aç / Düzenle</span>
+                                          <span className="inline-flex items-center gap-0.5 text-amber-400 hover:text-amber-300">
+                                            Aç <ArrowUpRight className="w-3 h-3" />
+                                          </span>
+                                        </div>
+
+                                        {/* Balon Oku / Caret (Masaüstünde sağa ok) */}
+                                        <div className="hidden sm:block absolute -right-1.5 top-3.5 w-3 h-3 bg-slate-900 border-t border-r border-amber-400/60 rotate-45" />
+                                      </div>
                                     )}
-                                  </button>
+                                  </div>
                                 </div>
 
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -5868,6 +6993,15 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                   }`} title="SEO Zorluk Skoru (0-100)">
                                     KD: {item.difficulty}
                                   </span>
+
+                                  {/* Görsel Farklılık Vurgulayıcı KD Fırsatı */}
+                                  {isVisualDiscrepancyMode && discrepancyAnalysis.cellMap[`${item.id}_difficulty`] && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_difficulty`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
+                                  )}
                                 </div>
 
                                 {/* Strategic Note Preview Strip if exists */}
@@ -5876,12 +7010,16 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     id={`note-preview-badge-${item.id}`}
                                     data-testid={`note-preview-badge-${item.id}`}
                                     onClick={() => toggleNotepad(item.id)}
-                                    className="mt-1 flex items-center gap-1.5 p-1.5 px-2 rounded-lg bg-amber-50/90 hover:bg-amber-100 border border-amber-300/80 text-amber-950 text-[11px] cursor-pointer transition-colors group shadow-2xs"
-                                    title="Stratejik not defterini aç ve düzenle"
+                                    className={`mt-1 flex items-center gap-1.5 p-1.5 px-2 rounded-lg text-[11px] cursor-pointer transition-all group/badge shadow-2xs ${
+                                      hoveredRowId === item.id || hoveredNoteButtonId === item.id
+                                        ? "bg-amber-100/95 text-amber-950 border border-amber-400 ring-1 ring-amber-300/60"
+                                        : "bg-amber-50/90 hover:bg-amber-100 border border-amber-300/80 text-amber-950"
+                                    }`}
+                                    title="Stratejik not defterini aç ve düzenle (üzerine gelindiğinde önizleme balonu açılır)"
                                   >
                                     <StickyNote className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                     <span className="font-bold text-amber-900 shrink-0">Not:</span>
-                                    <span className="truncate text-slate-700 group-hover:text-slate-900 max-w-[180px] sm:max-w-[240px]">
+                                    <span className="truncate text-slate-700 group-hover/badge:text-slate-900 max-w-[180px] sm:max-w-[240px]">
                                       {itemNote.text}
                                     </span>
                                     {itemNote.tags && itemNote.tags.length > 0 && (
@@ -5892,17 +7030,48 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                     <span className="text-[9px] text-amber-700 font-mono ml-auto shrink-0 font-medium">
                                       {itemNote.updatedAt}
                                     </span>
+                                    <ArrowUpRight className="w-3 h-3 text-amber-600 shrink-0 opacity-0 group-hover/badge:opacity-100 transition-opacity" />
                                   </div>
                                 )}
                               </div>
                             </td>
 
                             {/* 2. Search Volume Column */}
-                            <td className="py-3.5 px-3 align-top">
+                            <td className={`py-3.5 px-3 align-top ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_volume`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               <div className="space-y-0.5 font-mono">
-                                <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                                <div className="font-bold text-xs text-slate-900 flex items-center gap-1 flex-wrap">
                                   <span className="text-indigo-600">●</span>
                                   <span>{item.monthlyVolume}</span>
+                                  {isVisualDiscrepancyMode && discrepancyAnalysis.cellMap[`${item.id}_volume`] && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_volume`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
+                                  )}
+                                  {isDiffViewMode && isSelected && (() => {
+                                    const baseItem = selectedRankings.find(r => r.id === (diffBaselineId || selectedRankings[0]?.id));
+                                    if (!baseItem || baseItem.id === item.id) return null;
+                                    const curVol = parseInt(item.monthlyVolume?.replace(/[^0-9]/g, "") || "0", 10);
+                                    const bVol = parseInt(baseItem.monthlyVolume?.replace(/[^0-9]/g, "") || "0", 10);
+                                    const dVol = curVol - bVol;
+                                    if (dVol === 0) return null;
+                                    return (
+                                      <span className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded border ${
+                                        dVol > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-rose-50 text-rose-700 border-rose-300"
+                                      }`}>
+                                        {dVol > 0 ? `+${dVol.toLocaleString("tr-TR")}` : dVol.toLocaleString("tr-TR")}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                                 <div className="text-[10px] text-slate-400 font-sans">
                                   SERP Hacmi
@@ -5911,9 +7080,17 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                             </td>
 
                             {/* 3. Your Site Rank (Golden prominent) */}
-                            <td className="py-3.5 px-3.5 align-top bg-indigo-50/40 border-x border-indigo-100">
+                            <td className={`py-3.5 px-3.5 align-top bg-indigo-50/40 border-x border-indigo-100 ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_userRank`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               <div className="space-y-1">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   {item.userRank === 1 ? (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-xs">
                                       <Trophy className="w-3.5 h-3.5" />
@@ -5930,6 +7107,31 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                       İlk 20'de Yok
                                     </span>
                                   )}
+
+                                  {/* Görsel Farklılık Vurgulayıcı Rozeti */}
+                                  {isVisualDiscrepancyMode && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_userRank`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
+                                  )}
+
+                                  {isDiffViewMode && isSelected && (() => {
+                                    const baseItem = selectedRankings.find(r => r.id === (diffBaselineId || selectedRankings[0]?.id));
+                                    if (!baseItem || baseItem.id === item.id) return null;
+                                    const curRk = item.userRank ?? 99;
+                                    const bRk = baseItem.userRank ?? 99;
+                                    const dRk = curRk - bRk;
+                                    if (dRk === 0) return null;
+                                    return (
+                                      <span className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded border ${
+                                        dRk < 0 ? "bg-emerald-50 text-emerald-700 border-emerald-300" : "bg-rose-50 text-rose-700 border-rose-300"
+                                      }`}>
+                                        {dRk < 0 ? `▲ +${Math.abs(dRk)} sıra` : `▼ -${dRk} sıra`}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
 
                                 <div className="text-[10px] text-slate-500">
@@ -5981,6 +7183,23 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                               </td>
                             )}
 
+                            {/* 6-Month Trend Forecast Cell (d3.js Engine Sparkline) */}
+                            {isTrendColumnVisible && (
+                              <td 
+                                id={`td-col-trend-forecast-${item.id}`}
+                                data-testid={`td-trend-forecast-${item.id}`}
+                                className="py-3 px-3 align-top bg-slate-50/40 border-r border-slate-200/80 min-w-[210px]"
+                              >
+                                <CompetitorKeywordRowTrendSparkline
+                                  item={item}
+                                  profiles={competitorGrowthProfiles}
+                                  colorPalette={colorTheme}
+                                  width={135}
+                                  height={36}
+                                />
+                              </td>
+                            )}
+
                             {/* 4. Competitor Name (Leading Competitor) Column */}
                             <td className="py-3.5 px-3 align-top">
                               {((item as any).competitorName || topComp) ? (
@@ -6020,15 +7239,30 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                             </td>
 
                             {/* 5. Competitor 1 Rank */}
-                            <td className="py-3.5 px-3 align-top">
+                            <td className={`py-3.5 px-3 align-top ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_comp1Rank`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               <div className="space-y-1">
-                                <div className="font-mono font-bold text-xs text-slate-800">
+                                <div className="font-mono font-bold text-xs text-slate-800 flex items-center gap-1 flex-wrap">
                                   {item.comp1Rank ? (
                                     <span className={item.comp1Rank === 1 ? "text-amber-600 font-black" : ""}>
                                       #{item.comp1Rank} {item.comp1Rank === 1 && "👑"}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">-</span>
+                                  )}
+                                  {isVisualDiscrepancyMode && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_comp1Rank`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
                                   )}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
@@ -6051,15 +7285,30 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                             </td>
 
                             {/* 6. Competitor 2 Rank */}
-                            <td className="py-3.5 px-3 align-top">
+                            <td className={`py-3.5 px-3 align-top ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_comp2Rank`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               <div className="space-y-1">
-                                <div className="font-mono font-bold text-xs text-slate-800">
+                                <div className="font-mono font-bold text-xs text-slate-800 flex items-center gap-1 flex-wrap">
                                   {item.comp2Rank ? (
                                     <span className={item.comp2Rank === 1 ? "text-amber-600 font-black" : ""}>
                                       #{item.comp2Rank} {item.comp2Rank === 1 && "👑"}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">-</span>
+                                  )}
+                                  {isVisualDiscrepancyMode && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_comp2Rank`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
                                   )}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
@@ -6082,15 +7331,30 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                             </td>
 
                             {/* 7. Competitor 3 Rank */}
-                            <td className="py-3.5 px-3 align-top">
+                            <td className={`py-3.5 px-3 align-top ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_comp3Rank`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               <div className="space-y-1">
-                                <div className="font-mono font-bold text-xs text-slate-800">
+                                <div className="font-mono font-bold text-xs text-slate-800 flex items-center gap-1 flex-wrap">
                                   {item.comp3Rank ? (
                                     <span className={item.comp3Rank === 1 ? "text-amber-600 font-black" : ""}>
                                       #{item.comp3Rank} {item.comp3Rank === 1 && "👑"}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">-</span>
+                                  )}
+                                  {isVisualDiscrepancyMode && (
+                                    <DiscrepancyBadge
+                                      discrepancy={discrepancyAnalysis.cellMap[`${item.id}_comp3Rank`]}
+                                      focusFilter={discrepancyFocusFilter}
+                                      isPulseEnabled={isDiscrepancyPulseEnabled}
+                                    />
                                   )}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate max-w-[95px]">
@@ -6113,7 +7377,15 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                             </td>
 
                             {/* 8. Gap Status Column */}
-                            <td className="py-3.5 px-3.5 align-top text-center">
+                            <td className={`py-3.5 px-3.5 align-top text-center ${
+                              isVisualDiscrepancyMode
+                                ? getDiscrepancyCellClasses(
+                                    discrepancyAnalysis.cellMap[`${item.id}_gap`],
+                                    discrepancyFocusFilter,
+                                    isDiscrepancyPulseEnabled
+                                  )
+                                : ""
+                            }`}>
                               {item.userRank === null ? (
                                 <span className="inline-block px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold">
                                   Boşluk (+99)
@@ -6130,6 +7402,15 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                                 <span className="inline-block px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
                                   -{item.gap} Sıra Fark
                                 </span>
+                              )}
+                              {isVisualDiscrepancyMode && (
+                                <div className="mt-1 flex justify-center">
+                                  <DiscrepancyBadge
+                                    discrepancy={discrepancyAnalysis.cellMap[`${item.id}_gap`]}
+                                    focusFilter={discrepancyFocusFilter}
+                                    isPulseEnabled={isDiscrepancyPulseEnabled}
+                                  />
+                                </div>
                               )}
                               <div className="text-[10px] text-slate-400 mt-1">
                                 {item.trafficOpportunity}
@@ -6261,7 +7542,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                               data-testid={`row-notepad-${item.id}`}
                               className="bg-amber-50/50 border-y-2 border-amber-300 shadow-inner"
                             >
-                              <td colSpan={isGoalTrackingMode ? 12 : 11} className="p-3 sm:p-4">
+                              <td colSpan={currentTableColSpan} className="p-3 sm:p-4">
                                 <RowStrategicNotepad
                                   itemId={item.id}
                                   keyword={item.keyword}
@@ -6281,7 +7562,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                           {/* Expanded Row Details */}
                           {isExpanded && (
                             <tr className="bg-indigo-50/30 border-b border-indigo-100">
-                              <td colSpan={isGoalTrackingMode ? 12 : 11} className="p-4 sm:p-5">
+                              <td colSpan={currentTableColSpan} className="p-4 sm:p-5">
                                 <div className="p-4 rounded-2xl bg-white border border-indigo-200 shadow-xs space-y-3">
                                   <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 flex-wrap gap-2">
                                     <div className="flex items-center gap-2">
@@ -6464,7 +7745,7 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
                     id="row-add-new-competitor-wrapper"
                     className="bg-slate-50/80 hover:bg-slate-100/90 transition-colors border-t-2 border-dashed border-slate-200"
                   >
-                    <td colSpan={11} className="py-4 px-4 text-center">
+                    <td colSpan={currentTableColSpan} className="py-4 px-4 text-center">
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                         <button
                           type="button"
@@ -6701,8 +7982,17 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
         onBulkDelete={handleBulkDeleteSelected}
         onExportSelectedPdf={handleDownloadSelectedPdf}
         onOpenReportBuilder={handleOpenSelectedReportBuilder}
+        onOpenCreateGroup={() => {
+          setIsGroupManagerOpen(true);
+          setTimeout(() => {
+            const el = document.getElementById("competitor-group-manager-panel");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 60);
+        }}
         onExportSelectedExcel={handleExportSelectedExcel}
         onCompareSelected={() => setIsComparisonModalOpen(true)}
+        onToggleDiffView={handleToggleDiffView}
+        isDiffViewActive={isDiffViewMode}
         onClearSelection={clearSelection}
         onSelectAll={handleSelectAllRows}
         isAllSelected={isAllSelected}
@@ -6775,6 +8065,19 @@ export const CompetitiveKeywordRankingTable: React.FC<CompetitiveKeywordRankingT
           setDownloadNotification(msg);
           setTimeout(() => setDownloadNotification(null), 4000);
         }}
+      />
+
+      {/* 16. STRATEJİK NOTLAR YAN PANELİ (DRAWER) */}
+      <StrategicNotesDrawerPanel
+        isOpen={isStrategicNotesDrawerOpen}
+        onClose={() => setIsStrategicNotesDrawerOpen(false)}
+        rankings={effectiveRankings}
+        notes={strategicNotes}
+        onSaveNote={handleSaveNote}
+        onDeleteNote={handleDeleteNote}
+        onJumpToRow={handleJumpToRowFromDrawer}
+        userName={userName}
+        userDomain={userDomain}
       />
     </div>
   );

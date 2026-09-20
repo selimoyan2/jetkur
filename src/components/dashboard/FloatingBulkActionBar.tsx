@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   Sparkles,
   Loader2,
-  Plus
+  Plus,
+  GitCompare,
+  Users
 } from "lucide-react";
 
 export interface FloatingBulkActionBarProps {
@@ -20,8 +22,11 @@ export interface FloatingBulkActionBarProps {
   onBulkDelete: () => void;
   onExportSelectedPdf: () => void;
   onOpenReportBuilder?: () => void;
+  onOpenCreateGroup?: () => void;
   onExportSelectedExcel: () => void;
   onCompareSelected?: () => void;
+  onToggleDiffView?: () => void;
+  isDiffViewActive?: boolean;
   onClearSelection: () => void;
   onSelectAll?: () => void;
   isAllSelected?: boolean;
@@ -36,8 +41,11 @@ export const FloatingBulkActionBar: React.FC<FloatingBulkActionBarProps> = ({
   onBulkDelete,
   onExportSelectedPdf,
   onOpenReportBuilder,
+  onOpenCreateGroup,
   onExportSelectedExcel,
   onCompareSelected,
+  onToggleDiffView,
+  isDiffViewActive = false,
   onClearSelection,
   onSelectAll,
   isAllSelected = false,
@@ -187,18 +195,60 @@ export const FloatingBulkActionBar: React.FC<FloatingBulkActionBarProps> = ({
               </span>
             </button>
 
-            {/* Action 4: Ayrı Grafikte Karşılaştır */}
+            {/* Action 4: Rakip Grubu Oluştur */}
+            {onOpenCreateGroup && (
+              <button
+                type="button"
+                id="btn-floating-create-group"
+                data-testid="floating-create-group-button"
+                onClick={onOpenCreateGroup}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
+                title="Seçilen satırlardan yeni bir Rakip Grubu oluşturun ve bağımsız performans ortalamalarını hesaplayın"
+              >
+                <Users className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                <span>Grup Oluştur</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black">
+                  {selectedCount}
+                </span>
+              </button>
+            )}
+
+            {/* Action 4.2: Ayrı Grafikte Karşılaştır */}
             {onCompareSelected && (
               <button
                 type="button"
                 id="btn-floating-compare-chart"
                 data-testid="floating-compare-chart-button"
                 onClick={onCompareSelected}
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 border border-slate-700"
                 title="Seçilen kelimeleri D3 grafiğinde ayrı bir pencerede kıyaslayın"
               >
-                <BarChart3 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                <BarChart3 className="w-3.5 h-3.5 text-amber-400 stroke-[2.5]" />
                 <span className="hidden sm:inline">Karşılaştır</span>
+              </button>
+            )}
+
+            {/* Action 4.5: Farklılıkları Vurgula (Diff View) */}
+            {onToggleDiffView && selectedCount >= 2 && (
+              <button
+                type="button"
+                id="btn-floating-diff-view"
+                data-testid="floating-diff-view-button"
+                onClick={onToggleDiffView}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 border ${
+                  isDiffViewActive
+                    ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300"
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/50 shadow-md shadow-indigo-600/25"
+                }`}
+                title="Seçili rakip satırlarının metrik farklarını ve varyasyonlarını vurgulayan Diff View modunu açın/kapatın"
+              >
+                <GitCompare className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>{isDiffViewActive ? "Diff Açık" : "Farkları Vurgula"}</span>
+                <span className={`px-1 py-0.2 rounded text-[9px] font-mono ${
+                  isDiffViewActive ? "bg-slate-950 text-amber-300" : "bg-indigo-900 text-indigo-200"
+                }`}>
+                  {selectedCount}
+                </span>
               </button>
             )}
 

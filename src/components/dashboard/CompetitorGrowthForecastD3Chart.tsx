@@ -34,9 +34,13 @@ import {
   DEFAULT_MONTH_PRESETS 
 } from "./ForecastMonthAnnotationBox";
 import { ForecastMonthInsightPopover } from "./ForecastMonthInsightPopover";
+import { 
+  ScenarioSimulationPanel, 
+  SCENARIO_DEFINITIONS 
+} from "./ScenarioSimulationPanel";
 
 export type ForecastMetricType = "traffic" | "visibility" | "rankingScore";
-export type ForecastScenarioType = "realistic" | "aggressive" | "conservative";
+export type ForecastScenarioType = "aggressive" | "stable" | "decline" | "realistic" | "conservative";
 
 interface CompetitorGrowthForecastD3ChartProps {
   rankings: CompetitorKeywordRanking[];
@@ -83,7 +87,9 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
 
   // Filter & Control States
   const [selectedMetric, setSelectedMetric] = useState<ForecastMetricType>("traffic");
-  const [selectedScenario, setSelectedScenario] = useState<ForecastScenarioType>("realistic");
+  const [selectedScenario, setSelectedScenario] = useState<ForecastScenarioType>("stable");
+  const [customGrowthRate, setCustomGrowthRate] = useState<number | null>(null);
+  const [isScenarioPanelOpen, setIsScenarioPanelOpen] = useState<boolean>(true);
   const [visibleEntities, setVisibleEntities] = useState<Record<string, boolean>>({
     user: true,
     comp1: true,
@@ -201,7 +207,9 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       id: "user",
       name: userName,
       domain: userDomain,
-      color: colorPalette?.user || "#059669", // Emerald-600 / dynamic
+      color: colorPalette?.user 
+        ? colorPalette.user 
+        : (selectedScenario === "decline" ? "#f43f5e" : selectedScenario === "aggressive" ? "#059669" : "#0d9488"),
       isUser: true
     },
     {
@@ -222,7 +230,7 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       domain: comp3.domain,
       color: colorPalette?.comp3 || "#7c3aed" // Violet-600 / dynamic
     }
-  ], [userName, userDomain, comp1, comp2, comp3, colorPalette]);
+  ], [userName, userDomain, comp1, comp2, comp3, colorPalette, selectedScenario]);
 
   // Responsive ResizeObserver
   useEffect(() => {
@@ -338,22 +346,28 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
     ];
 
-    // Scenario multipliers for 6 months
-    let userMonthlyGrowth = 0.095; // ~73% growth over 6 months
-    let comp1MonthlyGrowth = 0.022; // ~14% growth
-    let comp2MonthlyGrowth = 0.031; // ~20% growth
-    let comp3MonthlyGrowth = 0.020; // ~12% growth
+    // Scenario multipliers for 6 months (Agresif Büyüme / Stabil / Düşüş)
+    let userMonthlyGrowth = 0.040; // Default: Stabil (~+26.5% net over 6 months)
+    let comp1MonthlyGrowth = 0.024;
+    let comp2MonthlyGrowth = 0.028;
+    let comp3MonthlyGrowth = 0.020;
 
     if (selectedScenario === "aggressive") {
-      userMonthlyGrowth = 0.145; // ~125% aggressive growth
-      comp1MonthlyGrowth = 0.025;
-      comp2MonthlyGrowth = 0.035;
-      comp3MonthlyGrowth = 0.022;
-    } else if (selectedScenario === "conservative") {
-      userMonthlyGrowth = 0.055; // ~38% conservative growth
-      comp1MonthlyGrowth = 0.018;
-      comp2MonthlyGrowth = 0.025;
-      comp3MonthlyGrowth = 0.015;
+      userMonthlyGrowth = customGrowthRate !== null ? customGrowthRate : 0.185; // ~+172% over 6 months
+      comp1MonthlyGrowth = 0.012;
+      comp2MonthlyGrowth = 0.015;
+      comp3MonthlyGrowth = 0.010;
+    } else if (selectedScenario === "decline") {
+      userMonthlyGrowth = customGrowthRate !== null ? customGrowthRate : -0.075; // ~-37.4% over 6 months
+      comp1MonthlyGrowth = 0.052;
+      comp2MonthlyGrowth = 0.058;
+      comp3MonthlyGrowth = 0.045;
+    } else {
+      // "stable" (and legacy "realistic" / "conservative")
+      userMonthlyGrowth = customGrowthRate !== null ? customGrowthRate : 0.040;
+      comp1MonthlyGrowth = 0.024;
+      comp2MonthlyGrowth = 0.028;
+      comp3MonthlyGrowth = 0.020;
     }
 
     let baseUser = baselineStats.userTraffic;
@@ -385,17 +399,22 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       let valComp2 = Math.round(baseComp2 * Math.pow(1 + comp2MonthlyGrowth, m));
       let valComp3 = Math.round(baseComp3 * Math.pow(1 + comp3MonthlyGrowth, m));
 
-      // S-curve realism smoothing
-      if (selectedMetric === "visibility") {
-        valUser = Math.min(96, valUser);
-        valComp1 = Math.min(99, valComp1);
-        valComp2 = Math.min(92, valComp2);
-        valComp3 = Math.min(88, valComp3);
+      // S-curve realism smoothing & minimum thresholds
+      if (selectedMetric === "traffic") {
+        valUser = Math.max(100, valUser);
+        valComp1 = Math.max(100, valComp1);
+        valComp2 = Math.max(100, valComp2);
+        valComp3 = Math.max(100, valComp3);
+      } else if (selectedMetric === "visibility") {
+        valUser = Math.max(5, Math.min(96, valUser));
+        valComp1 = Math.max(5, Math.min(99, valComp1));
+        valComp2 = Math.max(5, Math.min(92, valComp2));
+        valComp3 = Math.max(5, Math.min(88, valComp3));
       } else if (selectedMetric === "rankingScore") {
-        valUser = Math.min(98, valUser);
-        valComp1 = Math.min(99, valComp1);
-        valComp2 = Math.min(94, valComp2);
-        valComp3 = Math.min(90, valComp3);
+        valUser = Math.max(5, Math.min(98, valUser));
+        valComp1 = Math.max(5, Math.min(99, valComp1));
+        valComp2 = Math.max(5, Math.min(94, valComp2));
+        valComp3 = Math.max(5, Math.min(90, valComp3));
       }
 
       points.push({
@@ -412,7 +431,30 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
     }
 
     return points;
-  }, [baselineStats, selectedMetric, selectedScenario]);
+  }, [baselineStats, selectedMetric, selectedScenario, customGrowthRate]);
+
+  // Dynamic Crossover Detection (First month where user exceeds comp1 or is overtaken)
+  const simulationCrossoverMonth = useMemo(() => {
+    if (!forecastData || forecastData.length < 2) return null;
+    const baseUser = forecastData[0].values.user;
+    const baseComp1 = forecastData[0].values.comp1;
+    
+    if (selectedScenario === "aggressive" && baseUser <= baseComp1) {
+      for (let m = 1; m <= 6; m++) {
+        if (forecastData[m].values.user >= forecastData[m].values.comp1) {
+          return m;
+        }
+      }
+    } else if (selectedScenario === "decline") {
+      const baseComp2 = forecastData[0].values.comp2;
+      for (let m = 1; m <= 6; m++) {
+        if (forecastData[m].values.user <= forecastData[m].values.comp2) {
+          return m;
+        }
+      }
+    }
+    return null;
+  }, [forecastData, selectedScenario]);
 
   // D3 Rendering
   useEffect(() => {
@@ -763,6 +805,14 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
         .attr("transform", `translate(${xPos}, -14)`)
         .on("click", (event) => {
           event.stopPropagation();
+          setSelectedAnnotationMonth(d.monthIndex);
+          setIsAnnotationBoxOpen(true);
+          setTimeout(() => {
+            const box = document.getElementById("d3-monthly-forecast-annotation-box");
+            if (box) {
+              box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+          }, 60);
           const userVal = d.values.user;
           const userY = yScale(userVal);
           handleOpenInsightPopover(
@@ -1276,19 +1326,63 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
               ))}
             </div>
 
-            {/* Scenario Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-bold">SEO Senaryosu:</span>
+            {/* Scenario Analysis Mode Controls */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-slate-400 font-bold mr-1 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Senaryo Analizi:</span>
+              </span>
+              
+              <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-xs">
+                {[
+                  { id: "aggressive", label: "🚀 Agresif Büyüme", rate: "+%18.5", color: "bg-emerald-500 text-slate-950 border-emerald-400 font-black" },
+                  { id: "stable", label: "⚖️ Stabil", rate: "+%4.0", color: "bg-sky-500 text-slate-950 border-sky-400 font-black" },
+                  { id: "decline", label: "⚠️ Düşüş", rate: "-%7.5", color: "bg-rose-500 text-white border-rose-400 font-black" }
+                ].map((sc) => {
+                  const isSelected = selectedScenario === sc.id;
+                  return (
+                    <button
+                      key={sc.id}
+                      type="button"
+                      id={`btn-header-scenario-${sc.id}`}
+                      data-testid={`btn-header-scenario-${sc.id}`}
+                      onClick={() => {
+                        setSelectedScenario(sc.id as ForecastScenarioType);
+                        setCustomGrowthRate(null);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer border flex items-center gap-1 ${
+                        isSelected
+                          ? `${sc.color} shadow-xs`
+                          : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800"
+                      }`}
+                      title={`${sc.label} senaryosu ile 6 aylık grafiği simüle edin (${sc.rate}/ay)`}
+                    >
+                      <span>{sc.label}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                        isSelected ? "bg-black/20 text-current" : "text-slate-500"
+                      }`}>
+                        {sc.rate}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Accessible Dropdown Fallback */}
               <select
                 id="select-growth-scenario"
                 data-testid="select-growth-scenario"
                 value={selectedScenario}
-                onChange={(e) => setSelectedScenario(e.target.value as ForecastScenarioType)}
-                className="py-1 px-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-amber-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                onChange={(e) => {
+                  setSelectedScenario(e.target.value as ForecastScenarioType);
+                  setCustomGrowthRate(null);
+                }}
+                className="py-1 px-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-amber-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 cursor-pointer hidden lg:inline-block"
+                aria-label="Senaryo Seçimi"
               >
-                <option value="realistic">Gerçekçi AI Modeli (+%9.5/ay)</option>
-                <option value="aggressive">Agresif İçerik & SEO (+%14.5/ay)</option>
-                <option value="conservative">Mevcut Trend / Durağan (+%5.5/ay)</option>
+                <option value="aggressive">Agresif Büyüme (+%18.5/ay)</option>
+                <option value="stable">Stabil / Dengeli (+%4.0/ay)</option>
+                <option value="decline">Düşüş / Risk (-%7.5/ay)</option>
               </select>
             </div>
           </div>
@@ -1298,6 +1392,27 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
       {/* 2. Chart Body */}
       {isExpanded && (
         <div className="p-5 sm:p-6 space-y-6">
+          {/* 2.0 SENARYO ANALİZİ & ETKİ SİMÜLASYONU MODÜLÜ */}
+          <ScenarioSimulationPanel
+            selectedScenario={selectedScenario}
+            onSelectScenario={(sc) => {
+              setSelectedScenario(sc);
+              setCustomGrowthRate(null);
+            }}
+            customGrowthRate={customGrowthRate}
+            onCustomGrowthRateChange={setCustomGrowthRate}
+            selectedMetric={selectedMetric}
+            baselineUserValue={forecastData[0]?.values.user || 0}
+            projected6MonthUserValue={forecastData[6]?.values.user || 0}
+            baselineComp1Value={forecastData[0]?.values.comp1 || 0}
+            projected6MonthComp1Value={forecastData[6]?.values.comp1 || 0}
+            userName={userName}
+            comp1Name={comp1.name}
+            crossoverMonth={simulationCrossoverMonth}
+            isOpen={isScenarioPanelOpen}
+            onToggleOpen={() => setIsScenarioPanelOpen(prev => !prev)}
+          />
+
           {/* 2.1 RAKİP SERİSİ SEÇİCİ (LEGEND CHECKBOX PANEL) */}
           <div 
             id="competitor-series-selector"
@@ -1502,8 +1617,12 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
                 </span>
               </span>
               <span className="hidden sm:inline text-slate-400">•</span>
-              <span className="hidden sm:inline text-slate-600">
-                {selectedScenario === "aggressive" ? "🚀 Agresif Senaryo" : selectedScenario === "conservative" ? "🛡️ Muhafazakar Senaryo" : "⚖️ Gerçekçi Senaryo"}
+              <span className="hidden sm:inline text-slate-700 font-bold">
+                {selectedScenario === "aggressive" 
+                  ? "🚀 Agresif Büyüme (+%18.5/ay)" 
+                  : selectedScenario === "decline" 
+                    ? "⚠️ Düşüş Riski (-%7.5/ay)" 
+                    : "⚖️ Stabil Trend (+%4.0/ay)"}
               </span>
             </div>
 
@@ -1515,18 +1634,28 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
                 id="btn-quick-open-forecast-notes"
                 data-testid="btn-quick-open-forecast-notes"
                 onClick={() => {
-                  setIsAnnotationBoxOpen(true);
-                  const box = document.getElementById("d3-monthly-forecast-annotation-box");
-                  if (box) {
-                    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  setIsAnnotationBoxOpen(prev => !prev);
+                  if (!isAnnotationBoxOpen) {
+                    setTimeout(() => {
+                      const box = document.getElementById("d3-monthly-forecast-annotation-box");
+                      if (box) {
+                        box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }, 60);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
-                title="Aylık tahmin notu ve stratejik kilometre taşları açıklama kutusuna git"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs border ${
+                  isAnnotationBoxOpen
+                    ? "bg-amber-500 text-slate-950 border-amber-400 font-black"
+                    : "bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900"
+                }`}
+                title="6 aylık grafik için her ay özel tahmin notu ekleme kutusunu aç/kapat"
               >
-                <StickyNote className="w-3 h-3 text-amber-600" />
-                <span>Tahmin Notu ({selectedAnnotationMonth === 0 ? "0. Ay" : `+${selectedAnnotationMonth}. Ay`})</span>
-                <span className="px-1 py-0.2 rounded bg-amber-200/90 text-amber-900 text-[9px] font-mono font-black">
+                <StickyNote className={`w-3 h-3 ${isAnnotationBoxOpen ? "text-slate-950" : "text-amber-600"}`} />
+                <span>Tahmin Notu Açıklama Kutusu ({selectedAnnotationMonth === 0 ? "0. Ay" : `+${selectedAnnotationMonth}. Ay`})</span>
+                <span className={`px-1 py-0.2 rounded text-[9px] font-mono font-black ${
+                  isAnnotationBoxOpen ? "bg-slate-900 text-amber-300" : "bg-amber-200/90 text-amber-900"
+                }`}>
                   {monthNotes[selectedAnnotationMonth]?.text ? "Dolu" : "+Ekle"}
                 </span>
               </button>
@@ -1561,6 +1690,22 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
               </button>
             </div>
           </div>
+
+          {/* 2.2 İnteraktif Aylık Tahmin Notu Açıklama Kutusu (Grafiğin Doğrudan Üzerinde) */}
+          {isAnnotationBoxOpen && (
+            <ForecastMonthAnnotationBox
+              months={forecastData}
+              selectedMonthIndex={selectedAnnotationMonth}
+              onSelectMonth={(idx) => setSelectedAnnotationMonth(idx)}
+              notes={monthNotes}
+              onSaveNote={handleSaveNote}
+              onDeleteNote={handleDeleteNote}
+              onResetDefaults={handleResetNotesToDefaults}
+              selectedMetric={selectedMetric}
+              userName={userName}
+              competitors={competitors}
+            />
+          )}
 
           {/* D3 SVG Container with Relative Positioning for Tooltip */}
           <div 
@@ -1611,7 +1756,16 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
                 }}
               >
                 <div className="font-black text-amber-400 border-b border-slate-700 pb-1.5 mb-2 flex items-center justify-between">
-                  <span>{hoveredPoint.monthLabel}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>{hoveredPoint.monthLabel}</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                      selectedScenario === "aggressive" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                      selectedScenario === "decline" ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" :
+                      "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                    }`}>
+                      {selectedScenario === "aggressive" ? "🚀 Agresif" : selectedScenario === "decline" ? "⚠️ Düşüş" : "⚖️ Stabil"}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-slate-300 font-normal">{hoveredPoint.monthName}</span>
                 </div>
 
@@ -1692,23 +1846,7 @@ export const CompetitorGrowthForecastD3Chart: React.FC<CompetitorGrowthForecastD
             )}
           </div>
 
-          {/* 3. Interactive Monthly Forecast Annotation Box */}
-          {isAnnotationBoxOpen && (
-            <ForecastMonthAnnotationBox
-              months={forecastData}
-              selectedMonthIndex={selectedAnnotationMonth}
-              onSelectMonth={(idx) => setSelectedAnnotationMonth(idx)}
-              notes={monthNotes}
-              onSaveNote={handleSaveNote}
-              onDeleteNote={handleDeleteNote}
-              onResetDefaults={handleResetNotesToDefaults}
-              selectedMetric={selectedMetric}
-              userName={userName}
-              competitors={competitors}
-            />
-          )}
-
-          {/* 4. 6-Month Projected Growth Rate Summary Cards */}
+          {/* 3. 6-Month Projected Growth Rate Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* User Card */}
             <div 

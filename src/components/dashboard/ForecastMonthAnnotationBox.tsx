@@ -165,25 +165,31 @@ export const ForecastMonthAnnotationBox: React.FC<ForecastMonthAnnotationBoxProp
     <div
       id="d3-monthly-forecast-annotation-box"
       data-testid="d3-monthly-forecast-annotation-box"
-      className="p-5 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-4"
+      className="p-5 sm:p-6 rounded-3xl bg-slate-900 text-white border border-slate-700/90 shadow-2xl space-y-4"
     >
+      {/* Target anchor for smooth scroll & dual test identifier */}
+      <div id="interactive-forecast-note-box" data-testid="interactive-forecast-note-box" className="hidden" />
+
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-            <StickyNote className="w-4 h-4" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
+            <StickyNote className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h4 className="text-sm font-black text-white tracking-tight">
-                Aylık Tahmin Notları & Stratejik Kilometre Taşları
+                6 Aylık Performans Grafiği Tahmin Notları Açıklama Kutusu
               </h4>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
                 {totalNotesCount}/{months.length} Ay Notlu
               </span>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">
+                İnteraktif Mod
+              </span>
             </div>
-            <p className="text-xs text-slate-400">
-              D3.js grafiğindeki her ay için özel aksiyon planı, hedef notu ve stratejik kilometre taşları tanımlayın.
+            <p className="text-xs text-slate-400 mt-0.5">
+              Grafikteki her ay (0. - 6. Ay) için özel tahmin notu ve stratejik kilometre taşları ekleyin; kaydedilen notlar anında grafik pinlerine ve bilgi kartlarına yansır.
             </p>
           </div>
         </div>
@@ -195,19 +201,19 @@ export const ForecastMonthAnnotationBox: React.FC<ForecastMonthAnnotationBoxProp
             id="btn-reset-forecast-notes"
             data-testid="btn-reset-forecast-notes"
             onClick={onResetDefaults}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer border border-slate-700"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer border border-slate-700"
             title="Tüm ayların tahmin notlarını önerilen varsayılan stratejik şablonlara sıfırla"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
             <span>Şablonlara Sıfırla</span>
           </button>
         </div>
       </div>
 
       {/* Month Selector Pills (0. Ay to 6. Ay) */}
-      <div className="space-y-1.5">
+      <div className="space-y-1.5" data-testid="forecast-month-selector">
         <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-          <span>İncelenecek & Düzenlenecek Ayı Seçin:</span>
+          <span>Düzenlenecek ve İncelenecek Ayı Seçin:</span>
           <span className="text-amber-400 font-mono">
             {currentMonthData.monthLabel} ({currentMonthData.monthName})
           </span>
@@ -229,9 +235,9 @@ export const ForecastMonthAnnotationBox: React.FC<ForecastMonthAnnotationBoxProp
                 onClick={() => onSelectMonth(m.monthIndex)}
                 className={`relative flex flex-col p-2.5 rounded-2xl text-left transition-all cursor-pointer border ${
                   isSelected
-                    ? "bg-amber-500/20 border-amber-400/80 ring-2 ring-amber-400/30 text-white shadow-md"
+                    ? "bg-amber-500/20 border-amber-400/80 ring-2 ring-amber-400/40 text-white shadow-md"
                     : hasNote
-                    ? "bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300"
+                    ? "bg-slate-800/90 hover:bg-slate-800 border-slate-700 text-slate-300"
                     : "bg-slate-850 hover:bg-slate-800 border-slate-800/80 text-slate-400"
                 }`}
               >
@@ -241,11 +247,11 @@ export const ForecastMonthAnnotationBox: React.FC<ForecastMonthAnnotationBoxProp
                   </span>
                   {hasNote ? (
                     <span
-                      className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30"
-                      title="Bu ay için özel tahmin notu mevcut"
+                      className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/40"
+                      title="Bu ay için özel tahmin notu kayıtlı"
                     />
                   ) : (
-                    <span className="text-[10px] text-slate-500 font-mono">+</span>
+                    <span className="text-[10px] text-slate-500 font-mono">+Not</span>
                   )}
                 </div>
 
