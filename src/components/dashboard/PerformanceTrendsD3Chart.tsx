@@ -96,6 +96,17 @@ export const PerformanceTrendsD3Chart: React.FC<PerformanceTrendsD3ChartProps> =
       isHigherBetter: false,
       getValue: (d) => (granularity === "7d_ma" && d.inp_ma != null) ? d.inp_ma : d.inp
     },
+    fid: {
+      label: "İlk Giriş Gecikmesi (FID)",
+      unit: "ms",
+      color: "#f59e0b", // amber-500
+      areaColor: "#fbbf24",
+      thresholdGood: 100,
+      thresholdNeedsImprovement: 300,
+      thresholdLabel: "Google İdeal FID (≤ 100ms)",
+      isHigherBetter: false,
+      getValue: (d) => (granularity === "7d_ma" && d.fid_ma != null) ? d.fid_ma : d.fid
+    },
     cls: {
       label: "Kümülatif Düzen Kayması (CLS)",
       unit: "",

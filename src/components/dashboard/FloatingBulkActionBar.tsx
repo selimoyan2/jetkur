@@ -12,7 +12,8 @@ import {
   Loader2,
   Plus,
   GitCompare,
-  Users
+  Users,
+  Columns3
 } from "lucide-react";
 
 export interface FloatingBulkActionBarProps {
@@ -25,6 +26,8 @@ export interface FloatingBulkActionBarProps {
   onOpenCreateGroup?: () => void;
   onExportSelectedExcel: () => void;
   onCompareSelected?: () => void;
+  onToggleCompareSelectedView?: () => void;
+  isCompareSelectedViewActive?: boolean;
   onToggleDiffView?: () => void;
   isDiffViewActive?: boolean;
   onClearSelection: () => void;
@@ -44,6 +47,8 @@ export const FloatingBulkActionBar: React.FC<FloatingBulkActionBarProps> = ({
   onOpenCreateGroup,
   onExportSelectedExcel,
   onCompareSelected,
+  onToggleCompareSelectedView,
+  isCompareSelectedViewActive = false,
   onToggleDiffView,
   isDiffViewActive = false,
   onClearSelection,
@@ -208,6 +213,30 @@ export const FloatingBulkActionBar: React.FC<FloatingBulkActionBarProps> = ({
                 <Users className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
                 <span>Grup Oluştur</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black">
+                  {selectedCount}
+                </span>
+              </button>
+            )}
+
+            {/* Action 4.1: Yan Yana Odaklanmış Compare Selected Görünümü */}
+            {onToggleCompareSelectedView && (
+              <button
+                type="button"
+                id="btn-floating-compare-selected-view"
+                data-testid="floating-compare-selected-view-button"
+                onClick={onToggleCompareSelectedView}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 border ${
+                  isCompareSelectedViewActive
+                    ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300 shadow-md shadow-amber-400/25"
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/50 shadow-indigo-600/30"
+                }`}
+                title="Seçili rakipleri yan yana odaklanmış 'Compare Selected' görünümünde filtreleyin ve inceleyin"
+              >
+                <Columns3 className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>{isCompareSelectedViewActive ? "Yan Yana Açık" : "Compare Selected"}</span>
+                <span className={`px-1 py-0.2 rounded text-[9px] font-mono ${
+                  isCompareSelectedViewActive ? "bg-slate-950 text-amber-300" : "bg-indigo-900 text-indigo-200"
+                }`}>
                   {selectedCount}
                 </span>
               </button>

@@ -10,7 +10,9 @@ import {
   Clock, 
   Info,
   ShieldAlert,
-  ArrowUpRight
+  ArrowUpRight,
+  BarChart2,
+  Maximize2
 } from "lucide-react";
 
 export interface PsiHistoryPoint {
@@ -38,6 +40,7 @@ export interface CompetitorPsiSparklineProps {
   isUser?: boolean;
   id?: string;
   className?: string;
+  onInspect12Month?: () => void;
 }
 
 // Simple deterministic hash to generate repeatable, plausible historical data
@@ -149,6 +152,7 @@ export const CompetitorPsiSparkline: React.FC<CompetitorPsiSparklineProps> = ({
   isUser = false,
   id,
   className = "",
+  onInspect12Month,
 }) => {
   const [isTooltipOpen, setIsTooltipOpen] = useState<boolean>(false);
   const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
@@ -257,20 +261,33 @@ export const CompetitorPsiSparkline: React.FC<CompetitorPsiSparklineProps> = ({
       ref={containerRef}
       id={componentId}
       data-testid={componentId}
-      className={`relative inline-flex items-center gap-1.5 select-none ${className}`}
+      className={`relative inline-flex items-center gap-1.5 select-none group/psi ${
+        onInspect12Month ? "cursor-pointer" : ""
+      } ${className}`}
       onMouseEnter={() => setIsTooltipOpen(true)}
       onMouseLeave={() => {
         setIsTooltipOpen(false);
         setActivePointIndex(null);
       }}
-      role="group"
-      aria-label={`${competitorName} Google PageSpeed skoru: ${latestPoint.score}/100, geçmiş trend: ${delta >= 0 ? `+${delta}` : delta} puan`}
+      onClick={onInspect12Month ? (e) => {
+        e.stopPropagation();
+        onInspect12Month();
+      } : undefined}
+      role={onInspect12Month ? "button" : "group"}
+      tabIndex={onInspect12Month ? 0 : undefined}
+      onKeyDown={onInspect12Month ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onInspect12Month();
+        }
+      } : undefined}
+      aria-label={`${competitorName} Google PageSpeed skoru: ${latestPoint.score}/100, geçmiş trend: ${delta >= 0 ? `+${delta}` : delta} puan${onInspect12Month ? " • 12 Aylık d3.js modalı için tıklayın" : ""}`}
     >
       {/* 1. Score Badge Pill */}
       {showScoreBadge && (
         <div
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-black transition-transform duration-150 group-hover:scale-105 cursor-help ${scoreTheme.badgeBg}`}
-          title={`Google PageSpeed Insights: ${latestPoint.score}/100 • Son 6 denetim trendi: ${delta >= 0 ? `+${delta}` : delta} puan`}
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-black transition-transform duration-150 group-hover/psi:scale-105 cursor-pointer ${scoreTheme.badgeBg}`}
+          title={onInspect12Month ? `${competitorName}: ${latestPoint.score}/100 • 12 Aylık d3.js trend analizi için tıklayın` : `Google PageSpeed Insights: ${latestPoint.score}/100`}
         >
           <Zap className="w-2.5 h-2.5" style={{ color: scoreTheme.color }} />
           <span>{latestPoint.score}</span>
@@ -279,8 +296,11 @@ export const CompetitorPsiSparkline: React.FC<CompetitorPsiSparklineProps> = ({
 
       {/* 2. Mini SVG Sparkline Chart */}
       <div 
-        className="relative cursor-pointer transition-opacity hover:opacity-90 flex items-center"
+        className={`relative transition-all duration-150 flex items-center ${
+          onInspect12Month ? "hover:scale-105" : "hover:opacity-90"
+        }`}
         style={{ width, height }}
+        title={onInspect12Month ? `Detaylı 12 Aylık d3.js Grafiğini İncele (Tıklayın)` : undefined}
       >
         <svg
           width={width}
@@ -382,6 +402,22 @@ export const CompetitorPsiSparkline: React.FC<CompetitorPsiSparklineProps> = ({
           )}
           <span>{delta > 0 ? `+${delta}` : delta === 0 ? "0" : delta}</span>
         </span>
+      )}
+
+      {/* Interactive 12-Month Trigger Badge (Appears on hover or focus) */}
+      {onInspect12Month && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInspect12Month();
+          }}
+          className="opacity-0 group-hover/psi:opacity-100 p-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-all cursor-pointer shrink-0 shadow-2xs"
+          title={`${competitorName} son 12 aylık d3.js geçmişini modalda inceleyin`}
+          aria-label={`${competitorName} 12 aylık d3 analizini aç`}
+        >
+          <BarChart2 className="w-2.5 h-2.5" />
+        </button>
       )}
 
       {/* 4. Interactive Rich Tooltip (Shows on hover) */}
@@ -520,6 +556,22 @@ export const CompetitorPsiSparkline: React.FC<CompetitorPsiSparklineProps> = ({
                 {scoreDiffVsUser < 0 ? `⚡ +${Math.abs(scoreDiffVsUser)} Puan Önde` : scoreDiffVsUser === 0 ? "Eşit Hız" : `-${scoreDiffVsUser} Puan`}
               </span>
             </div>
+          )}
+
+          {/* 12-Month D3 Modal Deep Dive CTA */}
+          {onInspect12Month && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsTooltipOpen(false);
+                onInspect12Month();
+              }}
+              className="mt-2.5 w-full py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-slate-950 font-black text-[10px] flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-98"
+            >
+              <span>Son 12 Aylık d3.js Analizi</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </button>
           )}
         </div>
       )}

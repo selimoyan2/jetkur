@@ -75,6 +75,286 @@ const getSerpCtr = (rank: number | null | undefined): number => {
   }
 };
 
+/**
+ * Generates an ultra-crisp, high-DPI brand logo PNG data URL using an offscreen canvas.
+ * Guaranteed to render sharply in jsPDF without external network dependencies.
+ */
+export function generateBrandLogoPng(companyName: string, domain?: string): string {
+  if (typeof document === "undefined") return "";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 240;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    // Rounded rectangle background
+    const r = 36;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(240 - r, 0);
+    ctx.quadraticCurveTo(240, 0, 240, r);
+    ctx.lineTo(240, 240 - r);
+    ctx.quadraticCurveTo(240, 240, 240 - r, 240);
+    ctx.lineTo(r, 240);
+    ctx.quadraticCurveTo(0, 240, 0, 240 - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+
+    // Dark sleek gradient
+    const grad = ctx.createLinearGradient(0, 0, 240, 240);
+    grad.addColorStop(0, "#0f172a");
+    grad.addColorStop(0.5, "#1e1b4b");
+    grad.addColorStop(1, "#312e81");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Subtle border
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#6366f1";
+    ctx.stroke();
+
+    // Inner glowing ring
+    ctx.beginPath();
+    ctx.arc(120, 100, 56, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(99, 102, 241, 0.25)";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(165, 180, 252, 0.6)";
+    ctx.stroke();
+
+    // Brand Monogram / Initials
+    const cleanName = (companyName || "Marka").trim();
+    const words = cleanName.split(/\s+/).filter(Boolean);
+    const initials = words.length > 1
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : cleanName.substring(0, 2).toUpperCase();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 50px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(initials, 120, 100);
+
+    // Accent crown/star at top
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(120, 34, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bottom badge for domain/brand
+    ctx.fillStyle = "#1e293b";
+    const pillW = 184;
+    const pillH = 34;
+    const pillX = (240 - pillW) / 2;
+    const pillY = 180;
+    const pr = 10;
+    ctx.beginPath();
+    ctx.moveTo(pillX + pr, pillY);
+    ctx.lineTo(pillX + pillW - pr, pillY);
+    ctx.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + pr);
+    ctx.lineTo(pillX + pillW, pillY + pillH - pr);
+    ctx.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - pr, pillY + pillH);
+    ctx.lineTo(pillX + pr, pillY + pillH);
+    ctx.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - pr);
+    ctx.lineTo(pillX, pillY + pr);
+    ctx.quadraticCurveTo(pillX, pillY, pillX + pr, pillY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#475569";
+    ctx.stroke();
+
+    // Domain text
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
+    const subText = (domain || cleanName).toLowerCase().replace(/^https?:\/\//, "").substring(0, 16);
+    ctx.fillText(subText, 120, pillY + 18);
+
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    console.warn("Could not generate brand logo PNG:", err);
+    return "";
+  }
+}
+
+/**
+ * Generates an executive-level high-resolution Market Share Pie / Donut Chart image
+ * containing circular sectors, center hole with %, and a structured legend on the right.
+ */
+export function generateMarketSharePieChartPng(
+  entities: Array<{ name: string; domain?: string; marketSharePct: number; estMonthlyClicks: number; color?: string; isUser?: boolean }>
+): string {
+  if (typeof document === "undefined") return "";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 680;
+    canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    // Card background
+    ctx.fillStyle = "#0f172a"; // slate-900
+    ctx.beginPath();
+    const cr = 24;
+    ctx.moveTo(cr, 0);
+    ctx.lineTo(680 - cr, 0);
+    ctx.quadraticCurveTo(680, 0, 680, cr);
+    ctx.lineTo(680, 360 - cr);
+    ctx.quadraticCurveTo(680, 360, 680 - cr, 360);
+    ctx.lineTo(cr, 360);
+    ctx.quadraticCurveTo(0, 360, 0, 360 - cr);
+    ctx.lineTo(0, cr);
+    ctx.quadraticCurveTo(0, 0, cr, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle card border
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#334155";
+    ctx.stroke();
+
+    // Colors
+    const palette = ["#4f46e5", "#10b981", "#f59e0b", "#f43f5e"];
+
+    // Donut Center & Radii
+    const cx = 180;
+    const cy = 180;
+    const outerRadius = 125;
+    const innerRadius = 70;
+
+    let totalPct = entities.reduce((acc, e) => acc + Math.max(1, e.marketSharePct), 0);
+    if (totalPct <= 0) totalPct = 100;
+
+    let currentAngle = -Math.PI / 2;
+
+    entities.forEach((ent, idx) => {
+      const sliceAngle = (Math.max(1, ent.marketSharePct) / totalPct) * (Math.PI * 2);
+      const endAngle = currentAngle + sliceAngle;
+      const color = ent.color || palette[idx % palette.length];
+
+      // Draw slice
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerRadius, currentAngle, endAngle, false);
+      ctx.arc(cx, cy, innerRadius, endAngle, currentAngle, true);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // Border between slices
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0f172a";
+      ctx.stroke();
+
+      // Slice label (percentage) if slice is wide enough
+      if (ent.marketSharePct >= 8) {
+        const midAngle = currentAngle + sliceAngle / 2;
+        const labelR = (outerRadius + innerRadius) / 2;
+        const lx = cx + Math.cos(midAngle) * labelR;
+        const ly = cy + Math.sin(midAngle) * labelR;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`%${Math.round(ent.marketSharePct)}`, lx, ly);
+      }
+
+      currentAngle = endAngle;
+    });
+
+    // Center hole background
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerRadius - 2, 0, Math.PI * 2);
+    ctx.fillStyle = "#1e1b4b";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#6366f1";
+    ctx.stroke();
+
+    // Center text
+    const userEnt = entities[0] || { marketSharePct: 45 };
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "bold 26px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`%${userEnt.marketSharePct}`, cx, cy - 8);
+
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "bold 12px system-ui, -apple-system, sans-serif";
+    ctx.fillText("PAZAR PAYI", cx, cy + 14);
+
+    // Right Side: Legend and metrics list
+    const lx = 345;
+    const startY = 62;
+    const rowH = 68;
+
+    // Header label
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "bold 12px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("ORGANİK ARAMA PAYI & TIKLAMA HACMİ", lx, startY - 18);
+
+    entities.forEach((ent, idx) => {
+      const y = startY + idx * rowH;
+      const color = ent.color || palette[idx % palette.length];
+
+      // Legend indicator block
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(lx, y, 14, 46, 4);
+      } else {
+        ctx.rect(lx, y, 14, 46);
+      }
+      ctx.fill();
+
+      // Entity name & domain
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 17px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(ent.name.substring(0, 20), lx + 24, y + 16);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "normal 13px system-ui, -apple-system, sans-serif";
+      const domainStr = (ent.domain || "").replace(/^https?:\/\//, "");
+      ctx.fillText(domainStr, lx + 24, y + 36);
+
+      // Percentage & clicks right aligned
+      ctx.fillStyle = color;
+      ctx.font = "bold 20px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(`%${ent.marketSharePct}`, 650, y + 16);
+
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "normal 12px system-ui, -apple-system, sans-serif";
+      ctx.fillText(`~${ent.estMonthlyClicks.toLocaleString("tr-TR")} tık/ay`, 650, y + 36);
+
+      // Divider line
+      if (idx < entities.length - 1) {
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(lx, y + 54);
+        ctx.lineTo(650, y + 54);
+        ctx.stroke();
+      }
+    });
+
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    console.warn("Could not generate pie chart PNG:", err);
+    return "";
+  }
+}
+
 const parseVolume = (volStr: string | number | undefined): number => {
   if (!volStr) return 500;
   if (typeof volStr === "number") return volStr;
@@ -302,13 +582,14 @@ export async function generateMarketShareAndCompetitorPdf(
 
     let textStartX = margin + 6;
 
-    // Optional Brand Logo
-    if (options?.brandLogoBase64) {
+    // Professional Brand Logo (Custom uploaded or auto-generated high-DPI brand badge)
+    const effectiveBrandLogo = options?.brandLogoBase64 || generateBrandLogoPng(company, domain);
+    if (effectiveBrandLogo) {
       try {
         doc.setFillColor(255, 255, 255);
         doc.roundedRect(margin + 4, margin + 2.5, 17, 17, 2, 2, "F");
-        const format = options.brandLogoBase64.includes("image/jpeg") || options.brandLogoBase64.includes("image/jpg") ? "JPEG" : "PNG";
-        doc.addImage(options.brandLogoBase64, format, margin + 5, margin + 3.5, 15, 15);
+        const format = effectiveBrandLogo.includes("image/jpeg") || effectiveBrandLogo.includes("image/jpg") ? "JPEG" : "PNG";
+        doc.addImage(effectiveBrandLogo, format, margin + 5, margin + 3.5, 15, 15);
         textStartX = margin + 25;
       } catch (err) {
         console.warn("PDF logo rendering error fallback:", err);
@@ -452,56 +733,76 @@ export async function generateMarketShareAndCompetitorPdf(
 
   currentY += cardH + 7;
 
-  // 3. Visual Market Share Distribution Bar
+  // 3. Visual Market Share Pie Chart & SOV Distribution
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text("2. ORGANIK PAZAR PAYI VE TIKLAMA DAGILIMI (SHARE OF VOICE - SOV)", margin, currentY);
-  currentY += 4;
+  doc.text("2. PAZAR PAYI PASTA GRAFIGI VE SHARE OF VOICE (SOV) DAGILIMI", margin, currentY);
+  currentY += 3.5;
 
-  const barH = 7;
-  let barCurrentX = margin;
-  const colors = [
-    [79, 70, 229],  // User: Indigo
-    [16, 185, 129], // Comp 1: Emerald
-    [245, 158, 11], // Comp 2: Amber
-    [239, 68, 68]   // Comp 3: Rose
-  ];
+  const pieChartImg = generateMarketSharePieChartPng(
+    metrics.entities.map((ent, idx) => ({
+      name: ent.name,
+      domain: ent.domain,
+      marketSharePct: ent.marketSharePct,
+      estMonthlyClicks: ent.estMonthlyClicks,
+      color: idx === 0 ? "#4f46e5" : idx === 1 ? "#10b981" : idx === 2 ? "#f59e0b" : "#f43f5e",
+      isUser: ent.isUser
+    }))
+  );
 
-  metrics.entities.forEach((ent, i) => {
-    const entW = (contentWidth * Math.max(4, ent.marketSharePct)) / 100;
-    const c = colors[i];
-    doc.setFillColor(c[0], c[1], c[2]);
-    doc.rect(barCurrentX, currentY, entW, barH, "F");
-    
-    // Label inside bar if wide enough
-    if (entW > 18) {
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text(`%${ent.marketSharePct}`, barCurrentX + entW / 2, currentY + 4.8, { align: "center" });
+  if (pieChartImg) {
+    try {
+      doc.addImage(pieChartImg, "PNG", margin, currentY, contentWidth, 42);
+      currentY += 45;
+    } catch (err) {
+      console.warn("Could not add pie chart to PDF:", err);
+      currentY += 4;
     }
-    barCurrentX += entW;
-  });
+  } else {
+    // Fallback distribution bar if canvas fails
+    const barH = 7;
+    let barCurrentX = margin;
+    const colors = [
+      [79, 70, 229],  // User: Indigo
+      [16, 185, 129], // Comp 1: Emerald
+      [245, 158, 11], // Comp 2: Amber
+      [239, 68, 68]   // Comp 3: Rose
+    ];
 
-  currentY += barH + 4;
+    metrics.entities.forEach((ent, i) => {
+      const entW = (contentWidth * Math.max(4, ent.marketSharePct)) / 100;
+      const c = colors[i];
+      doc.setFillColor(c[0], c[1], c[2]);
+      doc.rect(barCurrentX, currentY, entW, barH, "F");
+      
+      if (entW > 18) {
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(`%${ent.marketSharePct}`, barCurrentX + entW / 2, currentY + 4.8, { align: "center" });
+      }
+      barCurrentX += entW;
+    });
 
-  // Legend under the bar
-  const legendW = contentWidth / 4;
-  metrics.entities.forEach((ent, i) => {
-    const lx = margin + i * legendW;
-    const c = colors[i];
-    doc.setFillColor(c[0], c[1], c[2]);
-    doc.rect(lx, currentY, 3.5, 3.5, "F");
+    currentY += barH + 4;
 
-    doc.setFont("helvetica", ent.isUser ? "bold" : "normal");
-    doc.setFontSize(6.5);
-    doc.setTextColor(30, 41, 59);
-    const legendLabel = toPdfSafeText(`${ent.name.substring(0, 16)} (%${ent.marketSharePct})`);
-    doc.text(legendLabel, lx + 5, currentY + 2.8);
-  });
+    const legendW = contentWidth / 4;
+    metrics.entities.forEach((ent, i) => {
+      const lx = margin + i * legendW;
+      const c = colors[i];
+      doc.setFillColor(c[0], c[1], c[2]);
+      doc.rect(lx, currentY, 3.5, 3.5, "F");
 
-  currentY += 8;
+      doc.setFont("helvetica", ent.isUser ? "bold" : "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(30, 41, 59);
+      const legendLabel = toPdfSafeText(`${ent.name.substring(0, 16)} (%${ent.marketSharePct})`);
+      doc.text(legendLabel, lx + 5, currentY + 2.8);
+    });
+
+    currentY += 8;
+  }
 
   // 4. Competitor Benchmark Matrix Table
   doc.setFont("helvetica", "bold");

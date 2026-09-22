@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import html2pdf from "html2pdf.js";
 import { 
   FileDown, 
@@ -16,9 +16,13 @@ import {
   FileText,
   AlertCircle
 } from "lucide-react";
-import { CompetitorKeywordRanking } from "../../types";
+import { CompetitorKeywordRanking, CompetitorContentMetric } from "../../types";
 import { calculateGoalProgress, KeywordGoalItem } from "./GoalTrackingModule";
 import { StrategicCompetitorNote } from "./RowStrategicNotepad";
+import { 
+  calculateAggregatedKpiStats, 
+  formatNumberCompact 
+} from "./CompetitorTableKpiSummary";
 
 export interface TablePdfExportModalProps {
   isOpen: boolean;
@@ -54,6 +58,31 @@ export const TablePdfExportModal: React.FC<TablePdfExportModalProps> = ({
   const comp1 = competitors[0] || { name: "1. Rakip", domain: "rakip1.com" };
   const comp2 = competitors[1] || { name: "2. Rakip", domain: "rakip2.com" };
   const comp3 = competitors[2] || { name: "3. Rakip", domain: "rakip3.com" };
+
+  const activeComps: CompetitorContentMetric[] = useMemo(() => {
+    return (competitors && competitors.length > 0)
+      ? competitors.map((c, idx) => ({
+          id: (c as any).id || `comp${idx + 1}`,
+          name: c.name || `${idx + 1}. Rakip`,
+          domain: c.domain || `rakip${idx + 1}.com`,
+          rank: (c as any).rank || idx + 1,
+          visibilityScore: c.visibilityScore || (idx === 0 ? 92 : idx === 1 ? 85 : 78),
+          avgWordCount: (c as any).avgWordCount || 1500,
+          indexedPages: (c as any).indexedPages || 60,
+          topKeywordReach: (c as any).topKeywordReach || 250,
+          speedScore: c.speedScore || 75,
+          schemaScore: (c as any).schemaScore || 80,
+          backlinkSignals: "Güçlü",
+          contentVelocity: "Haftalık",
+          keyStrengths: [],
+          weaknesses: []
+        }))
+      : [];
+  }, [competitors]);
+
+  const kpiStats = useMemo(() => {
+    return calculateAggregatedKpiStats(rankings, activeComps, undefined, userName);
+  }, [rankings, activeComps, userName]);
 
   const now = new Date();
   const dateFormatted = now.toLocaleDateString("tr-TR", {
@@ -267,7 +296,125 @@ export const TablePdfExportModal: React.FC<TablePdfExportModalProps> = ({
             </div>
 
             {/* 2. Executive Metric Highlight Cards */}
-            <div className="grid grid-cols-4 gap-3 mb-6">
+            <div className="mb-5 break-inside-avoid">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                  <h2 className="text-xs font-black tracking-wider uppercase text-slate-900">
+                    Görüntülenen Rakipler Toplam Ortalamaları & KPI Özeti
+                  </h2>
+                </div>
+                <span className="text-[10px] font-bold text-slate-500">
+                  {totalKeywords} Anahtar Kelime &bull; {activeComps.length > 0 ? activeComps.length : 3} Rakip Ortalaması
+                </span>
+              </div>
+
+              {/* 4 Primary KPI Summary Cards */}
+              <div className="grid grid-cols-4 gap-3 mb-3">
+                {/* KPI Card 1: Ortalama Domain Otoritesi */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Ortalama DA</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-indigo-100 text-indigo-800">
+                      / 100 DA
+                    </span>
+                  </div>
+                  <div className="text-xl font-black text-slate-900 mt-1">
+                    {kpiStats.avgDomainAuthority || 85}
+                  </div>
+                  <div className="text-[10px] text-slate-600 mt-1 flex items-center justify-between">
+                    <span>{kpiStats.daDifference > 0 ? `+${kpiStats.daDifference} Rakip Önde` : `Siteniz Önde`}</span>
+                    <span className="font-mono text-slate-500">Min {kpiStats.minDomainAuthority || 78} - Maks {kpiStats.maxDomainAuthority || 92}</span>
+                  </div>
+                </div>
+
+                {/* KPI Card 2: Ortalama Organik Trafik */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Ortalama Trafik</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800">
+                      Aylık / Rakip
+                    </span>
+                  </div>
+                  <div className="text-xl font-black text-slate-900 mt-1">
+                    ~{formatNumberCompact(kpiStats.avgCompetitorTraffic || 12400)}
+                  </div>
+                  <div className="text-[10px] text-slate-600 mt-1 flex items-center justify-between">
+                    <span>Toplam: ~{formatNumberCompact(kpiStats.totalCompetitorTraffic || 37200)}</span>
+                    <span className="font-bold text-emerald-700">Siz: ~{formatNumberCompact(kpiStats.userEstimatedTraffic || 8200)}</span>
+                  </div>
+                </div>
+
+                {/* KPI Card 3: Ortalama Rakip SERP Sırası */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Ortalama Sıra</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                      SERP Sırası
+                    </span>
+                  </div>
+                  <div className="text-xl font-black text-slate-900 mt-1">
+                    #{kpiStats.avgCompetitorRank || 4.1}
+                  </div>
+                  <div className="text-[10px] text-slate-600 mt-1 flex items-center justify-between">
+                    <span>İlk 3 Payı: %{kpiStats.competitorTop3Share || 45}</span>
+                    <span className="font-bold text-indigo-700">Siz: #{kpiStats.avgUserRank || 5.2}</span>
+                  </div>
+                </div>
+
+                {/* KPI Card 4: Ortalama Arama Hacmi & Zorluk */}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Hacim & Zorluk</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-100 text-amber-800">
+                      KD {kpiStats.avgDifficulty || 42}
+                    </span>
+                  </div>
+                  <div className="text-xl font-black text-slate-900 mt-1">
+                    ~{formatNumberCompact(kpiStats.avgMonthlyVolume || 3600)}
+                  </div>
+                  <div className="text-[10px] text-slate-600 mt-1 flex items-center justify-between">
+                    <span>Toplam: ~{formatNumberCompact(kpiStats.totalMonthlyVolume || 18000)}</span>
+                    <span className="font-mono text-slate-500">Aylık</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Competitor Traffic & Domain Authority Breakdown Cards */}
+              {kpiStats.competitorTrafficBreakdown && kpiStats.competitorTrafficBreakdown.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-slate-100/80 border border-slate-200">
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
+                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Rakiplerin Bireysel Trafik & Otorite Dağılımı:</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Baseline: {kpiStats.userDomainAuthority} DA &bull; ~{formatNumberCompact(kpiStats.userEstimatedTraffic)} / ay (Siteniz)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {kpiStats.competitorTrafficBreakdown.map((comp, idx) => (
+                      <div key={comp.domain || idx} className="p-2 rounded-lg bg-white border border-slate-200 text-xs flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${idx === 0 ? "bg-rose-500" : idx === 1 ? "bg-blue-500" : "bg-purple-500"}`} />
+                          <div className="truncate max-w-[120px]">
+                            <div className="font-bold text-slate-900 truncate">{comp.name}</div>
+                            <div className="text-[10px] text-slate-500 font-mono truncate">{comp.domain}</div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-black text-slate-900">~{formatNumberCompact(comp.traffic)} / ay</div>
+                          <div className="text-[10px] text-slate-500">{comp.da} DA &bull; Ort. #{comp.avgRank}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Executive Metric Highlight Cards (Goal & SERP Attainment) */}
+            <div className="grid grid-cols-4 gap-3 mb-5 break-inside-avoid">
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
                   #1 SERP Liderliği

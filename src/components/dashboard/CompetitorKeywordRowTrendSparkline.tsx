@@ -17,6 +17,7 @@ interface CompetitorKeywordRowTrendSparklineProps {
   width?: number;
   height?: number;
   onInspectKeyword?: (keywordId: string) => void;
+  onInspect12Month?: () => void;
 }
 
 export const CompetitorKeywordRowTrendSparkline: React.FC<CompetitorKeywordRowTrendSparklineProps> = ({
@@ -25,7 +26,8 @@ export const CompetitorKeywordRowTrendSparkline: React.FC<CompetitorKeywordRowTr
   colorPalette = DEFAULT_COMPETITOR_PALETTE,
   width = 135,
   height = 36,
-  onInspectKeyword
+  onInspectKeyword,
+  onInspect12Month,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -210,7 +212,14 @@ export const CompetitorKeywordRowTrendSparkline: React.FC<CompetitorKeywordRowTr
     >
       <div className="flex items-center gap-2">
         {/* D3 SVG Sparkline */}
-        <div className="p-1 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-indigo-300 transition-colors cursor-pointer shadow-2xs">
+        <div 
+          onClick={onInspect12Month ? (e) => {
+            e.stopPropagation();
+            onInspect12Month();
+          } : undefined}
+          title={onInspect12Month ? "Son 12 Aylık d3.js Analiz Modalını Aç (Tıklayın)" : undefined}
+          className="p-1 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-indigo-300 transition-colors cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+        >
           <svg
             ref={svgRef}
             width={width}

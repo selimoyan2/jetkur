@@ -137,6 +137,10 @@ export function generate90DayPerformanceTrendsData(
     const clsBase = 0.14 - smoothedProgress * 0.125;
     const cls = Math.max(0.005, Number((clsBase + noise * 0.03).toFixed(3)));
 
+    // 3b. FID (First Input Delay): from ~58ms down to ~16ms (Google Good is <= 100ms)
+    const fidBase = 58 - smoothedProgress * 42;
+    const fid = Math.max(10, Math.round(fidBase + noise * 8));
+
     // 4. TTFB: from ~240ms down to ~26ms (Google Good is < 800ms)
     const ttfbBase = 240 - smoothedProgress * 214;
     const ttfb = Math.max(18, Math.round(ttfbBase + noise * 22));
@@ -163,9 +167,9 @@ export function generate90DayPerformanceTrendsData(
     const healthBase = 68 + smoothedProgress * 31;
     const healthScore = Math.min(100, Math.max(50, Math.round(healthBase + (noise * 12))));
 
-    const cwvPassStatus = (lcp <= 2.5 && inp <= 200 && cls <= 0.1) 
+    const cwvPassStatus = (lcp <= 2.5 && (fid <= 100 || inp <= 200) && cls <= 0.1) 
       ? "pass" 
-      : (lcp <= 4.0 && inp <= 500 && cls <= 0.25)
+      : (lcp <= 4.0 && (fid <= 300 || inp <= 500) && cls <= 0.25)
       ? "needs-improvement"
       : "fail";
 
@@ -178,6 +182,7 @@ export function generate90DayPerformanceTrendsData(
       lcp,
       inp,
       cls,
+      fid,
       ttfb,
       fcp,
       bounceRate,
@@ -198,6 +203,7 @@ export function generate90DayPerformanceTrendsData(
     data[i].lcp_ma = Number((slice7.reduce((acc, p) => acc + p.lcp, 0) / slice7.length).toFixed(2));
     data[i].inp_ma = Math.round(slice7.reduce((acc, p) => acc + p.inp, 0) / slice7.length);
     data[i].cls_ma = Number((slice7.reduce((acc, p) => acc + p.cls, 0) / slice7.length).toFixed(3));
+    data[i].fid_ma = Math.round(slice7.reduce((acc, p) => acc + p.fid, 0) / slice7.length);
     data[i].ttfb_ma = Math.round(slice7.reduce((acc, p) => acc + p.ttfb, 0) / slice7.length);
     data[i].fcp_ma = Number((slice7.reduce((acc, p) => acc + p.fcp, 0) / slice7.length).toFixed(2));
     data[i].bounceRate_ma = Number((slice7.reduce((acc, p) => acc + p.bounceRate, 0) / slice7.length).toFixed(1));

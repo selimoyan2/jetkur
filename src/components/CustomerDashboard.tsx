@@ -85,6 +85,9 @@ import { AbTestConversionFunnelWidget } from "./dashboard/AbTestConversionFunnel
 import { PerformanceForecaster } from "./dashboard/PerformanceForecaster";
 import { PerformanceForecasterQuickCard } from "./dashboard/PerformanceForecasterQuickCard";
 import { SitePerformanceOverviewCard } from "./dashboard/SitePerformanceOverviewCard";
+import { PerformanceInsightsCard } from "./dashboard/PerformanceInsightsCard";
+import { PerformanceAlertToast } from "./dashboard/PerformanceAlertToast";
+import { PerformanceAlertManager } from "./dashboard/PerformanceAlertManager";
 import { PerformanceCriticalAlertBar } from "./dashboard/PerformanceCriticalAlertBar";
 import { SeoAutomatedAuditTool } from "./dashboard/SeoAutomatedAuditTool";
 import { WhatsAppChatManager } from "./dashboard/WhatsAppChatManager";
@@ -4162,6 +4165,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 </span>
               </button>
 
+              {/* 3.4d Performance Insights (Core Web Vitals LCP, CLS, FID - Recharts 30 Gün) */}
+              <button
+                type="button"
+                id="sidebar-performance-insights-btn"
+                onClick={() => setActiveTab("performance-insights")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "performance-insights"
+                    ? "bg-slate-900 text-emerald-300 shadow-xs ring-1 ring-emerald-500/40"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span>Performance Insights</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold flex items-center gap-1">
+                  <span>30G CWV</span>
+                </span>
+              </button>
+
               {/* 3.3 Connect Custom Domain (Özel Alan Adı Bağla & Cloudflare CNAME) */}
               <button
                 type="button"
@@ -4570,6 +4593,12 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
               {/* Site Performance & Real-time Visitor Overview Card */}
               <SitePerformanceOverviewCard
+                config={config}
+                onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              />
+
+              {/* Performance Insights Card - Recharts 30-Day Google Core Web Vitals (LCP, CLS, FID) */}
+              <PerformanceInsightsCard
                 config={config}
                 onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
               />
@@ -7844,6 +7873,38 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           )}
 
+          {/* 24.1 PERFORMANCE INSIGHTS (CORE WEB VITALS LCP, CLS, FID - 30 GÜN RECHARTS) */}
+          {activeTab === "performance-insights" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black">
+                      Recharts Zaman Serisi
+                    </span>
+                    <span className="text-xs text-slate-400">Son 30 Günlük Telemetri</span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
+                    Performance Insights (Core Web Vitals)
+                  </h1>
+                </div>
+                <button
+                  type="button"
+                  id="btn-back-to-general-from-insights"
+                  onClick={() => setActiveTab("general")}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                >
+                  Genel Bakışa Dön
+                </button>
+              </div>
+
+              <PerformanceInsightsCard
+                config={config}
+                onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              />
+            </div>
+          )}
+
           {/* 25. CLIENT ACCESS PORTAL (MÜŞTERİ PORTALİ - SİPARİŞ & DOKÜMAN TAKİBİ) */}
           {activeTab === "client-portal" && (
             <ClientAccessPortal
@@ -8027,6 +8088,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           }}
         />
       )}
+
+      {/* Real-time Core Web Vitals Performance Alert Toast (Browser Push & In-App) */}
+      <PerformanceAlertToast
+        onOpenAlertManager={() => {
+          setActiveTab("performance");
+        }}
+        onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+      />
 
       {/* Quick Modal SEO Competitive Alert Center */}
       {isCompetitiveAlertCenterModalOpen && (

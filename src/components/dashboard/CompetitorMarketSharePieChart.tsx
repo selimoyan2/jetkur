@@ -22,7 +22,10 @@ import {
   Check,
   Globe,
   Gauge,
-  Palette
+  Palette,
+  X,
+  LayoutGrid,
+  Table as TableIcon
 } from "lucide-react";
 import { CompetitorColorPalette } from "../../utils/competitorColorTheme";
 
@@ -55,6 +58,7 @@ export interface CompetitorMarketMetricProfile {
 
 export interface CompetitorMarketSharePieChartProps {
   rankings: CompetitorKeywordRanking[];
+  filteredRankings?: CompetitorKeywordRanking[];
   competitors: CompetitorContentMetric[];
   userName?: string;
   userDomain?: string;
@@ -64,11 +68,13 @@ export interface CompetitorMarketSharePieChartProps {
   onExportMarketSharePdf?: () => void;
   onOpenReportBuilder?: () => void;
   onExportExcel?: () => void;
+  onClose?: () => void;
   className?: string;
 }
 
 export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieChartProps> = ({
   rankings,
+  filteredRankings,
   competitors,
   userName = "Siteniz",
   userDomain = "sitemiz.com.tr",
@@ -78,6 +84,7 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
   onExportMarketSharePdf,
   onOpenReportBuilder,
   onExportExcel,
+  onClose,
   className = ""
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +95,19 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
   const [selectedEntityKey, setSelectedEntityKey] = useState<string | null>(null);
   const [hoveredEntityKey, setHoveredEntityKey] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [dataScope, setDataScope] = useState<"all" | "filtered">("all");
+  const [comparisonView, setComparisonView] = useState<"cards" | "matrix">("cards");
+
+  const hasFilteredDiff = Boolean(
+    filteredRankings && filteredRankings.length > 0 && filteredRankings.length !== rankings.length
+  );
+
+  const effectiveKeywords = useMemo(() => {
+    if (dataScope === "filtered" && filteredRankings && filteredRankings.length > 0) {
+      return filteredRankings;
+    }
+    return rankings;
+  }, [dataScope, filteredRankings, rankings]);
 
   // ResizeObserver for responsive chart rendering
   useEffect(() => {
@@ -177,7 +197,7 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
     let c3RankSum = 0;
     let c3RankedCount = 0;
 
-    rankings.forEach((r) => {
+    effectiveKeywords.forEach((r) => {
       const vol = parseVolume(r.monthlyVolume);
 
       // User
@@ -353,7 +373,7 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
     });
 
     return rawList;
-  }, [rankings, competitors, userName, userDomain]);
+  }, [effectiveKeywords, competitors, userName, userDomain]);
 
   // Active highlighted profile
   const activeProfile = useMemo(() => {
@@ -470,6 +490,9 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
         setSelectedEntityKey((prev) => (prev === d.data.key ? null : d.data.key));
       });
 
+    // Native browser tooltip
+    arcs.append("title").text((d) => `${d.data.name} (${d.data.domain}) - ${getMetricLabel(d.data)} | Pazar Payı: %${d.data.marketSharePercent.toFixed(1)}`);
+
     // Draw Slices
     arcs
       .append("path")
@@ -540,8 +563,40 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
               <span>Tüm Rakipler Kıyaslaması</span>
             </span>
             <span className="text-[11px] text-slate-400 font-mono">
-              {rankings.length} Kelimelik Organik Havuz
+              {effectiveKeywords.length} Kelimelik Organik Havuz
             </span>
+
+            {/* Scope toggle between full table keywords and filtered rows */}
+            {hasFilteredDiff && (
+              <div className="inline-flex items-center p-0.5 bg-slate-900 rounded-xl border border-slate-700 ml-1">
+                <button
+                  type="button"
+                  id="btn-pie-scope-all"
+                  onClick={() => setDataScope("all")}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    dataScope === "all"
+                      ? "bg-amber-400 text-slate-950 shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Tüm tablodaki anahtar kelimelere göre pazar payını hesapla"
+                >
+                  Tüm Tablo ({rankings.length})
+                </button>
+                <button
+                  type="button"
+                  id="btn-pie-scope-filtered"
+                  onClick={() => setDataScope("filtered")}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    dataScope === "filtered"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Şu an tabloda filtrelenmiş anahtar kelimelere göre pazar payını hesapla"
+                >
+                  Filtrelenen ({filteredRankings?.length})
+                </button>
+              </div>
+            )}
           </div>
 
           <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2 tracking-tight">
@@ -595,11 +650,15 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
               id="btn-pie-module-export-pdf"
               data-testid="pie-module-export-pdf-btn"
               onClick={onExportMarketSharePdf}
-              className="px-3 py-1.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs border border-rose-400/40 active:scale-95"
-              title="Tek tıkla Pazar Payı ve Rakip Kıyaslama Raporunu PDF olarak indirin"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-700 to-indigo-700 hover:from-rose-600 hover:to-indigo-600 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-rose-950/40 border border-rose-400/50 active:scale-95 group"
+              title="Tüm rakip verilerini, pazar payı pasta grafiği analizlerini ve stratejik notları içeren marka logolu profesyonel raporu tek tıkla PDF olarak indirin"
             >
-              <FileDown className="w-3.5 h-3.5" />
-              <span>Hızlı PDF</span>
+              <FileDown className="w-3.5 h-3.5 text-amber-300 group-hover:translate-y-0.5 transition-transform" />
+              <span>Pazar Payı ve Rekabet Raporu</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-rose-950/80 text-rose-300 text-[10px] font-black border border-rose-400/40 flex items-center gap-1">
+                <Award className="w-2.5 h-2.5 text-amber-400" />
+                <span>Tek Tık PDF</span>
+              </span>
             </button>
           )}
 
@@ -662,6 +721,21 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
           >
             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+
+          {/* Close Panel Button */}
+          {onClose && (
+            <button
+              type="button"
+              id="btn-pie-module-close"
+              data-testid="btn-pie-module-close"
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-200 border border-slate-700 hover:border-rose-500/40 transition-colors cursor-pointer"
+              title="Pazar Payı Modülünü Kapat"
+              aria-label="Pazar Payı Modülünü Kapat"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -884,119 +958,324 @@ export const CompetitorMarketSharePieChart: React.FC<CompetitorMarketSharePieCha
 
           {/* 4. All Competitors Metrics Comparison Grid (Tüm Rakiplerin Metrikleri Karşılaştırma Matrisi) */}
           <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                <span>Tüm Rakiplerin Karşılaştırmalı Metrik Tablosu</span>
-              </h4>
-              <span className="text-[11px] text-slate-400">
-                Pazar Lideri: <strong className="text-amber-300">{competitorProfiles.find(c => c.standingRank === 1)?.name}</strong>
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Tüm Rakiplerin Karşılaştırmalı Metrik Tablosu</span>
+                </h4>
+                <span className="text-[11px] text-slate-400">
+                  Pazar Lideri: <strong className="text-amber-300">{competitorProfiles.find(c => c.standingRank === 1)?.name}</strong>
+                </span>
+              </div>
+
+              {/* Toggle Cards vs Matrix View */}
+              <div className="flex items-center p-1 bg-slate-900 rounded-xl border border-slate-700 shadow-inner self-start sm:self-auto">
+                <button
+                  type="button"
+                  id="btn-view-comparison-cards"
+                  data-testid="btn-view-comparison-cards"
+                  onClick={() => setComparisonView("cards")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    comparisonView === "cards"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Kart Görünümü"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Kartlar</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-view-comparison-matrix"
+                  data-testid="btn-view-comparison-matrix"
+                  onClick={() => setComparisonView("matrix")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    comparisonView === "matrix"
+                      ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Detaylı Karşılaştırma Matrisi Tablosu"
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span>Kıyaslama Matrisi</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {competitorProfiles.map((p) => {
-                const isCurrentActive =
-                  p.key === activeProfile.key || (selectedEntityKey && p.key === selectedEntityKey);
-                return (
-                  <div
-                    key={p.id}
-                    id={`competitor-card-${p.key}`}
-                    onClick={() => setSelectedEntityKey(p.key === selectedEntityKey ? null : p.key)}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer text-left space-y-2.5 relative group ${
-                      isCurrentActive
-                        ? "bg-slate-800/95 border-amber-400/80 shadow-lg shadow-indigo-950/40 ring-1 ring-amber-400/50"
-                        : "bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 hover:border-slate-700"
-                    }`}
-                  >
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
-                          style={{ backgroundColor: p.color }}
-                        />
-                        <div className="min-w-0">
-                          <h5 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition-colors">
-                            {p.name}
-                          </h5>
-                          <span className="text-[10px] text-slate-400 block truncate font-mono">
-                            {p.domain}
-                          </span>
+            {comparisonView === "cards" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {competitorProfiles.map((p) => {
+                  const isCurrentActive =
+                    p.key === activeProfile.key || (selectedEntityKey && p.key === selectedEntityKey);
+                  return (
+                    <div
+                      key={p.id}
+                      id={`competitor-card-${p.key}`}
+                      onClick={() => setSelectedEntityKey(p.key === selectedEntityKey ? null : p.key)}
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer text-left space-y-2.5 relative group ${
+                        isCurrentActive
+                          ? "bg-slate-800/95 border-amber-400/80 shadow-lg shadow-indigo-950/40 ring-1 ring-amber-400/50"
+                          : "bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
+                            style={{ backgroundColor: p.color }}
+                          />
+                          <div className="min-w-0">
+                            <h5 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+                              {p.name}
+                            </h5>
+                            <span className="text-[10px] text-slate-400 block truncate font-mono">
+                              {p.domain}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black shrink-0 ${p.badgeBg}`}>
+                          #{p.standingRank}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar of Market Share */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">Pazar Payı</span>
+                          <strong className="text-white font-mono">%{p.marketSharePercent.toFixed(1)}</strong>
+                        </div>
+                        <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(p.marketSharePercent * 2, 100)}%`,
+                              backgroundColor: p.color
+                            }}
+                          />
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black shrink-0 ${p.badgeBg}`}>
-                        #{p.standingRank}
-                      </span>
-                    </div>
 
-                    {/* Progress Bar of Market Share */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">Pazar Payı</span>
-                        <strong className="text-white font-mono">%{p.marketSharePercent.toFixed(1)}</strong>
+                      {/* Key Metrics Rows */}
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px] pt-1 border-t border-slate-800/80">
+                        <div className="p-1.5 rounded-lg bg-slate-950/60">
+                          <span className="text-[10px] text-slate-400 block">Trafik / Ay</span>
+                          <strong className="text-emerald-400 font-mono">
+                            {p.estimatedOrganicTraffic.toLocaleString("tr-TR")}
+                          </strong>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-slate-950/60">
+                          <span className="text-[10px] text-slate-400 block">İlk 3 Sıra</span>
+                          <strong className="text-amber-300 font-mono">
+                            {p.top3Count} Kelime
+                          </strong>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-slate-950/60">
+                          <span className="text-[10px] text-slate-400 block">Ort. Sıra</span>
+                          <strong className="text-indigo-300 font-mono">
+                            #{p.avgRank}
+                          </strong>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-slate-950/60">
+                          <span className="text-[10px] text-slate-400 block">Görünürlük</span>
+                          <strong className="text-sky-300 font-mono">
+                            {p.visibilityScore}/100
+                          </strong>
+                        </div>
                       </div>
-                      <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
-                        <div
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{
-                            width: `${Math.min(p.marketSharePercent * 2, 100)}%`,
-                            backgroundColor: p.color
+
+                      {/* Filter Quick Action */}
+                      {onSelectCompetitorFilter && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (p.key === "user") {
+                              onSelectCompetitorFilter("leading");
+                            } else {
+                              onSelectCompetitorFilter(p.key as any);
+                            }
                           }}
-                        />
-                      </div>
+                          className="w-full py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-700/80 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Filter className="w-3 h-3 text-amber-400" />
+                          <span>Tabloyu Filtrele</span>
+                        </button>
+                      )}
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Detailed Multi-Metric Comparison Matrix Table */
+              <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/80">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 border-b border-slate-800 text-slate-300">
+                        <th className="py-3 px-3.5 font-bold">Kıyaslanan Metrik</th>
+                        {competitorProfiles.map((p) => (
+                          <th key={p.id} className="py-3 px-3.5 font-bold min-w-[140px]">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                              <div className="truncate">
+                                <span className="text-white block font-bold truncate">{p.name}</span>
+                                <span className="text-[10px] text-slate-400 font-mono block truncate">{p.domain}</span>
+                              </div>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {/* Row 1: Pazar Payı */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <PieChart className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Pazar Payı Dağılımı</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-black text-amber-400">
+                            %{p.marketSharePercent.toFixed(1)}
+                          </td>
+                        ))}
+                      </tr>
 
-                    {/* Key Metrics Rows */}
-                    <div className="grid grid-cols-2 gap-1.5 text-[11px] pt-1 border-t border-slate-800/80">
-                      <div className="p-1.5 rounded-lg bg-slate-950/60">
-                        <span className="text-[10px] text-slate-400 block">Trafik / Ay</span>
-                        <strong className="text-emerald-400 font-mono">
-                          {p.estimatedOrganicTraffic.toLocaleString("tr-TR")}
-                        </strong>
-                      </div>
-                      <div className="p-1.5 rounded-lg bg-slate-950/60">
-                        <span className="text-[10px] text-slate-400 block">İlk 3 Sıra</span>
-                        <strong className="text-amber-300 font-mono">
-                          {p.top3Count} Kelime
-                        </strong>
-                      </div>
-                      <div className="p-1.5 rounded-lg bg-slate-950/60">
-                        <span className="text-[10px] text-slate-400 block">Ort. Sıra</span>
-                        <strong className="text-indigo-300 font-mono">
-                          #{p.avgRank}
-                        </strong>
-                      </div>
-                      <div className="p-1.5 rounded-lg bg-slate-950/60">
-                        <span className="text-[10px] text-slate-400 block">Görünürlük</span>
-                        <strong className="text-sky-300 font-mono">
-                          {p.visibilityScore}/100
-                        </strong>
-                      </div>
-                    </div>
+                      {/* Row 2: Tahmini Trafik */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Tahmini Aylık Trafik</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-emerald-300">
+                            {p.estimatedOrganicTraffic.toLocaleString("tr-TR")} Ziyaret
+                          </td>
+                        ))}
+                      </tr>
 
-                    {/* Filter Quick Action */}
-                    {onSelectCompetitorFilter && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (p.key === "user") {
-                            onSelectCompetitorFilter("leading");
-                          } else {
-                            onSelectCompetitorFilter(p.key as any);
-                          }
-                        }}
-                        className="w-full py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-700/80 flex items-center justify-center gap-1 transition-all cursor-pointer"
-                      >
-                        <Filter className="w-3 h-3 text-amber-400" />
-                        <span>Tabloyu Filtrele</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      {/* Row 3: SERP #1 Liderliği */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <Award className="w-3.5 h-3.5 text-amber-300" />
+                          <span>SERP #1 Sıra Sayısı</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-white">
+                            {p.rank1Count} Kelime
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 4: Top 3 Hakimiyeti */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                          <span>İlk 3 Sıra (#1 - #3)</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-amber-200">
+                            {p.top3Count} Kelime
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 5: Top 10 Görünürlüğü */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <Target className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>İlk Sayfa (#1 - #10)</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-indigo-300">
+                            {p.top10Count} Kelime
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 6: Ortalama Sıralama */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <BarChart3 className="w-3.5 h-3.5 text-sky-400" />
+                          <span>Ortalama SERP Sırası</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-slate-200">
+                            #{p.avgRank}
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 7: SEO Görünürlük Skoru */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                          <span>Görünürlük Puanı</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-teal-300">
+                            {p.visibilityScore} / 100
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 8: Sayfa Hızı (PSI) */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Sayfa Hızı (Lighthouse)</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-emerald-400">
+                            {p.speedScore} / 100
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 9: Domain Otoritesi */}
+                      <tr className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-2.5 px-3.5 font-bold text-slate-300 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Domain Authority (DA)</span>
+                        </td>
+                        {competitorProfiles.map((p) => (
+                          <td key={p.id} className="py-2.5 px-3.5 font-mono font-bold text-sky-400">
+                            {p.domainAuthority} DA
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Row 10: Filtrele Aksiyonu */}
+                      {onSelectCompetitorFilter && (
+                        <tr className="bg-slate-900/40">
+                          <td className="py-2.5 px-3.5 font-bold text-slate-400">Tablo Eylemi</td>
+                          {competitorProfiles.map((p) => (
+                            <td key={p.id} className="py-2.5 px-3.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (p.key === "user") {
+                                    onSelectCompetitorFilter("leading");
+                                  } else {
+                                    onSelectCompetitorFilter(p.key as any);
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-[10px] font-bold border border-slate-700 flex items-center gap-1 transition-all cursor-pointer"
+                              >
+                                <Filter className="w-3 h-3 text-amber-400" />
+                                <span>Tabloda Filtrele</span>
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

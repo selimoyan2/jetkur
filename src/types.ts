@@ -1425,6 +1425,48 @@ export interface PerformanceAlertSettings {
 }
 
 // ==========================================
+// CORE WEB VITALS REAL-TIME PERFORMANCE ALERT SYSTEM
+// ==========================================
+export type CoreVitalMetric = "LCP" | "CLS" | "FID";
+
+export interface CoreWebVitalsThresholds {
+  lcpPoor: number; // default: 4.0s (Google Poor: > 4.0s)
+  clsPoor: number; // default: 0.25 (Google Poor: > 0.25)
+  fidPoor: number; // default: 300ms (Google Poor: > 300ms)
+  lcpWarning?: number; // 2.5s (Google Needs Improvement: 2.5 - 4.0s)
+  clsWarning?: number; // 0.10 (Google Needs Improvement: 0.10 - 0.25)
+  fidWarning?: number; // 100ms (Google Needs Improvement: 100 - 300ms)
+}
+
+export interface CoreWebVitalsAlertItem {
+  id: string;
+  metric: CoreVitalMetric;
+  metricLabel: string;
+  currentValue: number;
+  threshold: number;
+  unit: string;
+  status: "poor" | "critical" | "warning";
+  timestamp: string; // ISO string
+  formattedTime: string;
+  affectedUrl: string;
+  device: "mobile" | "desktop";
+  message: string;
+  recommendation: string;
+  isRead: boolean;
+  isDismissed: boolean;
+}
+
+export interface CoreWebVitalsAlertConfig {
+  isRealtimeMonitoringEnabled: boolean;
+  browserNotificationsEnabled: boolean;
+  soundEnabled: boolean;
+  inAppToastEnabled: boolean;
+  pollIntervalSeconds: number; // e.g. 8s
+  thresholds: CoreWebVitalsThresholds;
+  cooldownSeconds: number; // default 60s per metric
+}
+
+// ==========================================
 // SEO HEALTH SCORE OTOMATİK DENETİM AYARLARI
 // ==========================================
 export interface SeoAutomatedAuditConfig {
@@ -1772,6 +1814,7 @@ export type CustomerPanelTab =
   | "seo-bulk-export"
   | "performance-trends"
   | "advanced-performance-trends"
+  | "performance-insights"
   | "user-auth"
   | "user-management"
   | "coolify-deployment"
@@ -3216,7 +3259,7 @@ export interface GlobalSeoAgentReport {
 // ADVANCED SITE PERFORMANCE TRENDS (90-DAY ROLLING WINDOW & D3.js)
 // ==========================================
 
-export type CoreWebVitalMetricKey = "lcp" | "inp" | "cls" | "ttfb" | "fcp" | "healthScore";
+export type CoreWebVitalMetricKey = "lcp" | "inp" | "cls" | "fid" | "ttfb" | "fcp" | "healthScore";
 
 export type PerformanceTrendGranularity = "daily" | "7d_ma" | "14d_ma";
 
@@ -3242,6 +3285,7 @@ export interface DailyPerformanceTrendDataPoint {
   lcp: number; // Largest Contentful Paint (seconds, e.g., 1.15)
   inp: number; // Interaction to Next Paint (ms, e.g., 72)
   cls: number; // Cumulative Layout Shift (unitless, e.g., 0.02)
+  fid: number; // First Input Delay (ms, e.g., 18)
   ttfb: number; // Time to First Byte (ms, e.g., 28)
   fcp: number; // First Contentful Paint (seconds, e.g., 0.65)
   
@@ -3249,6 +3293,7 @@ export interface DailyPerformanceTrendDataPoint {
   lcp_ma?: number;
   inp_ma?: number;
   cls_ma?: number;
+  fid_ma?: number;
   ttfb_ma?: number;
   fcp_ma?: number;
   

@@ -17,11 +17,14 @@ import {
   Check, 
   Award,
   BarChart3,
-  Download
+  Download,
+  BellRing
 } from "lucide-react";
 import { PerformanceAnalyticsWidget } from "./PerformanceAnalyticsWidget";
 import { PerformanceMonitor } from "./PerformanceMonitor";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
+import { PerformanceInsightsCard } from "./PerformanceInsightsCard";
+import { PerformanceAlertManager } from "./PerformanceAlertManager";
 
 interface PerformanceMetricsTabProps {
   config: SiteConfig;
@@ -31,7 +34,7 @@ interface PerformanceMetricsTabProps {
   onUpdateLead?: (leadId: string, updates: Partial<FormLead>) => void;
   onAddLead?: (newLead: FormLead) => void;
   onNavigateTab?: (tab: string) => void;
-  initialView?: "analytics" | "speed" | "monitor";
+  initialView?: "analytics" | "speed" | "monitor" | "insights" | "alerts";
 }
 
 export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
@@ -44,7 +47,7 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
   onNavigateTab,
   initialView = "analytics"
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"analytics" | "speed" | "monitor">(initialView);
+  const [activeSubTab, setActiveSubTab] = useState<"analytics" | "speed" | "monitor" | "insights" | "alerts">(initialView);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [testRegion, setTestRegion] = useState<"frankfurt" | "istanbul" | "amsterdam">("istanbul");
 
@@ -134,6 +137,40 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
 
           <button
             type="button"
+            id="subtab-performance-insights-btn"
+            onClick={() => setActiveSubTab("insights")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === "insights"
+                ? "bg-slate-800 text-emerald-400 shadow-md ring-1 ring-emerald-400/30"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>Performance Insights (30G CWV)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-black">
+              LCP • CLS • FID
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="subtab-performance-alerts-btn"
+            onClick={() => setActiveSubTab("alerts")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === "alerts"
+                ? "bg-rose-600 text-white shadow-md ring-1 ring-rose-400/30"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <BellRing className="w-4 h-4 text-rose-400" />
+            <span>CWV Uyarı Sistemi</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-mono font-black">
+              Canlı Push
+            </span>
+          </button>
+
+          <button
+            type="button"
             id="subtab-goto-site-health"
             onClick={() => onNavigateTab?.("site-health")}
             className="px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer text-emerald-300 hover:text-white hover:bg-slate-800"
@@ -182,6 +219,17 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
           onAddLead={onAddLead}
           onNavigateTab={onNavigateTab}
         />
+      ) : activeSubTab === "insights" ? (
+        <div className="space-y-6">
+          <PerformanceInsightsCard
+            config={config}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      ) : activeSubTab === "alerts" ? (
+        <div className="space-y-6">
+          <PerformanceAlertManager />
+        </div>
       ) : (
         <>
           {/* Top Banner: World's Fastest Website Value Prop */}
@@ -563,6 +611,14 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
           >
             Hızı Önizlemede Test Et
           </button>
+        </div>
+
+        {/* 30-Day Core Web Vitals Performance Insights Card */}
+        <div className="mt-6">
+          <PerformanceInsightsCard
+            config={config}
+            onNavigateTab={onNavigateTab}
+          />
         </div>
         </div>
       </>
