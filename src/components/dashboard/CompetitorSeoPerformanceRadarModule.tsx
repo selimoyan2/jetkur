@@ -29,7 +29,8 @@ import {
   ArrowUpRight,
   Info,
   Check,
-  SlidersHorizontal
+  SlidersHorizontal,
+  FileDown
 } from "lucide-react";
 
 interface CompetitorSeoPerformanceRadarModuleProps {
@@ -239,11 +240,14 @@ export const CompetitorSeoPerformanceRadarModule: React.FC<CompetitorSeoPerforma
                 type="button"
                 id="radar-module-download-pdf-btn"
                 onClick={onDownloadPdf}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ring-1 ring-blue-400/30"
-                title="Download comprehensive PDF report of competitor SEO radar data and alert logs"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ring-1 ring-blue-400/30"
+                title="Tüm SEO Radar grafik verilerini ve Rakip Kıyaslama Tablosunu içeren şirket logolu profesyonel PDF raporunu indir"
               >
-                <Download className="w-4 h-4 text-cyan-200" />
-                <span>Download PDF</span>
+                <FileDown className="w-4 h-4 text-cyan-200" />
+                <span>PDF Raporu Oluştur</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-normal text-white">
+                  Şirket Logolu
+                </span>
               </button>
             )}
           </div>

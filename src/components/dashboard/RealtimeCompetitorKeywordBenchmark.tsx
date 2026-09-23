@@ -310,11 +310,14 @@ export const RealtimeCompetitorKeywordBenchmark: React.FC<RealtimeCompetitorKeyw
                 type="button"
                 id="btn-export-benchmark-pdf"
                 onClick={onDownloadPdf}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-900/50 transition-all cursor-pointer"
-                title="Sektörel Rekabet ve Radar Raporunu PDF Olarak İndir"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-900/50 transition-all cursor-pointer ring-1 ring-indigo-400/40"
+                title="Tüm Rakip Kıyaslama Tablosu ve SEO Radar grafik verilerini içeren şirket logolu profesyonel PDF raporunu indir"
               >
-                <FileDown className="w-4 h-4 text-amber-300" />
-                <span>PDF İndir</span>
+                <FileDown className="w-4 h-4 text-cyan-200" />
+                <span>PDF Raporu Oluştur</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-normal text-white">
+                  Şirket Logolu
+                </span>
               </button>
             )}
           </div>

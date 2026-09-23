@@ -36,19 +36,22 @@ import {
   BarChart3,
   Layers,
   Search,
-  BookOpen
+  BookOpen,
+  FileDown
 } from "lucide-react";
 
 interface StrategicActionPlannerCardProps {
   config: Partial<SiteConfig>;
   onNavigateTab?: (tabKey: string) => void;
   onOpenCustomReport?: () => void;
+  onDownloadPdf?: () => void;
 }
 
 export const StrategicActionPlannerCard: React.FC<StrategicActionPlannerCardProps> = ({
   config,
   onNavigateTab,
-  onOpenCustomReport
+  onOpenCustomReport,
+  onDownloadPdf
 }) => {
   // Plan state (default fallback or Gemini generated)
   const [plan, setPlan] = useState<StrategicActionPlan>(() => {
@@ -348,6 +351,22 @@ ${plan.contentDirectives.map((d, idx) => `${idx + 1}. ${d.pageTarget}: Önerilen
               <Download className="w-3.5 h-3.5 text-cyan-300" />
               <span>CSV İndir</span>
             </button>
+
+            {onDownloadPdf && (
+              <button
+                type="button"
+                id="btn-action-plan-export-pdf"
+                onClick={onDownloadPdf}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border border-emerald-400/40 flex items-center gap-2 cursor-pointer transition-all shadow-md active:scale-95"
+                title="Tüm Stratejik Analiz Raporunu Şirket Logolu PDF Olarak İndir"
+              >
+                <FileDown className="w-3.5 h-3.5 text-emerald-200" />
+                <span>PDF Raporu Oluştur</span>
+                <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-extrabold uppercase tracking-wider">
+                  Şirket Logolu
+                </span>
+              </button>
+            )}
 
             {onOpenCustomReport && (
               <button

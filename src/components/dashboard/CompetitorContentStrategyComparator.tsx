@@ -27,7 +27,8 @@ import {
   PieChart,
   SlidersHorizontal,
   RefreshCw,
-  Search
+  Search,
+  FileDown
 } from "lucide-react";
 import { SiteConfig } from "../../types";
 import {
@@ -43,6 +44,7 @@ export interface CompetitorContentStrategyComparatorProps {
   initialKeyword?: string;
   onNavigateTab?: (tab: string) => void;
   onOpenCustomReport?: () => void;
+  onDownloadPdf?: () => void;
   className?: string;
 }
 
@@ -51,6 +53,7 @@ export const CompetitorContentStrategyComparator: React.FC<CompetitorContentStra
   initialKeyword,
   onNavigateTab,
   onOpenCustomReport,
+  onDownloadPdf,
   className = ""
 }) => {
   const companyName = config.companyName || "Siteniz";
@@ -207,6 +210,22 @@ ${report.topPages.map((p, idx) => `${idx + 1}. [${p.pageTypeLabel}] ${p.pageTitl
             <Download className="w-3.5 h-3.5 text-blue-400" />
             <span>CSV İndir</span>
           </button>
+
+          {onDownloadPdf && (
+            <button
+              type="button"
+              id="btn-comparator-export-pdf"
+              onClick={onDownloadPdf}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 border border-emerald-400/30"
+              title="Tüm Stratejik Analiz Raporunu Şirket Logolu PDF Olarak İndir"
+            >
+              <FileDown className="w-3.5 h-3.5 text-emerald-200" />
+              <span>PDF Raporu Oluştur</span>
+              <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-extrabold uppercase tracking-wider">
+                Şirket Logolu
+              </span>
+            </button>
+          )}
 
           {onOpenCustomReport && (
             <button

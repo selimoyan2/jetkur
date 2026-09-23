@@ -358,11 +358,14 @@ export const InteractiveCompetitorComparisonTable: React.FC<InteractiveCompetito
               type="button"
               id="btn-export-comparison-table-pdf"
               onClick={onDownloadPdf}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-900/50 transition-all cursor-pointer"
-              title="Bu tabloyu da içeren Stratejik Analiz ve Radar PDF Raporunu İndir"
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-900/50 transition-all cursor-pointer ring-1 ring-indigo-400/40"
+              title="Tüm Rakip Kıyaslama Tablosu ve SEO Radar grafik verilerini tek tıkla şirket logolu profesyonel PDF raporu olarak indir"
             >
-              <FileDown className="w-4 h-4 text-amber-300" />
-              <span>PDF Raporuna Dahil Et & İndir</span>
+              <FileDown className="w-4 h-4 text-cyan-200" />
+              <span>PDF Raporu Oluştur</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-normal text-white">
+                Şirket Logolu
+              </span>
             </button>
           )}
         </div>
