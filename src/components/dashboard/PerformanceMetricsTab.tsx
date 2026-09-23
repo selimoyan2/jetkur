@@ -25,6 +25,7 @@ import { PerformanceMonitor } from "./PerformanceMonitor";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
 import { PerformanceInsightsCard } from "./PerformanceInsightsCard";
 import { PerformanceAlertManager } from "./PerformanceAlertManager";
+import { ContentGapAnalysisTool } from "./ContentGapAnalysisTool";
 
 interface PerformanceMetricsTabProps {
   config: SiteConfig;
@@ -34,7 +35,7 @@ interface PerformanceMetricsTabProps {
   onUpdateLead?: (leadId: string, updates: Partial<FormLead>) => void;
   onAddLead?: (newLead: FormLead) => void;
   onNavigateTab?: (tab: string) => void;
-  initialView?: "analytics" | "speed" | "monitor" | "insights" | "alerts";
+  initialView?: "analytics" | "speed" | "monitor" | "insights" | "alerts" | "content-gap";
 }
 
 export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
@@ -47,7 +48,7 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
   onNavigateTab,
   initialView = "analytics"
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"analytics" | "speed" | "monitor" | "insights" | "alerts">(initialView);
+  const [activeSubTab, setActiveSubTab] = useState<"analytics" | "speed" | "monitor" | "insights" | "alerts" | "content-gap">(initialView);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [testRegion, setTestRegion] = useState<"frankfurt" | "istanbul" | "amsterdam">("istanbul");
 
@@ -171,6 +172,23 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
 
           <button
             type="button"
+            id="subtab-performance-content-gap-btn"
+            onClick={() => setActiveSubTab("content-gap")}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === "content-gap"
+                ? "bg-purple-600 text-white shadow-md ring-1 ring-purple-400/30"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-purple-300" />
+            <span>Content Gap Analizi (Gemini AI)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-200 text-[10px] font-mono font-black">
+              3 Rakip
+            </span>
+          </button>
+
+          <button
+            type="button"
             id="subtab-goto-site-health"
             onClick={() => onNavigateTab?.("site-health")}
             className="px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer text-emerald-300 hover:text-white hover:bg-slate-800"
@@ -229,6 +247,13 @@ export const PerformanceMetricsTab: React.FC<PerformanceMetricsTabProps> = ({
       ) : activeSubTab === "alerts" ? (
         <div className="space-y-6">
           <PerformanceAlertManager />
+        </div>
+      ) : activeSubTab === "content-gap" ? (
+        <div className="space-y-6">
+          <ContentGapAnalysisTool
+            config={config}
+            onNavigateTab={onNavigateTab}
+          />
         </div>
       ) : (
         <>

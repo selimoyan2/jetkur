@@ -38,6 +38,7 @@ import { generate90DayPerformanceTrendsData } from "../../utils/performanceTrend
 import { PerformanceVitalsForecastLineChart } from "./PerformanceVitalsForecastLineChart";
 import { PerformanceAlertManager } from "./PerformanceAlertManager";
 import { loadAlertHistory } from "../../utils/performanceAlertEngine";
+import { ContentGapAnalysisTool } from "./ContentGapAnalysisTool";
 
 export interface PerformanceInsightsCardProps {
   config: SiteConfig;
@@ -48,7 +49,7 @@ export interface PerformanceInsightsCardProps {
 type VitalMetricTab = "all" | "lcp" | "cls" | "fid";
 type ChartRenderType = "area" | "line";
 type DeviceSimulation = "mobile" | "desktop";
-type InsightViewMode = "history" | "forecast" | "combined" | "alerts";
+type InsightViewMode = "history" | "forecast" | "combined" | "alerts" | "content-gap";
 
 export const PerformanceInsightsCard: React.FC<PerformanceInsightsCardProps> = ({
   config,
@@ -373,6 +374,22 @@ export const PerformanceInsightsCard: React.FC<PerformanceInsightsCardProps> = (
               </span>
             )}
           </button>
+          <button
+            type="button"
+            id="btn-viewmode-content-gap"
+            onClick={() => setInsightViewMode("content-gap")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              insightViewMode === "content-gap"
+                ? "bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-xs ring-1 ring-purple-400/40"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+            <span>Content Gap Analizi (Gemini AI)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-black">
+              3 Rakip
+            </span>
+          </button>
         </div>
 
         <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -380,10 +397,15 @@ export const PerformanceInsightsCard: React.FC<PerformanceInsightsCardProps> = (
           {insightViewMode === "forecast" && "Regresyon ve asimptotik sınır algoritmalı 90 günlük gelecek simülasyonu"}
           {insightViewMode === "combined" && "30 gün gerçekleşen saha verisi + 90 gün öngörülen gelecek projeksiyonu"}
           {insightViewMode === "alerts" && "LCP, CLS ve FID metrikleri için Google 'Kötü' eşiği aşım uyarıları"}
+          {insightViewMode === "content-gap" && "Gemini 3.8 Flash ile sitenizin içeriğini ilk 3 rakiple kıyaslayan eksik anahtar kelime ve topic cluster analizi"}
         </div>
       </div>
 
-      {insightViewMode === "forecast" ? (
+      {insightViewMode === "content-gap" ? (
+        <div className="p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-900/40">
+          <ContentGapAnalysisTool config={config} onNavigateTab={onNavigateTab} />
+        </div>
+      ) : insightViewMode === "forecast" ? (
         <div className="p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-900/40">
           <PerformanceVitalsForecastLineChart
             historicalData={chartData}

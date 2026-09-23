@@ -18,6 +18,16 @@ import { generatePricingIntelligence } from "./src/utils/aiPricingIntelligenceEn
 import { generateFallbackGlobalSeoReport } from "./src/utils/aiGlobalSeoEngine";
 import { generateFallbackAiSeoContentAssistant } from "./src/utils/aiSeoContentAssistantEngine";
 import { generateFallbackAiStrategySummaryReport } from "./src/utils/aiStrategySummaryReportEngine";
+import { generateFallbackContentGapAnalysis } from "./src/utils/aiContentGapAnalysisEngine";
+import { generateFallbackAiStrategicReport } from "./src/utils/aiStrategicPdfEngine";
+import { generateFallbackKeywordBenchmark } from "./src/utils/realtimeKeywordBenchmarkEngine";
+import { generateFallbackPerformanceData } from "./src/utils/competitorSeoPerformanceRadarEngine";
+import { generateFallbackSectoralStrategySummary } from "./src/utils/sectoralSeoStrategySummaryEngine";
+import { generateFallbackCompetitorPricingStrategy } from "./src/utils/competitorPricingStrategyEngine";
+import { generateFallbackGlobalSeoHeatmap } from "./src/utils/globalSeoHeatmapEngine";
+import { generateFallbackStrategicActionPlan } from "./src/utils/strategicActionPlannerEngine";
+import { generateFallbackContentExpansion } from "./src/utils/competitorContentExpansionEngine";
+import { generateFallbackAdEfficiencyReport } from "./src/utils/competitorAdEfficiencyEngine";
 
 dotenv.config();
 
@@ -1002,6 +1012,1057 @@ Lütfen yanıtını SADECE geçerli bir JSON nesnesi olarak döndür. Markdown b
     }
   });
 
+  // Performance Insights - Gemini-Powered Content Gap Analysis vs Top 3 Competitors
+  const handleContentGapAnalysis = async (req: express.Request, res: express.Response) => {
+    try {
+      const {
+        companyName = "Sitemiz",
+        sector = "Hizmet",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        services = [],
+        products = [],
+        blogs = [],
+        metaTitle = "",
+        metaDescription = "",
+        competitors = []
+      } = req.body || {};
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackContentGapAnalysis({
+          companyName,
+          sector,
+          city,
+          customDomain: domain,
+          services,
+          products,
+          blog: { items: blogs } as any,
+          metaTitle,
+          metaDescription
+        } as any, competitors);
+        return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+      }
+
+      const servicesSummary = Array.isArray(services)
+        ? services.map((s: any) => `- ${s.title || ""}: ${s.desc || ""}`).slice(0, 8).join("\n")
+        : "";
+      const blogsSummary = Array.isArray(blogs)
+        ? blogs.map((b: any) => `- ${b.title || ""}`).slice(0, 6).join("\n")
+        : "";
+
+      const prompt = `Sen Google SERP ve organik arama pazar payı analitiğinde uzman kıdemli bir SEO ve İçerik Stratejisti Danışmanısın.
+Aşağıda verilen web sitesinin mevcut içeriğini, sektöründeki en güçlü İLK 3 RAKİP ile kıyaslayarak kapsamlı bir "İÇERİK AÇIĞI VE RAKİP ANALİZİ" (Content Gap Analysis) gerçekleştir.
+
+Mevcut Web Sitesi:
+- Firma Adı: ${companyName}
+- Sektör / Niş: ${sector}
+- Şehir / Bölge: ${city}
+- Web Adresi: ${domain}
+- Meta Başlık: ${metaTitle || `${companyName} | ${sector}`}
+- Meta Açıklama: ${metaDescription || ""}
+- Mevcut Hizmetler:
+${servicesSummary || "Temel sektörel hizmetler"}
+- Mevcut Blog / İçerikler:
+${blogsSummary || "Henüz yayınlanmış blog içeriği yok"}
+${competitors && competitors.length > 0 ? `- Belirtilen Rakipler: ${competitors.join(", ")}` : ""}
+
+Görevlerin:
+1. Sektör ve bölgedeki en güçlü ilk 3 organik rakibi tespit et veya verilen rakipleri değerlendir.
+2. Bu 3 rakibin sıralama aldığı fakat bu sitenin HENÜZ HEDEFLEMEDİĞİ veya EKSİK BIRAKTIĞI en az 7-10 adet yüksek hacimli, fırsat değeri yüksek ANAHTAR KELİMEYİ (missingKeywords) listele.
+   Her anahtar kelime için:
+   - keyword: Aranma kelimesi
+   - searchVolume: Aylık tahmini arama hacmi (sayı)
+   - difficulty: Zorluk derecesi (0-100)
+   - difficultyLevel: "Kolay" | "Orta" | "Zor"
+   - intent: "Ticari" | "Bilgilendirici" | "İşlemsel" | "Yerel"
+   - competitorRankings: { "comp1": 1-10, "comp2": 1-10, "comp3": 1-10 }
+   - userRank: null (çünkü içerikte eksik)
+   - opportunityScore: Fırsat puanı (0-100)
+   - estimatedTrafficGain: Tahmini aylık trafik katkısı (örn. "+650 ziyaretçi / ay")
+   - suggestedPage: Hedeflenecek sayfa slug'ı (örn. "/hizmetler/acil-destek")
+   - recommendedAction: Kısa stratejik eylem tavsiyesi
+   - cpc: Tahmini TBM değeri (örn. "₺18.50")
+3. Rakiplerin organik sıralamada üstünlük sağladığı EN AZ 4 ADET SEMANTİK İÇERİK KÜMESİNİ / TOPIC CLUSTER (topicClusters) belirle:
+   - clusterName: Küme adı
+   - pillarTopic: Temel Sütun Konusu
+   - userCoveragePercent: Sitenin mevcut kapsama oranı (örn. %20)
+   - competitorCoveragePercent: Rakiplerin ortalama kapsama oranı (örn. %85)
+   - missingSubtopics: Bu kümede sitede eksik olan 3-4 adet alt başlık
+   - suggestedArticleTitle: Doğrudan AI Blog Engine veya İçerik Planlayıcıda kullanılabilecek cazip makale başlığı
+   - suggestedFormat: "Kapsamlı Rehber" | "Hizmet Açılış Sayfası" | "Fiyat & SSS" | "Karşılaştırma"
+   - businessImpact: "Kritik" | "Yüksek" | "Orta"
+   - keywordVolumeSum: Bu kümedeki toplam arama hacmi (örn. "12.5K / ay")
+   - targetAudience: Hedef kitle
+4. gapScore: 0-100 arasında sitenin toplam içerik açığı skoru (örn. 68)
+5. quickWins: 3 adet anında uygulanabilecek hızlı kazanım
+6. radarComparison: 6 temel kriterde sitenin (user) ve 3 rakibin (comp1, comp2, comp3) 0-100 puanları (Hizmet Derinliği, Fiyat Şeffaflığı, Yerel İlçe Kapsamı, SSS & Schema Zenginliği, E-E-A-T Uzmanlık Rehberleri, Site Hızı & Kullanıcı Deneyimi).
+7. metrics: totalMissingKeywords, totalUntappedTraffic, avgCompetitorContentWordCount, userAverageContentWordCount, topClusterToTarget.
+8. summary: 2-3 cümlelik yönetici özeti.
+
+Lütfen yanıtını SADECE geçerli bir JSON nesnesi olarak döndür. Markdown bloğu veya ekstra metin yazma.
+JSON formatı:
+{
+  "gapScore": 68,
+  "summary": "...",
+  "competitors": [
+    { "id": "comp-1", "name": "...", "domain": "...", "organicTraffic": "...", "keywordCount": 1200, "overlapPercentage": 40, "contentDepthScore": 88, "color": "#f59e0b", "topAdvantage": "...", "keyWeakness": "..." }
+  ],
+  "missingKeywords": [...],
+  "topicClusters": [...],
+  "quickWins": [...],
+  "radarComparison": [...],
+  "metrics": { ... }
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const responseText = response.text || "";
+      let cleanJson = responseText.trim();
+      if (cleanJson.startsWith("```json")) {
+        cleanJson = cleanJson.replace(/^```json/, "").replace(/```$/, "").trim();
+      } else if (cleanJson.startsWith("```")) {
+        cleanJson = cleanJson.replace(/^```/, "").replace(/```$/, "").trim();
+      }
+
+      const parsed = JSON.parse(cleanJson);
+      parsed.id = `gap-analysis-gemini-${Date.now()}`;
+      parsed.analyzedAt = new Date().toISOString();
+      parsed.source = "gemini-3.8-flash";
+      parsed.modelUsed = "gemini-3.8-flash (Canlı Semantik Analiz)";
+
+      return res.json({ success: true, source: "gemini-3.8-flash", data: parsed });
+    } catch (err: any) {
+      console.warn("Gemini Content Gap Analysis failed or quota reached, serving fallback:", err?.message || err);
+      const fallback = generateFallbackContentGapAnalysis({
+        companyName: req.body?.companyName,
+        sector: req.body?.sector,
+        city: req.body?.city,
+        customDomain: req.body?.domain,
+        services: req.body?.services,
+        products: req.body?.products,
+        blog: { items: req.body?.blogs } as any,
+        metaTitle: req.body?.metaTitle,
+        metaDescription: req.body?.metaDescription
+      } as any, req.body?.competitors);
+      return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+    }
+  };
+
+  app.post("/api/performance/content-gap-analysis", handleContentGapAnalysis);
+  app.post("/api/content-gap-analysis", handleContentGapAnalysis);
+
+  // Gemini AI-Powered Strategic PDF Report based on Competitor Comparison Dashboard Data
+  app.post("/api/strategy/generate-ai-pdf-report", async (req, res) => {
+    try {
+      const {
+        companyName = "İşletme",
+        sector = "Hizmet",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        userSite,
+        top3Competitors = [],
+        contentClusters = [],
+        summaryMetrics = {}
+      } = req.body;
+
+      const ai = getAIClient();
+
+      const mockCompReport = {
+        generatedAt: new Date().toLocaleDateString("tr-TR"),
+        userSite: userSite || {
+          name: companyName,
+          domain: domain,
+          domainAuthority: 48,
+          avgKeywordDensityPercent: 2.1,
+          spamScore: 1,
+          referringDomains: 38,
+          backlinksCount: 420,
+          densityStatus: "İdeal (%1.8 - %2.5)",
+          top10KeywordsCount: 45,
+          top3KeywordsCount: 12
+        },
+        top3Competitors: top3Competitors,
+        allProfiles: [userSite, ...top3Competitors],
+        marketAvgDA: 62,
+        marketAvgDensity: 2.8,
+        contentClusters: contentClusters,
+        summaryMetrics: summaryMetrics
+      };
+
+      if (!ai) {
+        const fallback = generateFallbackAiStrategicReport(
+          { companyName, sector, city } as any,
+          mockCompReport as any
+        );
+        return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+      }
+
+      const prompt = `Sen uluslararası düzeyde tanınmış kıdemli bir Dijital Pazarlama Direktörü ve Baş SEO Stratejistisin.
+Aşağıdaki "Competitor Comparison Dashboard" verilerini derinlemesine inceleyerek, yönetim kurulu ve üst düzey yöneticiler (C-Level Stakeholders) için Türkçe dilinde profesyonel bir "Stratejik Rakip Analizi & SEO PDF Raporu" oluştur.
+
+İNCELENEN İŞLETME BİLGİLERİ:
+- Firma: ${companyName} (${domain})
+- Sektör: ${sector} | Şehir: ${city}
+- Domain Otoritesi (DA): ${userSite?.domainAuthority || 48} / 100
+- Sayfa Otoritesi (PA): ${userSite?.pageAuthority || 42} / 100
+- Kök Domain (Referring Domains): ${userSite?.referringDomains || 38}
+- Toplam Backlink: ${userSite?.backlinksCount || 420}
+- Spam Skoru: %${userSite?.spamScore || 1}
+- Ortalama Anahtar Kelime Yoğunluğu: %${userSite?.avgKeywordDensityPercent || 2.1} (${userSite?.densityStatus || "İdeal"})
+- İlk 10'daki Kelime Sayısı: ${userSite?.top10KeywordsCount || 45} | İlk 3'teki Kelimeler: ${userSite?.top3KeywordsCount || 12}
+- Core Web Vitals Açılış Hızı: 1.1 saniye (Ultra Hızlı Edge CDN)
+
+EN BÜYÜK 3 SEKTÖR RAKİBİ VERİLERİ:
+${(top3Competitors || []).map((c: any, i: number) => `
+${i + 1}. Rakip: ${c.name} (${c.domain})
+- DA: ${c.domainAuthority} | PA: ${c.pageAuthority} | RD: ${c.referringDomains}
+- Anahtar Kelime Yoğunluğu: %${c.avgKeywordDensityPercent} (${c.densityStatus || "Bilinmiyor"})
+- Backlink: ${c.backlinksCount} | Spam: %${c.spamScore}
+- İlk 10 Kelime: ${c.top10KeywordsCount}
+- Bilinen Zayıf Noktası: ${c.mainVulnerability || "Belirtilmedi"}
+- Başlıca Üstünlüğü: ${c.keyAdvantage || "Belirtilmedi"}
+`).join("\n")}
+
+İÇERİK KÜMELERİ (TOPIC CLUSTERS):
+${(contentClusters || []).map((cl: any) => `- ${cl.name}: Siteniz ${cl.userKeywordCount} kelime (%${cl.userAvgDensity} yoğunluk) vs Lider ${cl.comp1KeywordCount} kelime (%${cl.comp1AvgDensity} yoğunluk). Aylık Hacim: ${cl.marketTotalVolume}. Fırsat: ${cl.opportunityLevel}`).join("\n")}
+
+Lütfen bu verileri yorumlayarak aşağıdaki JSON şemasına BİREBİR uyan geçerli bir JSON çıktısı üret:
+{
+  "reportId": "STRAT-AI-${Date.now().toString().slice(-6)}",
+  "generatedAt": "${new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}",
+  "modelUsed": "Gemini 3.8 Flash (Canlı Stratejik Analiz)",
+  "companyName": "${companyName}",
+  "domain": "${domain}",
+  "sector": "${sector}",
+  "city": "${city}",
+  "executiveSummary": "150-250 kelimelik üst düzey yönetici özeti. Sitenin doğal kelime yoğunluğu ve hız avantajıyla, liderin aşırı kelime doldurması (keyword stuffing) ve hantallığı arasındaki tezatı ve kazanma formülünü anlat.",
+  "coreVitalsComparisonInsight": "Sayfa hızı ve kullanıcı deneyiminin SEO sıralamalarındaki etkisi.",
+  "domainAuthorityInsight": "Domain Otoritesi (DA) farkının nasıl kapatılacağı ve temiz spam profilinin avantajları.",
+  "keywordDensityInsight": "Anahtar kelime yoğunluğu analizi (%2.1 ideal seviye vs rakiplerin aşırı yoğunluğu ve Google cezaları).",
+  "swotAnalysis": {
+    "strengths": ["4 güçlü yön"],
+    "weaknesses": ["3 geliştirilmesi gereken yön"],
+    "opportunities": ["4 pazar fırsatı"],
+    "threats": ["3 pazar tehdidi"]
+  },
+  "competitorBattlecards": [
+    {
+      "competitorName": "Rakip adı",
+      "domain": "Domain",
+      "da": 76,
+      "keywordDensity": 3.9,
+      "vulnerability": "Açıklama",
+      "counterTactic": "Taktik",
+      "priorityScore": 95
+    }
+  ],
+  "contentClusterRecommendations": [
+    {
+      "clusterName": "Küme Adı",
+      "gapStatus": "Kritik Fırsat / Yüksek Potansiyel",
+      "strategicAction": "Aksiyon önerisi"
+    }
+  ],
+  "roadmap90Days": [
+    {
+      "phase": "Aşama 1 (1 - 30. Gün)",
+      "period": "Ay 1",
+      "title": "Aşama Başlığı",
+      "tasks": ["Görev 1", "Görev 2", "Görev 3", "Görev 4"],
+      "expectedImpact": "Beklenen etki"
+    },
+    {
+      "phase": "Aşama 2 (31 - 60. Gün)",
+      "period": "Ay 2",
+      "title": "Aşama Başlığı",
+      "tasks": ["Görev 1", "Görev 2", "Görev 3", "Görev 4"],
+      "expectedImpact": "Beklenen etki"
+    },
+    {
+      "phase": "Aşama 3 (61 - 90. Gün)",
+      "period": "Ay 3",
+      "title": "Aşama Başlığı",
+      "tasks": ["Görev 1", "Görev 2", "Görev 3", "Görev 4"],
+      "expectedImpact": "Beklenen etki"
+    }
+  ],
+  "keyTakeaways": [
+    "3 temel stratejik çıkarım maddesi"
+  ]
+}
+
+SADECE geçerli JSON formatı döndür, hiçbir markdown kod bloğu (backtick) ekleme.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text?.trim() || "";
+      const cleaned = text.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/\s*```$/, "");
+      const parsed = JSON.parse(cleaned);
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: {
+          ...parsed,
+          companyName,
+          domain,
+          sector,
+          city,
+          modelUsed: "Gemini 3.8 Flash (Google AI Studio)"
+        }
+      });
+    } catch (err: any) {
+      console.error("Gemini AI Strategic Report Error:", err?.message || err);
+      const fallback = generateFallbackAiStrategicReport(
+        { companyName: req.body?.companyName, sector: req.body?.sector, city: req.body?.city } as any,
+        {
+          generatedAt: new Date().toLocaleDateString("tr-TR"),
+          userSite: req.body?.userSite || { name: req.body?.companyName, domainAuthority: 48, avgKeywordDensityPercent: 2.1, spamScore: 1, referringDomains: 38 },
+          top3Competitors: req.body?.top3Competitors || [],
+          contentClusters: req.body?.contentClusters || []
+        } as any
+      );
+      return res.json({ success: true, source: "algorithmic_fallback", data: fallback });
+    }
+  });
+
+  // Real-time Industry Competitor Keyword Benchmark Radar Engine
+  app.post("/api/strategy/realtime-keyword-benchmark", async (req, res) => {
+    try {
+      const {
+        industry = "Hukuk",
+        city = "İstanbul",
+        companyName = "Sitemiz",
+        domain = "sitemiz.com.tr",
+        targetKeywords = []
+      } = req.body;
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackKeywordBenchmark({
+          companyName,
+          sector: industry,
+          city,
+          customDomain: domain
+        } as any, industry, city);
+        return res.json({ success: true, source: "algorithmic_engine", data: fallback });
+      }
+
+      const prompt = `Sen uzman bir Türkiye ve Uluslararası SEO Stratejisti ve SERP İstihbarat Uzmanısın.
+Görev: "${industry}" sektöründe ve "${city}" pazarında (Türkiye) en yüksek organik arama hacmine, ticari dönüşüm değerine ve rekabet potansiyeline sahip en kritik 6-8 anahtar kelimeyi gerçek zamanlı olarak analiz et.
+İncelenen İşletme: "${companyName}" (${domain}).
+Mevcut hedeflenen terimler (varsa): ${targetKeywords.slice(0, 5).join(", ") || "Sektörel anahtar kelimeler"}.
+
+Aşağıdaki JSON şemasına BİREBİR uyan geçerli bir JSON çıktısı üret:
+{
+  "industry": "${industry}",
+  "city": "${city}",
+  "companyName": "${companyName}",
+  "domain": "${domain}",
+  "fetchedAt": "${new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}",
+  "isLiveGrounding": true,
+  "source": "Gemini 3.8 Flash Canlı Sektörel SERP Benchmark Motoru",
+  "competitors": [
+    {
+      "id": "comp-leader",
+      "name": "${industry} Pazar Lideri",
+      "domain": "lider${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "sektor"}.com.tr",
+      "color": "#8b5cf6",
+      "da": 74
+    },
+    {
+      "id": "comp-regional",
+      "name": "${city} Güçlü Bölgesel Rakip",
+      "domain": "${city.toLowerCase().replace(/[^a-z0-9]/g, '') || "bolge"}${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "sektor"}.com",
+      "color": "#10b981",
+      "da": 60
+    },
+    {
+      "id": "comp-challenger",
+      "name": "Dinamik Sektör Oyuncusu",
+      "domain": "dinamik${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "sektor"}.net",
+      "color": "#f59e0b",
+      "da": 52
+    }
+  ],
+  "keywords": [
+    {
+      "id": "kw-1",
+      "keyword": "sektörün en popüler arama terimi",
+      "category": "Temel Hizmet",
+      "searchVolume": 24000,
+      "difficulty": 68,
+      "cpc": 42.5,
+      "intent": "commercial",
+      "scores": {
+        "user": 82,
+        "competitor1": 94,
+        "competitor2": 66,
+        "competitor3": 50,
+        "industryAvg": 65
+      },
+      "ranks": {
+        "user": 2,
+        "competitor1": 1,
+        "competitor2": 5,
+        "competitor3": 8
+      },
+      "recommendedAction": "Kullanıcının site hızını ve LCP üstünlüğünü öne çıkararak H1 ve schema güncellemesi ile 1. sıra hedeflenmeli.",
+      "contentGapStatus": "competitive"
+    }
+  ],
+  "aggregateMetrics": {
+    "userAvgScore": 76,
+    "marketLeaderAvgScore": 88,
+    "gapKeywordsCount": 3,
+    "leadingKeywordsCount": 2,
+    "potentialTrafficGain": 4800
+  }
+}
+
+Kurallar:
+- "keywords" dizisinde tam olarak 6 ile 8 adet sektörel anahtar kelime bulunmalıdır (D3 radar chart eksenleri olarak çizilecektir).
+- "scores" değerleri 0 ile 100 arasında olmalı, kullanıcının ve rakiplerin bu kelimedeki SERP görünürlük gücünü yansıtmalıdır.
+- "ranks" değerleri 1 ile 20 arasında tipik Google SERP sıralamasını temsil etmelidir.
+- "contentGapStatus" yalnızca şu dört değerden biri olmalıdır: "winning" (kullanıcı önde), "competitive" (yakın rekabet), "opportunity" (hızlı sıçrama fırsatı), "vulnerable" (rakipler çok önde).
+- SADECE geçerli JSON formatı döndür, hiçbir markdown veya ek metin ekleme.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text?.trim() || "";
+      const cleaned = text.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/\s*```$/, "");
+      const parsed = JSON.parse(cleaned);
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: parsed
+      });
+    } catch (err: any) {
+      console.error("Realtime Keyword Benchmark error, serving algorithmic engine:", err?.message || err);
+      const fallback = generateFallbackKeywordBenchmark({
+        companyName: req.body?.companyName,
+        sector: req.body?.industry,
+        city: req.body?.city,
+        customDomain: req.body?.domain
+      } as any, req.body?.industry, req.body?.city);
+      return res.json({ success: true, source: "algorithmic_recovery", data: fallback });
+    }
+  });
+
+  // Real-time Competitor SEO Performance Radar Data (Multi-dimensional comparative metrics)
+  app.post("/api/strategy/competitor-seo-performance", async (req, res) => {
+    try {
+      const {
+        industry = "Hukuk",
+        city = "İstanbul",
+        companyName = "Siteniz",
+        domain = "siteniz.com.tr"
+      } = req.body;
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackPerformanceData({
+          companyName,
+          sector: industry,
+          city,
+          cloudflare: { customDomain: domain }
+        } as any, industry, city);
+        return res.json({ success: true, source: "algorithmic_engine", data: fallback });
+      }
+
+      const prompt = `Sen uzman bir Türkiye ve Uluslararası Teknik SEO Analisti ve Rekabet İstihbarat Uzmanısın.
+Görev: "${industry}" sektöründe ve "${city}" pazarında (Türkiye) kullanıcının işletmesi ("${companyName}" - ${domain}) ile bu pazardaki en güçlü ilk 3 rakibin çok boyutlu SEO performans metriklerini (0-100 ölçeğinde) karşılaştır.
+
+Aşağıdaki 8 performans boyutu için gerçekçi ve tutarlı puanlar üret:
+1. domainAuthority (Domain Otoritesi - Moz/Ahrefs tarzı DA)
+2. siteSpeed (Sayfa Hızı & Core Web Vitals - LCP, FID, CLS, TTFB)
+3. keywordVisibility (SERP Kelime Görünürlüğü - İlk 10 sıralama kapsamı)
+4. backlinkProfile (Backlink Kalitesi & Kök Domain Güveni)
+5. contentDepth (İçerik Kalitesi & Semantik Konu Kümeleri)
+6. technicalSeo (Teknik Altyapı, Schema.org, Temiz Kod)
+7. mobileUx (Mobil Optimizasyon & Kullanıcı Deneyimi)
+8. localSeo (Yerel SEO & Google Harita Görünürlüğü)
+
+İşletmeler:
+- Kullanıcı: ${companyName} (${domain}) -> Hızlı (siteSpeed ~95-98, technicalSeo ~90-96), büyümekte olan DA (~50-60)
+- 1. Rakip: ${industry} Pazar Lideri -> Çok yüksek DA (~75-85) ve Backlink (~80-90), ancak hantal altyapı (siteSpeed ~60-70)
+- 2. Rakip: ${city} Bölgesel Güçlü Rakip -> Yüksek yerel SEO (~80-90), orta DA (~45-55)
+- 3. Rakip: Dinamik Sektör Meydan Okuyanı -> Yükselen dijital oyuncu
+
+Aşağıdaki JSON şemasına BİREBİR uyan bir JSON döndür:
+{
+  "industry": "${industry}",
+  "city": "${city}",
+  "companyName": "${companyName}",
+  "domain": "${domain}",
+  "fetchedAt": "${new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}",
+  "source": "Gemini 3.8 Flash Canlı Rekabet Radarı",
+  "isLiveGrounding": true,
+  "axes": [
+    { "key": "domainAuthority", "label": "Domain Otoritesi (DA)", "shortLabel": "DA Otorite", "description": "Alan adına duyulan güven ve otorite.", "weight": 15, "unit": "/100", "bestPractice": "Kaliteli sektörel yayınlardan backlink edinin." },
+    { "key": "siteSpeed", "label": "Sayfa Hızı & Core Web Vitals", "shortLabel": "Hız & CWV", "description": "LCP, FID/INP ve CLS hız metrikleri.", "weight": 15, "unit": "/100", "bestPractice": "Cloudflare edge önbellekleme kullanın." },
+    { "key": "keywordVisibility", "label": "SERP Kelime Görünürlüğü", "shortLabel": "SERP Kapsamı", "description": "İlk 10 sıradaki kelime zenginliği.", "weight": 15, "unit": "/100", "bestPractice": "Hedefli açılış sayfalarını artırın." },
+    { "key": "backlinkProfile", "label": "Backlink Kalitesi & Domainler", "shortLabel": "Backlink Güveni", "description": "Yönlendiren domainlerin otoritesi.", "weight": 15, "unit": "/100", "bestPractice": "Doğal içerik linklerine odaklanın." },
+    { "key": "contentDepth", "label": "İçerik Kalitesi & Semantik Derinlik", "shortLabel": "İçerik Derinliği", "description": "Konu kümeleri ve uzmanlık.", "weight": 10, "unit": "/100", "bestPractice": "Detaylı rehber ve SSS ekleyin." },
+    { "key": "technicalSeo", "label": "Teknik Altyapı & Schema.org", "shortLabel": "Teknik & Schema", "description": "Zengin snippet ve yapısal veri.", "weight": 10, "unit": "/100", "bestPractice": "JSON-LD şemalarını eksiksiz uygulayın." },
+    { "key": "mobileUx", "label": "Mobil Optimizasyon & UX", "shortLabel": "Mobil UX", "description": "Mobil hız ve arayüz akıcılığı.", "weight": 10, "unit": "/100", "bestPractice": "Dokunma hedeflerini 48px üstü yapın." },
+    { "key": "localSeo", "label": "Yerel SEO & Harita Görünürlüğü", "shortLabel": "Harita & Yerel", "description": "Google Harita 3-Pack varlığı.", "weight": 10, "unit": "/100", "bestPractice": "Düzenli Google Harita yorumu toplayın." }
+  ],
+  "entities": [
+    {
+      "id": "user-site",
+      "name": "${companyName} (Siz)",
+      "domain": "${domain}",
+      "color": "#06b6d4",
+      "isUser": true,
+      "rank": 2,
+      "metrics": {
+        "domainAuthority": 56,
+        "siteSpeed": 98,
+        "keywordVisibility": 74,
+        "backlinkProfile": 52,
+        "contentDepth": 76,
+        "technicalSeo": 96,
+        "mobileUx": 94,
+        "localSeo": 80
+      },
+      "keyStrength": "Üstün Core Web Vitals ve Cloudflare Edge hız avantajı.",
+      "mainWeakness": "Eski pazar liderine kıyasla daha taze backlink profili."
+    },
+    {
+      "id": "comp-leader",
+      "name": "${industry} Pazar Lideri",
+      "domain": "lider${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "sektor"}.com.tr",
+      "color": "#8b5cf6",
+      "isUser": false,
+      "rank": 1,
+      "metrics": {
+        "domainAuthority": 80,
+        "siteSpeed": 62,
+        "keywordVisibility": 94,
+        "backlinkProfile": 88,
+        "contentDepth": 86,
+        "technicalSeo": 74,
+        "mobileUx": 76,
+        "localSeo": 84
+      },
+      "keyStrength": "Geniş backlink profili ve yüksek alan adı yaşı.",
+      "mainWeakness": "Ağır WordPress altyapısı ve düşük sayfa hızı skorları."
+    },
+    {
+      "id": "comp-regional",
+      "name": "${city} Bölgesel Güçlü Rakip",
+      "domain": "${city.toLowerCase().replace(/[^a-z0-9]/g, '') || "yerel"}${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "sektor"}.com",
+      "color": "#10b981",
+      "isUser": false,
+      "rank": 3,
+      "metrics": {
+        "domainAuthority": 50,
+        "siteSpeed": 72,
+        "keywordVisibility": 64,
+        "backlinkProfile": 46,
+        "contentDepth": 62,
+        "technicalSeo": 70,
+        "mobileUx": 78,
+        "localSeo": 88
+      },
+      "keyStrength": "Güçlü Google Harita yorum sayısı ve bölgesel atıflar.",
+      "mainWeakness": "Teknik SEO ve semantik içerik derinliği eksiklikleri."
+    },
+    {
+      "id": "comp-challenger",
+      "name": "Dinamik Sektör Meydan Okuyanı",
+      "domain": "dinamik${industry.toLowerCase().replace(/[^a-z0-9]/g, '') || "rekabet"}.net",
+      "color": "#f59e0b",
+      "isUser": false,
+      "rank": 4,
+      "metrics": {
+        "domainAuthority": 44,
+        "siteSpeed": 84,
+        "keywordVisibility": 60,
+        "backlinkProfile": 40,
+        "contentDepth": 68,
+        "technicalSeo": 82,
+        "mobileUx": 86,
+        "localSeo": 66
+      },
+      "keyStrength": "Modern mobil arayüz ve hızlı içerik üretimi.",
+      "mainWeakness": "Sınırlı yerel atıflar ve düşük kök domain sayısı."
+    }
+  ],
+  "insights": {
+    "userOverallScore": 78,
+    "leaderOverallScore": 81,
+    "industryAvgScore": 65,
+    "topAdvantageAxis": "Sayfa Hızı & Core Web Vitals (+36 puan üstünlük)",
+    "criticalVulnerabilityAxis": "Backlink Kalitesi & Domain Otoritesi (-36 puan geride)",
+    "gapInsights": [
+      {
+        "axisKey": "siteSpeed",
+        "axisLabel": "Sayfa Hızı & Core Web Vitals",
+        "userScore": 98,
+        "leaderScore": 62,
+        "gap": 36,
+        "status": "superior",
+        "actionPlan": "Cloudflare edge avantajını öne çıkararak Google INP güncellemelerinde liderliği pekiştirin."
+      }
+    ],
+    "executiveSummary": "${companyName}, teknik altyapı ve sayfa hızında pazarı domine etmektedir. Lideri geride bırakmak için kaliteli editoryal backlink ve semantik içerik kümelerine ağırlık verilmelidir."
+  }
+}
+Sadece ve sadece geçerli JSON döndür.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.3
+        }
+      });
+
+      const text = response.text ? response.text.trim() : "";
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: parsed
+      });
+    } catch (err: any) {
+      console.error("Competitor SEO Performance API error, serving fallback:", err?.message || err);
+      const fallback = generateFallbackPerformanceData({
+        companyName: req.body?.companyName,
+        sector: req.body?.industry,
+        city: req.body?.city,
+        cloudflare: { customDomain: req.body?.domain }
+      } as any, req.body?.industry || "Hukuk", req.body?.city || "İstanbul");
+      return res.json({ success: true, source: "algorithmic_recovery", data: fallback });
+    }
+  });
+
+  // Sectoral SEO Strategy Summary Card Endpoint (Gemini 3.8 Flash + D3.js Radar + 30-Day Competitor Trends)
+  app.post("/api/strategy/sectoral-summary", async (req, res) => {
+    try {
+      const {
+        companyName = "Siteniz",
+        industry = "Oto Çekici & Kurtarıcı",
+        city = "İstanbul",
+        domain = "siteniz.com.tr",
+        performanceScore = 98,
+        technicalScore = 96,
+        radarEntities = []
+      } = req.body;
+
+      const ai = getAIClient();
+      const fallbackData = generateFallbackSectoralStrategySummary({
+        companyName,
+        sector: industry,
+        city,
+        cloudflare: { customDomain: domain }
+      } as any, radarEntities);
+
+      if (!ai) {
+        return res.json({ success: true, source: "algorithmic_engine", data: fallbackData });
+      }
+
+      const prompt = `Sen kıdemli bir Arama Motoru Optimizasyonu (SEO) Stratejisti ve Rekabet Analistisin.
+GÖREV: "${industry}" sektöründe ve "${city}" pazarında (Türkiye) kullanıcının "${companyName}" (${domain}) işletmesi için D3.js radar verilerini ve pazardaki en güçlü ilk 3 rakibin son 30 günlük trendlerini analiz et.
+Stratejik öneriler ve 30 günlük önceliklendirilmiş somut bir eylem planı üret.
+
+MEVCUT D3.JS RADAR EKSENLERİ & PERFORMANS VERİSİ:
+1. Siteniz (${companyName}): Hız & Core Web Vitals (%${performanceScore}/100 - Cloudflare Edge 0.02s TTFB), Teknik SEO (%${technicalScore}/100), DA (~54), Backlink (~48), İçerik Derinliği (~74), SERP Kelime (~72).
+2. Pazar Lideri: DA (~82), Backlink (~88), SERP Kelime (~94), ancak Hantal Altyapı & Yavaş Hız (%62/100, 2.4s LCP). Son 30 günde -4.2% trafik erozyonu ve 15 kelime kaybı yaşadı.
+3. Bölgesel Güçlü Rakip (${city}): Yüksek Google Harita / Local Pack gücü, orta DA (~49), zayıf teknik SEO (~68).
+4. Dinamik Sektör Meydan Okuyanı: Hızlı blog üretimi (%12.8 son 30 gün artış), ancak düşük DA (~41) ve yetersiz yerel güven.
+
+Aşağıdaki JSON şemasına BİREBİR uyan bir JSON üret:
+{
+  "executiveSummary": "Sitenizin hız ve teknik üstünlüğünü pazar liderinin son 30 günlük erozyonuyla birleştiren 2-3 cümlelik keskin yönetici sentezi.",
+  "keyCompetitiveLeverage": "Sitenizin en güçlü rekabet kozu (Core Web Vitals ve anında açılış avantajı).",
+  "primaryVulnerability": "En kritik zayıf noktanız (Örn: Lidere kıyasla dofollow backlink ve alan adı otoritesi eksikliği).",
+  "quickWinsPhase": {
+    "title": "Hızlı Kazanımlar (Quick Wins)",
+    "duration": "0 - 7 Gün",
+    "tag": "Acil Aksiyon",
+    "actions": [
+      "Liderin son 30 günde kaybettiği kelimelere yönelik hedefli hamle...",
+      "Şema ve yerel SEO koordinat güçlendirmesi...",
+      "Yüksek trafikli sayfalarda CTR meta optimizasyonu..."
+    ],
+    "expectedImpact": "Tahmini ilk hafta kazanımı (örn: +8 Kelimede İlk 5 Sıralama)"
+  },
+  "mediumTermPhase": {
+    "title": "İçerik & Konu Kümeleri Genişletmesi",
+    "duration": "8 - 20 Gün",
+    "tag": "Genişleme",
+    "actions": [
+      "Semantik rehberler ve sektör SSS kümeleri...",
+      "İç linkleme mimarisinin güçlendirilmesi...",
+      "İkinci sayfa kelimelerinin ilk sayfaya taşınması..."
+    ],
+    "expectedImpact": "Tahmini orta vade kazanımı (örn: +18% Organik Oturum)"
+  },
+  "longTermDefensePhase": {
+    "title": "Otorite İnşası & Liderlik Savunması",
+    "duration": "21 - 30 Gün",
+    "tag": "Otorite & PR",
+    "actions": [
+      "Bölgesel ve sektörel editoryal backlink edinimi...",
+      "Yükselen meydan okuyucuya karşı SERP alarm takibi...",
+      "Google Business Profile ve zengin inceleme şeması senkronizasyonu..."
+    ],
+    "expectedImpact": "Tahmini 30 günlük nihai kazanım (örn: DA Skorunda +4 Artış, Liderin Trafiğinden %8 Transfer)"
+  },
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Stratejik Öneri Başlığı 1",
+      "radarAxis": "Site Hızı & Core Web Vitals",
+      "priority": "high",
+      "effort": "Düşük (1-2 Gün)",
+      "projectedGain": "+15% Mobil Organik Trafik",
+      "rationale": "Önerinin D3 radar verisine dayanan gerekçesi...",
+      "actionableTip": "Doğrudan uygulanabilecek somut ipucu..."
+    },
+    {
+      "id": "rec-2",
+      "title": "Stratejik Öneri Başlığı 2",
+      "radarAxis": "SERP Kelime Görünürlüğü",
+      "priority": "high",
+      "effort": "Orta (1 Hafta)",
+      "projectedGain": "+20 Yeni Anahtar Kelime İlk 5'te",
+      "rationale": "Liderin kaybettiği kelimeler üzerinden açıklama...",
+      "actionableTip": "İçerik ve sayfa optimizasyon taktiği..."
+    },
+    {
+      "id": "rec-3",
+      "title": "Stratejik Öneri Başlığı 3",
+      "radarAxis": "Backlink Kalitesi & Dijital PR",
+      "priority": "medium",
+      "effort": "Yüksek (2+ Hafta)",
+      "projectedGain": "+6 Domain Otoritesi (DA)",
+      "rationale": "Backlink açığını kapatma gerekçesi...",
+      "actionableTip": "Yerel basın ve sektörel portal atıf çalışması..."
+    },
+    {
+      "id": "rec-4",
+      "title": "Stratejik Öneri Başlığı 4",
+      "radarAxis": "Teknik SEO & Şema Yapısı",
+      "priority": "medium",
+      "effort": "Düşük (1-2 Gün)",
+      "projectedGain": "+7.5% CTR Artışı",
+      "rationale": "Şema dominasyonunun arama sonuçlarındaki etkisi...",
+      "actionableTip": "JSON-LD FAQPage ve LocalBusiness kodunun enjeksiyonu..."
+    }
+  ],
+  "thirtyDayTargetForecast": {
+    "projectedTrafficGrowth": "+25.8%",
+    "projectedRankGains": "+32 Anahtar Kelime İlk 10'da",
+    "estimatedCtrBoost": "+3.4%",
+    "confidenceScore": 94
+  }
+}
+Sadece ve sadece geçerli JSON döndür, markdown veya başka açıklama ekleme.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.35
+        }
+      });
+
+      const text = response.text ? response.text.trim() : "";
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsedPlan = JSON.parse(cleaned);
+
+      const dataset = {
+        ...fallbackData,
+        source: "gemini_3.8_flash" as const,
+        isGeminiLive: true,
+        strategicPlan: {
+          ...fallbackData.strategicPlan,
+          ...parsedPlan
+        }
+      };
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: dataset
+      });
+    } catch (err: any) {
+      console.error("Sectoral SEO Strategy Summary API error, serving fallback:", err?.message || err);
+      const fallback = generateFallbackSectoralStrategySummary({
+        companyName: req.body?.companyName,
+        sector: req.body?.industry,
+        city: req.body?.city,
+        cloudflare: { customDomain: req.body?.domain }
+      } as any);
+      return res.json({ success: true, source: "algorithmic_recovery", data: fallback });
+    }
+  });
+
+  // Real-time Competitor Pricing Strategy & Gemini Price Competitiveness Advice
+  app.post("/api/strategy/price-competitiveness", async (req, res) => {
+    try {
+      const config = req.body?.config || req.body || {};
+      const companyName = config.companyName || req.body?.companyName || "İşletme";
+      const sector = config.sector || req.body?.sector || "Oto Çekici & Kurtarıcı";
+      const city = config.city || req.body?.city || "İstanbul";
+
+      const fallbackData = generateFallbackCompetitorPricingStrategy({
+        ...config,
+        companyName,
+        sector,
+        city
+      });
+
+      const ai = getAIClient();
+      if (!ai) {
+        return res.json({ success: true, source: "algorithmic_engine", data: fallbackData });
+      }
+
+      const productsSummary = fallbackData.products.map(p => ({
+        name: p.name,
+        userPrice: p.userPriceFormatted,
+        leaderPrice: p.compLeaderFormatted,
+        regionalPrice: p.compRegionalFormatted,
+        challengerPrice: p.compChallengerFormatted,
+        marketAverage: p.marketAverageFormatted,
+        variance: `${p.variancePercent}%`
+      }));
+
+      const prompt = `Sen Türkiye KOBİ pazarı için Gelir Yönetimi, Rekabetçi Fiyatlandırma ve Tüketici Davranış Psikolojisi uzmanısın.
+GÖREV: "${sector}" sektöründe ve "${city}" pazarında faaliyet gösteren "${companyName}" işletmesi için rakiplerin benzer ürün/hizmet fiyatlarını ve fiyatlandırma stratejilerini analiz ederek Gemini zekasıyla "Fiyat Rekabeti" (Price Competitiveness) önerileri ve aksiyon planı üret.
+
+PAZAR & BENZER ÜRÜNLER / HİZMETLER KARŞILAŞTIRMASI:
+${JSON.stringify(productsSummary, null, 2)}
+
+RAKİPLERİN MEVCUT STRATEJİLERİ:
+1. Pazar Lideri: Sektör ortalamasının %26 üstünde yüksek marjla çalışıyor (Geleneksel Marka Rantı).
+2. Bölgesel Rakip: Sektör ortalamasının %16 altında agresif fiyat kırıyor (Gizli masraf çıkarma riski yüksek).
+3. Meydan Okuyan: %9 indirimli kuponlarla penetrasyon yapıyor.
+4. Siteniz (${companyName}): Değer odaklı şeffaf fiyatlandırma konumunda (Ortalamanın %3 altında, optimum sweet spot).
+
+Aşağıdaki JSON şemasına BİREBİR uyan bir JSON üret:
+{
+  "executiveRecommendation": "İşletmenin fiyat konumlandırması ve liderin yüksek fiyatı karşısındaki avantajını özetleyen 2-3 cümlelik keskin yönetici tavsiyesi.",
+  "pricePositioningVerdict": "Değer Odaklı Optimum Konum (Sweet Spot)",
+  "overallPriceCompetitivenessScore": 94,
+  "potentialRevenueUpliftPercent": 28,
+  "priceWarWarning": "Bölgesel rakibin fiyat kırma savaşına girmeme ve kâr marjını koruma uyarısı.",
+  "actionPillars": [
+    {
+      "title": "1. Fiyat Çıpalama & Paketleme",
+      "badge": "Dönüşüm Artırıcı",
+      "description": "Somut çıpalama taktiği...",
+      "impact": "+%35 Tercih Artışı"
+    },
+    {
+      "title": "2. Şeffaf '...den Başlayan' Fiyat Vitrini",
+      "badge": "Terk Önleyici",
+      "description": "Fiyat bariyerini kaldırma gerekçesi...",
+      "impact": "+%42 Form Tamamlama"
+    },
+    {
+      "title": "3. Gizli Masraf Karşıtı Sabit Garanti",
+      "badge": "Güven Unsuru",
+      "description": "Bölgesel rakibin zaafını avantaja çevirme...",
+      "impact": "+%25 Çağrı Dönüşümü"
+    },
+    {
+      "title": "4. Dinamik Yoğunluk & Acil Durum Tarifesi",
+      "badge": "Kâr Maksimizasyonu",
+      "description": "Gece ve yoğun saat marj artırma taktiği...",
+      "impact": "+%18 Ek Brüt Kâr"
+    }
+  ],
+  "tacticalAdjustments": [
+    {
+      "productName": "Ürün 1 Adı",
+      "currentPrice": 1850,
+      "recommendedPrice": 1950,
+      "actionType": "Fiyat Artır & Değer Vurgula",
+      "rationale": "Gerekçesi..."
+    }
+  ]
+}
+Sadece ve sadece geçerli JSON döndür, markdown bloğu hariç başka hiçbir metin ekleme.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.3
+        }
+      });
+
+      const text = response.text ? response.text.trim() : "";
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      const dataset = {
+        ...fallbackData,
+        geminiAdvice: {
+          ...fallbackData.geminiAdvice,
+          ...parsed
+        }
+      };
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: dataset
+      });
+    } catch (err: any) {
+      console.error("Competitor price strategy API error, serving fallback:", err?.message || err);
+      const fallback = generateFallbackCompetitorPricingStrategy(req.body?.config || req.body || {});
+      return res.json({ success: true, source: "algorithmic_recovery", data: fallback });
+    }
+  });
+
+  // Global SEO Heatmap & Competitor Digital Footprint (Gemini 3.8 Flash Grounded)
+  app.post("/api/strategy/global-heatmap", async (req, res) => {
+    try {
+      const config = req.body?.config || req.body || {};
+      const companyName = config.companyName || req.body?.companyName || "Siteniz";
+      const sector = config.sector || req.body?.sector || "Oto Kurtarma & Çekici";
+      const city = config.city || req.body?.city || "İstanbul";
+
+      const fallbackData = generateFallbackGlobalSeoHeatmap({
+        ...config,
+        companyName,
+        sector,
+        city
+      });
+
+      const ai = getAIClient();
+      if (!ai) {
+        return res.json({ success: true, source: "algorithmic_engine", data: fallbackData });
+      }
+
+      const regionsSummary = fallbackData.regions.map(r => ({
+        region: r.name,
+        tier: r.tier,
+        engine: r.searchEngine,
+        monthlyVolume: r.monthlySearchVolumeFormatted,
+        userShare: `${r.userFootprint.marketSharePercent}% (Skor: ${r.userFootprint.heatScore})`,
+        leaderShare: `${r.compLeaderFootprint.marketSharePercent}% (Skor: ${r.compLeaderFootprint.heatScore})`,
+        whiteSpace: r.whiteSpaceOpportunity ? "Bakir Pazar / Fırsat" : "Rekabetçi"
+      }));
+
+      const prompt = `Sen Uluslararası SEO, Jeopolitik Arama Eğilimleri ve Dijital Rekabet İstihbaratı uzmanısın.
+GÖREV: "${sector}" sektöründe faaliyet gösteren "${companyName}" (${city} merkezli) için "Global SEO Isı Haritası ve Dijital Ayak İzi" (Competitor Digital Footprint) verilerini analiz et. Rakiplerin zayıf olduğu hedef pazarları, lideri çevreleme (Flanking) taktiğini ve sınır ötesi (Cross-border / Hreflang) fırsatlarını değerlendir.
+
+HEDEF PAZARLAR & DİJİTAL AYAK İZİ ÖZETİ:
+${JSON.stringify(regionsSummary, null, 2)}
+
+Aşağıdaki JSON şemasına BİREBİR uyan geçerli bir JSON üret:
+{
+  "executiveBrief": "2-3 cümlelik keskin yönetici değerlendirmesi: Şirketin yerel ve küresel ayak izi gücü, liderin açık verdiği pazarlar ve en karlı genişleme yönü.",
+  "flankingStrategyTitle": "Çevre Pazarlarla Kuşatma & Küresel Boşluk Stratejisi (Flanking)",
+  "flankingStrategyDescription": "Liderin güçlü olduğu ana pazar yerine çevre bölgeler ve diasporadan pazar payı kapma stratejisi...",
+  "expansionDirectives": [
+    {
+      "title": "1. Hedef Bölge Adı ve Başlık",
+      "targetRegion": "Bölge Adı",
+      "badge": "Yüksek Getiri & Fırsat",
+      "rationale": "Neden bu pazara girilmeli ve rakiplerin açığı ne?",
+      "expectedTrafficUplift": "+%40 Yeni Organik Trafik"
+    },
+    {
+      "title": "2. İkinci Öncelikli Bölge",
+      "targetRegion": "Bölge Adı",
+      "badge": "B2B / Marj Artışı",
+      "rationale": "Gerekçesi...",
+      "expectedTrafficUplift": "+%25 Trafik Artışı"
+    },
+    {
+      "title": "3. Üçüncü Öncelikli Bölge",
+      "targetRegion": "Bölge Adı",
+      "badge": "Sezonsal Fırsat",
+      "rationale": "Gerekçesi...",
+      "expectedTrafficUplift": "+%30 Trafik Artışı"
+    }
+  ],
+  "whiteSpaceHighlights": [
+    {
+      "regionName": "Bölge Adı",
+      "advantage": "Rakiplerin bu bölgedeki açığı veya ayak izi zayıflığı",
+      "action": "Şirketin atması gereken somut teknik/içerik adımı"
+    },
+    {
+      "regionName": "İkinci Bölge Adı",
+      "advantage": "Avantaj",
+      "action": "Eylem"
+    }
+  ]
+}
+Sadece ve sadece JSON formatında yanıt ver, markdown kod blokları hariç hiçbir ek açıklama yapma.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.3
+        }
+      });
+
+      const text = response.text ? response.text.trim() : "";
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      const dataset = {
+        ...fallbackData,
+        geminiFootprintAdvice: {
+          ...fallbackData.geminiFootprintAdvice,
+          ...parsed
+        }
+      };
+
+      return res.json({
+        success: true,
+        source: "gemini_3.8_flash",
+        data: dataset
+      });
+    } catch (err: any) {
+      console.error("Global SEO heatmap API error, serving fallback:", err?.message || err);
+      const fallback = generateFallbackGlobalSeoHeatmap(req.body?.config || req.body || {});
+      return res.json({ success: true, source: "algorithmic_recovery", data: fallback });
+    }
+  });
+
   // Real-time Competitive SEO Benchmarking (Domain Authority & Keyword Ranking vs Competitors)
   app.post("/api/competitive-benchmarking", async (req, res) => {
     try {
@@ -1356,6 +2417,519 @@ JSON Şeması:
           seo: { keywords: req.body?.primaryKeywords }
         } as any,
         req.body?.selectedKeyword
+      );
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
+    }
+  });
+
+  // ============================================================================
+  // GEMINI POWERED STRATEGIC ACTION PLANNER (3-MONTH ROADMAP & DIRECTIVES)
+  // ============================================================================
+  app.post("/api/strategic-action-planner", async (req, res) => {
+    try {
+      const {
+        companyName = "Siteniz",
+        sector = "Oto Çekici & Yol Yardım",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        primaryKeywords = [],
+        radarScores = {},
+        benchmarkData = {},
+        config = {}
+      } = req.body;
+
+      const ai = getAIClient();
+      const targetKeyword = (primaryKeywords && primaryKeywords.length > 0) ? primaryKeywords[0] : `${city} ${sector}`;
+
+      if (!ai) {
+        const fallback = generateFallbackStrategicActionPlan(
+          config && config.companyName ? config : {
+            companyName,
+            sector,
+            city,
+            cloudflare: { customDomain: domain },
+            seo: { keywords: primaryKeywords }
+          } as any
+        );
+        return res.json({ success: true, source: "algorithmic_engine", data: fallback });
+      }
+
+      const prompt = `Sen Google SERP algoritmaları, Core Web Vitals, semantik SEO ve B2B/B2C büyüme mimarisi konusunda uzmanlaşmış Kıdemli Bir SEO Stratejistisin.
+Google Arama aracını (googleSearch) kullanarak, "${targetKeyword}" ve "${city} ${sector}" pazarında SERP liderlerini ve rekabet ortamını tara. 
+Eldeki Rakip Kıyaslama Tablosu ve 6-Eksen SEO Radar verilerini kullanarak, kullanıcıya özel ÖNCELİKLENDİRİLMİŞ 3 AYLIK (90 GÜNLÜK) SEO BÜYÜME GÖREVLERİ ve İÇERİK İYİLEŞTİRME ÖNERİLERİ (DIRECTIVES) hazırla.
+
+Kullanıcı Web Sitesi Bilgileri:
+- Firma Adı: ${companyName}
+- Sektör / Niş: ${sector}
+- Şehir / Bölge: ${city}
+- Web Adresi: ${domain}
+- Birincil Anahtar Kelimeler: ${primaryKeywords.join(", ") || targetKeyword}
+- Altyapı Gücü: Cloudflare Edge CDN, CWV Hız Skoru: ~98/100, TTFB ~0.02s, LocalBusiness JSON-LD şeması.
+
+Rakip & Radar Veri Özeti:
+- Kullanıcı Hız & CWV: 98/100 (Üstün) vs Rakip Ortalaması: ~64/100
+- Kullanıcı Dönüşüm (CRO): 92/100 (Üstün) vs Rakip Ortalaması: ~74/100
+- Kullanıcı İçerik Derinliği: ~68/100 (Zayıf, Lider rakip 2.350 kelime iken kullanıcı 1.150 kelime)
+- Kullanıcı Alan Adı Otoritesi: ~42/100 (Zayıf, Lider rakip 84/100)
+- Kullanıcı Yerel Varlık: ~78/100 (Rekabetçi, 12 semt açılış sayfası eksik)
+
+Gereksinimler:
+1. monthlyFocus: 1. Ay, 2. Ay ve 3. Ay için 1'er cümlelik odak özeti.
+   - 1. Ay (Gün 1-30): Temel Teknik İzolasyon, Hız, Şemalar ve Düşük Asılı Meyveler (Quick Wins)
+   - 2. Ay (Gün 31-60): İçerik Derinliği, Semantik Boşluklar (LSI), 12 İlçe Hub Sayfası ve Google PAA Hegemonyası
+   - 3. Ay (Gün 61-90): Backlink Otoritesi, Fiyat/KM Hesaplayıcı Aracı ve SERP #1 Sıra Sahiplenmesi
+2. tasks: Toplam 12 adet somut, önceliklendirilmiş görev (Her ay için 4 görev):
+   - id: "task-m1-01", "task-m1-02", ... "task-m3-04"
+   - month: 1, 2 veya 3
+   - monthLabel: "1. Ay (Gün 1-30)", "2. Ay (Gün 31-60)", "3. Ay (Gün 61-90)"
+   - title: Görevin net ve profesyonel başlığı
+   - description: Görevin detaylı gerekçesi ve hedefi
+   - category: "Teknik SEO" | "İçerik Stratejisi" | "Yerel SEO & Harita" | "Otorite & Backlink" | "Dönüşüm (CRO)"
+   - priority: "Kritik" | "Yüksek" | "Orta"
+   - impact: "Çok Yüksek" | "Yüksek" | "Orta"
+   - effort: "Düşük" | "Orta" | "Yüksek"
+   - targetKpi: Ulaşılacak somut metrik
+   - radarAxisAffected: "Hız & CWV" | "Domain Otoritesi" | "İçerik Derinliği" | "Mobil UX" | "Yerel Varlık" | "Dönüşüm Oranı"
+   - competitorGapAddressed: Hangi rakip zafiyetini veya sitenin hangi eksiğini kapatıyor
+   - suggestedSteps: 3 somut uygulama adımı (array of string)
+   - estimatedDaysToComplete: Tahmini tamamlanma günü (sayı)
+3. contentDirectives: En az 3 adet sayfa bazlı içerik iyileştirme yönergesi:
+   - id, pageTarget, currentStatus, targetKeywords (array), recommendedWordCount (sayı), hierarchyAction, lsiAdditions (array), paaQuestionsToAdd (array), expectedImpact
+4. quickWins: Hemen (30 dk içinde) uygulanabilecek 4 madde (array of string).
+5. executiveSummary: Yönetici özeti paragrafı.
+6. radarScoresSnapshot: siteOverall, competitorAvgOverall, gapSummary ve 6 eksen detayları.
+
+Lütfen yanıtını SADECE geçerli bir JSON nesnesi olarak döndür. Markdown blokları (\`\`\`json ...) ile sarılabilir.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      let rawText = response.text || "";
+      rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (parseErr) {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          throw parseErr;
+        }
+      }
+
+      // Extract search grounding sources if available
+      const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+      const sources: { title: string; url: string }[] = [];
+      if (groundingMeta?.groundingChunks) {
+        groundingMeta.groundingChunks.forEach((chunk: any) => {
+          if (chunk.web?.uri) {
+            sources.push({
+              title: chunk.web.title || chunk.web.uri,
+              url: chunk.web.uri
+            });
+          }
+        });
+      }
+
+      parsed.analyzedAt = new Date().toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+      parsed.companyName = companyName;
+      parsed.sector = sector;
+      parsed.city = city;
+      parsed.domain = domain;
+      if (sources.length > 0) {
+        parsed.searchGroundingSources = sources.slice(0, 5);
+      }
+
+      return res.json({ success: true, source: "gemini-3.8-flash", data: parsed });
+    } catch (err: any) {
+      console.error("Gemini strategic action planner generation failed, using fallback:", err);
+      const fallback = generateFallbackStrategicActionPlan(
+        req.body?.config || {
+          companyName: req.body?.companyName,
+          sector: req.body?.sector,
+          city: req.body?.city,
+          cloudflare: { customDomain: req.body?.domain },
+          seo: { keywords: req.body?.primaryKeywords }
+        } as any
+      );
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
+    }
+  });
+
+  // ============================================================================
+  // GEMINI POWERED COMPETITOR CONTENT EXPANSION & META DRAFTER
+  // ============================================================================
+  app.post("/api/competitor-content-expansion", async (req, res) => {
+    try {
+      const {
+        companyName = "Siteniz",
+        sector = "Oto Çekici & Yol Yardım",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        primaryKeywords = [],
+        config = {}
+      } = req.body;
+
+      const ai = getAIClient();
+      const targetKeyword = (primaryKeywords && primaryKeywords.length > 0) ? primaryKeywords[0] : `${city} ${sector}`;
+
+      if (!ai) {
+        const fallback = generateFallbackContentExpansion(
+          config && config.companyName ? config : {
+            companyName,
+            sector,
+            city,
+            cloudflare: { customDomain: domain },
+            seo: { keywords: primaryKeywords }
+          } as any
+        );
+        return res.json({ success: true, source: "algorithmic_engine", data: fallback });
+      }
+
+      const prompt = `Sen Google SERP algoritmaları, tıklama oranı (CTR) optimizasyonu ve arama motoru içerik mimarisi konusunda uzmanlaşmış Kıdemli Bir SEO İçerik Stratejistisin.
+Google Arama aracını (googleSearch) kullanarak, "${targetKeyword}" ve "${city} ${sector}" gibi terimlerde Google'da en çok organik trafik çeken rakipleri ve sektördeki en popüler blog/içerik sayfalarını analiz et.
+Bu analizden yola çıkarak, kullanıcının web sitesi (${companyName} - ${domain}) için rakiplerin açıklarını hedefleyen, KULLANICIYA ÖZEL, TRAFİK ODAKLI 6 ADET BLOG BAŞLIĞI VE META AÇIKLAMA TASLAĞI oluştur.
+
+Web Sitesi Bilgileri:
+- Firma Adı: ${companyName}
+- Sektör / Niş: ${sector}
+- Şehir / Bölge: ${city}
+- Web Adresi: ${domain}
+- Birincil Anahtar Kelimeler: ${primaryKeywords.join(", ") || targetKeyword}
+
+Her bir içerik önerisi için şu kurallara KESİNLİKLE uyulmalıdır:
+1. blogTitle: Tıklama oranı yüksek, merak ve fayda uyandıran, güncel (2026 odaklı) H1 başlığı.
+2. metaTitle: Google SERP için maksimum 60 karakter, marka adı ve anahtar kelime içeren profesyonel başlık.
+3. metaDescription: Google SERP'te kırpılmayacak ideal uzunlukta (145-160 karakter arası), net değer önerisi ve harekete geçirici mesaj (CTA: "hemen öğrenin", "7/24 arayın" vb.) içeren yüksek CTR'lı taslak.
+4. primaryKeyword: En yüksek arama hacmine sahip birincil kelime.
+5. secondaryKeywords: 3 adet destekleyici LSI / uzun kuyruklu kelime.
+6. searchIntent: "Bilgilendirici" | "Ticari / Karar" | "Acil / İşlemsel" | "Yerel Keşif"
+7. estimatedMonthlySearchVolume: Gerçekçi aylık SERP hacmi (örn: "18.400 / ay")
+8. competitorBenchmarkSource: Hangi lider rakip sayfasından veya pazar boşluğundan esinlenildiği.
+9. competitorGapToExploit: Rakip içerikteki somut eksiklik ve bizim nasıl sıfırıncı sıraya (Featured Snippet) geçeceğimiz.
+10. suggestedHeadings: 4-5 adet H2 ve H3 başlık önerisi (dizi).
+11. targetAudience: Hedeflenen sürücü/müşteri profili.
+12. contentFormat: "Kapsamlı Rehber" | "Soru & Cevap (PAA)" | "Fiyat & Karşılaştırma" | "Nasıl Yapılır (How-To)" | "Yerel Semt Listesi"
+13. difficulty: "Kolay" | "Orta" | "Zor"
+14. expectedTrafficShare: Tahmini aylık organik kazanım (örn: "+3.200 aylık organik ziyaretçi")
+15. priorityScore: 1-100 arası öncelik skoru.
+
+Lütfen yanıtını SADECE geçerli bir JSON formatında döndür. Markdown blokları (\`\`\`json ...) ile sarılabilir.
+JSON Formatı:
+{
+  "executiveSummary": "Pazardaki en çok trafik alan içerikler ve strateji özeti...",
+  "topCompetitorInsights": [
+    {
+      "name": "Lider Rakip #1",
+      "topArticleTitle": "En Çok Trafik Çeken Yazısı",
+      "estimatedTraffic": "18.450 / ay",
+      "weaknessesToBeat": "Eksik kalan noktalar..."
+    }
+  ],
+  "contentIdeas": [
+    {
+      "id": "idea-1",
+      "blogTitle": "...",
+      "metaTitle": "...",
+      "metaDescription": "...",
+      "primaryKeyword": "...",
+      "secondaryKeywords": ["...", "...", "..."],
+      "searchIntent": "Ticari / Karar",
+      "estimatedMonthlySearchVolume": "18.400 / ay",
+      "competitorBenchmarkSource": "...",
+      "competitorGapToExploit": "...",
+      "suggestedHeadings": ["...", "..."],
+      "targetAudience": "...",
+      "contentFormat": "Fiyat & Karşılaştırma",
+      "difficulty": "Orta",
+      "expectedTrafficShare": "+3.200 aylık organik ziyaretçi",
+      "priorityScore": 98
+    }
+  ]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      let rawText = response.text || "";
+      rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (parseErr) {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          throw parseErr;
+        }
+      }
+
+      // Extract search grounding sources if available
+      const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+      const sources: { title: string; url: string }[] = [];
+      if (groundingMeta?.groundingChunks) {
+        groundingMeta.groundingChunks.forEach((chunk: any) => {
+          if (chunk.web?.uri) {
+            sources.push({
+              title: chunk.web.title || chunk.web.uri,
+              url: chunk.web.uri
+            });
+          }
+        });
+      }
+
+      parsed.analyzedAt = new Date().toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+      parsed.companyName = companyName;
+      parsed.sector = sector;
+      parsed.city = city;
+      parsed.domain = domain;
+      if (sources.length > 0) {
+        parsed.searchGroundingSources = sources.slice(0, 5);
+      }
+
+      return res.json({ success: true, source: "gemini-3.8-flash", data: parsed });
+    } catch (err: any) {
+      console.error("Gemini competitor content expansion generation failed, using fallback:", err);
+      const fallback = generateFallbackContentExpansion(
+        req.body?.config || {
+          companyName: req.body?.companyName,
+          sector: req.body?.sector,
+          city: req.body?.city,
+          cloudflare: { customDomain: req.body?.domain },
+          seo: { keywords: req.body?.primaryKeywords }
+        } as any
+      );
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
+    }
+  });
+
+  // Competitor Digital Ad Spend & Efficiency Analysis endpoint (Gemini 3.8 Flash + Google Search Grounding)
+  app.post("/api/competitor-ad-efficiency", async (req, res) => {
+    try {
+      const {
+        companyName = "Siteniz",
+        sector = "Oto Çekici & Yol Yardım",
+        city = "İstanbul",
+        domain = "sitemiz.com.tr",
+        primaryKeywords = [],
+        config = {}
+      } = req.body || {};
+
+      const ai = getAIClient();
+      if (!ai) {
+        const fallback = generateFallbackAdEfficiencyReport(config);
+        return res.json({ success: true, source: "algorithmic_engine", data: fallback });
+      }
+
+      const prompt = `Sen kıdemli bir Dijital Reklam (Google Ads, Meta Ads & Programatik), SEM Stratejisti ve Performans Pazarlama Denetçisisin.
+Aşağıdaki yerel/bölgesel işletme için Google Ads arama ağı, harita pin reklamları ve sosyal medya reklamlarındaki rakiplerin harcama hacimlerini, tık başı maliyetlerini (CPC), tahmini aylık reklam bütçelerini ve reklam harcama verimliliklerini (ROAS, israf bütçe tespiti) analiz et.
+
+Hedef İşletme Bilgileri:
+- Firma Adı: ${companyName}
+- Sektör / Hizmet: ${sector}
+- Şehir / Bölge: ${city}
+- Alan Adı / Domain: ${domain}
+- Odak Kelimeler: ${primaryKeywords.join(", ") || `${city} ${sector.toLowerCase()}`}
+- Site Hızı & Altyapı: Cloudflare Edge, Hızlı Açılış (Google Kalite Skoru potansiyeli 9-10/10)
+
+Lütfen Google Arama'yı kullanarak sektördeki aktif Google Ads reklamverenlerini, sponsorlu bağlantıları, ortalama tıklama başı maliyetleri (CPC) ve harcama dinamiklerini tara ve aşağıdaki JSON şemasına BİREBİR uyan bir yanıt üret:
+
+{
+  "marketSummary": {
+    "totalEstimatedMonthlyAdSpend": 340000,
+    "avgIndustryCpc": 48.0,
+    "totalCompetitorWastedSpend": 79500,
+    "potentialMonthlySavingsForUser": 45700,
+    "avgRoasAcrossCompetitors": 2.75
+  },
+  "competitors": [
+    {
+      "id": "comp-1",
+      "competitorName": "Rakip Firma veya Portal Adı",
+      "domain": "rakipdomain.com",
+      "isUser": false,
+      "estimatedMonthlyAdSpend": 165000,
+      "estimatedCpc": 48.5,
+      "estimatedPaidClicks": 3400,
+      "paidSearchShare": 42,
+      "primaryAdKeywords": ["anahtar kelime 1", "anahtar kelime 2"],
+      "roasScore": 2.8,
+      "efficiencyRating": "Orta",
+      "wastedSpendEstimate": 42000,
+      "strategyObservation": "Geniş eşleme kullanımı, landing page zayıflığı veya negatif kelime eksikliği tespiti.",
+      "topAdCopies": [
+        {
+          "headline": "Reklam Başlığı 1 | Başlık 2",
+          "description": "Reklam açıklama metni...",
+          "displayUrl": "www.rakipdomain.com/hizmet",
+          "adExtensions": ["Telefon Uzantısı", "Fiyat Uzantısı", "Site Bağlantısı"]
+        }
+      ]
+    },
+    {
+      "id": "user-benchmark",
+      "competitorName": "${companyName} (Sizin Verimlilik Modeliniz)",
+      "domain": "${domain}",
+      "isUser": true,
+      "estimatedMonthlyAdSpend": 32000,
+      "estimatedCpc": 28.5,
+      "estimatedPaidClicks": 1120,
+      "paidSearchShare": 18,
+      "primaryAdKeywords": ["anahtar kelime 1", "anahtar kelime 2"],
+      "roasScore": 4.8,
+      "efficiencyRating": "Çok Yüksek",
+      "wastedSpendEstimate": 3200,
+      "strategyObservation": "Yüksek kalite skoru, negatif kelime kalkanı ve SEO desteği ile düşük CPC avantajı.",
+      "topAdCopies": [
+        {
+          "headline": "${city} 7/24 Acil ${sector} | ${companyName}",
+          "description": "Hızlı, şeffaf fiyatlı ve güvenilir hizmet. WhatsApp canlı konum ile hemen çağırın.",
+          "displayUrl": "www.${domain}/${sector.toLowerCase().replace(/[^a-z0-9]/g, '-')}",
+          "adExtensions": ["WhatsApp Doğrudan Konum", "7/24 Acil Çağrı", "Fiyat Hesaplayıcı"]
+        }
+      ]
+    }
+  ],
+  "channelDistribution": [
+    {
+      "channel": "Google Search (Arama Ağı)",
+      "competitorSpendShare": 68,
+      "userRecommendedSpendShare": 50,
+      "cpcAverage": 48.0,
+      "recommendation": "Rakipler bütçeyi genel aramaya yığarken siz acil niyetli aramalara odaklanın."
+    },
+    {
+      "channel": "Google Haritalar (Yerel Pin Reklamları)",
+      "competitorSpendShare": 14,
+      "userRecommendedSpendShare": 32,
+      "cpcAverage": 19.5,
+      "recommendation": "Harita yerel aramaları en yüksek arama dönüşümüne (%80+) sahiptir."
+    },
+    {
+      "channel": "Meta (Instagram / Facebook)",
+      "competitorSpendShare": 12,
+      "userRecommendedSpendShare": 10,
+      "cpcAverage": 8.2,
+      "recommendation": "Yalnızca yeniden hedefleme ve B2B kurumsal filo anlaşmaları için kullanılmalı."
+    },
+    {
+      "channel": "TikTok & YouTube Video",
+      "competitorSpendShare": 6,
+      "userRecommendedSpendShare": 8,
+      "cpcAverage": 4.5,
+      "recommendation": "Nasıl yapılır ve güven veren acil yardım rehber videoları ile marka otoritesi."
+    }
+  ],
+  "cpcArbitrageOpportunities": [
+    {
+      "keyword": "${city.toLowerCase()} fiyatları 2026",
+      "avgCpc": 54.0,
+      "monthlySearchVolume": "18.400 / ay",
+      "competitorTotalSpendEstimate": "98.000 TL / ay",
+      "organicOpportunity": "Rakipler reklam verirken siz SEO ile 1. sıraya girerek bu trafiği 0 TL maliyetle kazanın.",
+      "recommendationType": "SEO ile Tasarruf Et"
+    }
+  ],
+  "wastePreventionTactics": [
+    {
+      "title": "Negatif Anahtar Kelime Kalkanı",
+      "estimatedSaving": "12.500 TL / ay",
+      riskDescription: "Rakipler alakasız kelimeleri filtrelemediği için bütçelerinin %25'ini harcıyor.",
+      "actionProtocol": "Aşağıdaki negatif kelime havuzunu Google Ads hesabınıza ekleyin.",
+      "negativeKeywordsToExclude": ["oyuncak", "ehliyet", "iş ilanları", "nasıl sürülür", "maketi", "kursu"]
+    }
+  ]
+}
+
+Önemli Kurallar:
+1. Veriler ${city} ve ${sector} sektörünün gerçek reklam dinamiklerine (ortalama CPC, aciliyet, tık israfı) uygun, gerçekçi ve somut olmalıdır.
+2. Tüm bütçe ve CPC değerleri Türk Lirası (TL) cinsinden sayı olarak dönmelidir.
+3. Rakiplerin en az 3 gerçekçi örneği ve 1 adet kullanıcı karşılaştırma satırı ("isUser": true) bulunmalıdır.
+4. Yanıtı SADECE geçerli JSON olarak döndür.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      let rawText = response.text || "";
+      rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (parseErr) {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          throw parseErr;
+        }
+      }
+
+      // Extract search grounding sources if available
+      const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+      const sources: { title: string; url: string }[] = [];
+      if (groundingMeta?.groundingChunks) {
+        groundingMeta.groundingChunks.forEach((chunk: any) => {
+          if (chunk.web?.uri) {
+            sources.push({
+              title: chunk.web.title || chunk.web.uri,
+              url: chunk.web.uri
+            });
+          }
+        });
+      }
+
+      parsed.analyzedAt = new Date().toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+      parsed.companyName = companyName;
+      parsed.sector = sector;
+      parsed.city = city;
+      parsed.domain = domain;
+      if (sources.length > 0) {
+        parsed.searchGroundingSources = sources.slice(0, 5);
+      }
+
+      return res.json({ success: true, source: "gemini-3.8-flash", data: parsed });
+    } catch (err: any) {
+      console.error("Gemini competitor ad efficiency generation failed, using fallback:", err);
+      const fallback = generateFallbackAdEfficiencyReport(
+        req.body?.config || {
+          companyName: req.body?.companyName,
+          sector: req.body?.sector,
+          city: req.body?.city,
+          cloudflare: { customDomain: req.body?.domain },
+          seo: { keywords: req.body?.primaryKeywords }
+        } as any
       );
       return res.json({ success: true, source: "fallback_recovery", data: fallback });
     }

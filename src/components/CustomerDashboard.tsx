@@ -78,6 +78,8 @@ import { ContentGapMap } from "./dashboard/ContentGapMap";
 import { MarketShareBenchmarkTable } from "./dashboard/MarketShareBenchmarkTable";
 import { LocalSeoLocationMap } from "./dashboard/LocalSeoLocationMap";
 import { MarketShareCompetitorAnalysisPanel } from "./dashboard/MarketShareCompetitorAnalysisPanel";
+import { ContentGapAnalysisTool } from "./dashboard/ContentGapAnalysisTool";
+import { CompetitorComparisonDashboard } from "./dashboard/CompetitorComparisonDashboard";
 import { SeoExecutiveSummary } from "./dashboard/SeoExecutiveSummary";
 import { CompetitiveSeoWidget } from "./dashboard/CompetitiveSeoWidget";
 import { RealtimeTrafficOverviewWidget } from "./dashboard/RealtimeTrafficOverviewWidget";
@@ -2426,6 +2428,21 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           >
             <TrendingUp className="w-4 h-4 text-cyan-400" />
             <span>Pazar Payı Kıyaslama</span>
+          </button>
+
+          <button
+            type="button"
+            id="top-competitor-comparison-btn"
+            onClick={() => setActiveTab("competitor-comparison")}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "competitor-comparison" || activeTab === "competitor-comparison-dashboard"
+                ? "bg-blue-600 text-white shadow-md font-black ring-2 ring-blue-400/50"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            }`}
+            title="D3.js ile ilk 3 rakibe karşı Domain Otoritesi ve Anahtar Kelime Yoğunluğu Kıyaslama Paneli"
+          >
+            <BarChart3 className="w-4 h-4 text-blue-400" />
+            <span>Rakip Kıyaslama Paneli</span>
           </button>
 
           <button
@@ -5947,7 +5964,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           )}
 
           {/* 4.2c-2 RAKİP ANALİZ MODÜLÜ (DOĞRUDAN URL İLE OTOMATİK İÇERİK & ANAHTAR KELİME KIYASLAMA) */}
-          {(activeTab === "competitor-url-analysis" || activeTab === "competitor-analysis") && (
+          {activeTab === "competitor-url-analysis" && (
             <CompetitorUrlAnalysisModule
               siteConfig={config}
               onUpdateSiteConfig={onChange}
@@ -5955,18 +5972,33 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             />
           )}
 
-          {/* 4.2c-3 İÇERİK BOŞLUĞU HARİTASI (CONTENT GAP MAP & EKSİK ANAHTAR KELİMELER) */}
-          {(activeTab === "content-gap-map" || activeTab === "content-gap") && (
-            <ContentGapMap
+          {/* 4.2c-3 İÇERİK BOŞLUĞU HARİTASI & GEMINI CONTENT GAP ANALİZİ (CONTENT GAP MAP & EKSİK ANAHTAR KELİMELER) */}
+          {(activeTab === "content-gap-map" || activeTab === "content-gap" || activeTab === "content-gap-analysis") && (
+            <div className="space-y-6">
+              <ContentGapAnalysisTool
+                config={config}
+                onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              />
+              <ContentGapMap
+                siteConfig={config}
+                onUpdateSiteConfig={onChange}
+                onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
+              />
+            </div>
+          )}
+
+          {/* 4.2c-3b PAZAR PAYI RAKİP ANALİZ PANELİ (D3.JS PAZAR PAYI VE GOOGLE SIRALAMA KIYASLAMASI) */}
+          {(activeTab === ("market-share-panel" as CustomerPanelTab) || activeTab === "market-share-panel" || activeTab === "competitor-analysis") && (
+            <MarketShareCompetitorAnalysisPanel
               siteConfig={config}
               onUpdateSiteConfig={onChange}
               onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}
             />
           )}
 
-          {/* 4.2c-3b PAZAR PAYI RAKİP ANALİZ PANELİ (D3.JS PAZAR PAYI VE GOOGLE SIRALAMA KIYASLAMASI) */}
-          {(activeTab === ("market-share-panel" as CustomerPanelTab) || activeTab === "market-share-panel") && (
-            <MarketShareCompetitorAnalysisPanel
+          {/* 4.2c-3c RAKİP KIYASLAMA PANELİ (COMPETITOR COMPARISON DASHBOARD - D3.JS DOMAIN OTORİTESİ & KELİME YOĞUNLUĞU) */}
+          {(activeTab === "competitor-comparison" || activeTab === "competitor-comparison-dashboard") && (
+            <CompetitorComparisonDashboard
               siteConfig={config}
               onUpdateSiteConfig={onChange}
               onNavigateTab={(tab) => setActiveTab(tab as CustomerPanelTab)}

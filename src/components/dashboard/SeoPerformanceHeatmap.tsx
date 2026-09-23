@@ -22,7 +22,8 @@ import {
   Grid3X3, 
   Globe,
   SlidersHorizontal,
-  Info
+  Info,
+  Image as ImageIcon
 } from "lucide-react";
 import { SiteConfig } from "../../types";
 import { 
@@ -148,6 +149,55 @@ export const SeoPerformanceHeatmap: React.FC<SeoPerformanceHeatmapProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // High-Resolution PNG Heatmap Image Export handler
+  const handleExportHeatmapImage = () => {
+    const targetSvg = viewMode === "matrix" ? matrixSvgRef.current : regionalBarSvgRef.current;
+    if (!targetSvg) return;
+
+    try {
+      const svgString = new XMLSerializer().serializeToString(targetSvg);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const blobURL = URL.createObjectURL(svgBlob);
+      const img = new Image();
+
+      img.onload = () => {
+        const bbox = targetSvg.getBoundingClientRect();
+        const width = Math.max(800, Math.round(bbox.width * 2));
+        const height = Math.max(500, Math.round(bbox.height * 2));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+
+        if (ctx) {
+          ctx.fillStyle = "#0f172a"; // Match dashboard dark background
+          ctx.fillRect(0, 0, width, height);
+
+          // Watermark / title header on image
+          ctx.fillStyle = "#f8fafc";
+          ctx.font = "bold 20px sans-serif";
+          ctx.fillText(`SEO Performans Isı Haritası - ${config.companyName || "Sitemiz"} (${timeRange.toUpperCase()})`, 30, 40);
+
+          ctx.drawImage(img, 10, 50, width - 20, height - 70);
+
+          const pngUrl = canvas.toDataURL("image/png");
+          const dlLink = document.createElement("a");
+          dlLink.href = pngUrl;
+          dlLink.download = `seo-performance-heatmap-${(config.companyName || "site").replace(/[^a-zA-Z0-9]/g, "_")}-${timeRange}.png`;
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+        }
+        URL.revokeObjectURL(blobURL);
+      };
+
+      img.src = blobURL;
+    } catch (err) {
+      console.error("Heatmap image export failed:", err);
+    }
   };
 
   // ==========================================================================
@@ -737,6 +787,17 @@ export const SeoPerformanceHeatmap: React.FC<SeoPerformanceHeatmapProps> = ({
             >
               <Download className="w-4 h-4 text-emerald-400" />
               <span>CSV İndir</span>
+            </button>
+
+            {/* PNG Image Export */}
+            <button
+              type="button"
+              onClick={handleExportHeatmapImage}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+              title="Isı Haritası Görselini (PNG) İndir"
+            >
+              <ImageIcon className="w-4 h-4 text-cyan-400" />
+              <span>Görsel İndir (PNG)</span>
             </button>
           </div>
         </div>

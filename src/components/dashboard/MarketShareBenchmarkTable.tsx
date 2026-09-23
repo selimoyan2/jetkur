@@ -20,7 +20,8 @@ import {
   ChevronUp,
   Cpu,
   RefreshCw,
-  X
+  X,
+  BarChart3
 } from "lucide-react";
 import { SiteConfig, CustomerPanelTab, MarketShareCompetitorData } from "../../types";
 import {
@@ -244,6 +245,17 @@ export const MarketShareBenchmarkTable: React.FC<MarketShareBenchmarkTableProps>
               >
                 <Plus className="w-4 h-4" />
                 <span>Özel Rakip Ekle</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-nav-competitor-comparison-d3"
+                onClick={() => onNavigateTab && onNavigateTab("competitor-comparison")}
+                className="px-3.5 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="D3.js ile Domain Otoritesi ve Anahtar Kelime Yoğunluğu Kıyaslama Görünümünü Aç"
+              >
+                <BarChart3 className="w-4 h-4 text-blue-400" />
+                <span className="hidden sm:inline">D3 Kıyaslama Paneli</span>
               </button>
 
               <button

@@ -22,6 +22,8 @@ export const DEFAULT_ALERT_SETTINGS: SeoCompetitiveAlertSettings = {
   alertOnTop3Loss: true,
   alertOnHighVolumeOnly: false,
   minimumRankGap: 1,
+  alertOnVolumeSpike: true,
+  volumeSpikeThresholdPercent: 35,
   autoCheckIntervalHours: 6
 };
 
@@ -67,6 +69,66 @@ export function evaluateCompetitiveRankings(
     }
 
     const rankGap = userRank === null ? (20 - bestComp.rank) : (userRank - bestComp.rank);
+
+    // Calculate simulated volume surge metrics for realism
+    const surgeMultiplier = 1 + ((index * 29 + 45) % 115) / 100; // e.g. +45% to +145%
+    const prevVol = Math.round(volumeNum / surgeMultiplier);
+    const volumeChangePct = Math.round(((volumeNum - prevVol) / prevVol) * 100);
+    const sparkline = [
+      prevVol,
+      Math.round(prevVol * 1.12),
+      Math.round(prevVol * 1.25),
+      Math.round(prevVol * 1.5),
+      volumeNum
+    ];
+    const isExtremeSurge = volumeChangePct >= (settings.volumeSpikeThresholdPercent || 35);
+
+    // Scenario 0: Sudden Search Volume Spike & Competitor Dominance (volume_spike / competitor_volume_hijack)
+    if (settings.alertOnVolumeSpike && isExtremeSurge && bestComp.rank <= 3 && (userRank === null || userRank > bestComp.rank)) {
+      const timeDiffMinutes = (index * 12 + 15) % 120;
+      const detectedDate = new Date(now.getTime() - timeDiffMinutes * 60 * 1000).toISOString();
+
+      alerts.push({
+        id: `alert-vol-spike-${kr.id}`,
+        keyword: kr.keyword,
+        monthlyVolume: kr.monthlyVolume,
+        searchIntent: kr.searchIntent,
+        competitorName: bestComp.name,
+        competitorDomain: bestComp.domain,
+        userRank: userRank,
+        competitorRank: bestComp.rank,
+        previousUserRank: userRank,
+        previousCompetitorRank: bestComp.rank + 1,
+        rankDelta: rankGap,
+        userRankChange: userRank ? -1 : null,
+        competitorRankChange: +2,
+        volumeChangePercentage: volumeChangePct,
+        previousMonthlyVolume: `${(prevVol / 1000).toFixed(1)}K / ay`,
+        currentMonthlyVolume: kr.monthlyVolume,
+        volumeTrendSparkline: sparkline,
+        volatilityLevel: volumeChangePct > 90 ? "extreme" : "high",
+        competitorTrafficShare: `%${Math.min(75, 40 + (3 - bestComp.rank) * 15)} SERP Tıklama Payı`,
+        severity: volumeChangePct > 90 ? "critical" : "warning",
+        category: "volume_spike",
+        title: `⚡ Ani Hacim Patlaması (+%${volumeChangePct}): "${kr.keyword}" aramasında ${bestComp.name} trafiği topluyor!`,
+        description: `Bu anahtar kelimenin arama hacmi ${((prevVol / 1000)).toFixed(1)}K'dan ${kr.monthlyVolume}'e fırladı. ${bestComp.name} #${bestComp.rank} sırada konumlanarak artan arama talebini kendine çekiyor. Siteniz ${userRank ? `#${userRank}` : 'ilk 20 dışında'}.`,
+        trafficLossEstimate: `Tahmini -${Math.round(volumeNum * 0.24)} Aylık Kaçırılan Tıklama Riski`,
+        detectedAt: detectedDate,
+        isRead: false,
+        status: "active",
+        rootCause: `Bölgesel acil talep artışı ve rakibin "${kr.keyword}" odaklı başlık & şema güncellemeleri ani hacim dalgasında öne çıkmasını sağladı.`,
+        recommendedAction: {
+          type: "blog",
+          label: "Acil Karşı İçerik Yayınla",
+          description: `AI Blog Engine ile "${kr.keyword}" aramasına özel yüksek dönüşümlü makale oluşturarak artan hacimden pay alın.`,
+          targetTab: "ai-blog-engine",
+          prefillKeyword: kr.keyword,
+          prefillDraftTitle: `${config.city || 'Bölgesel'} En Hızlı ${kr.keyword} Çözümleri (2026 Güncel)`
+        },
+        serpFeatures: kr.serpFeatures
+      });
+      return;
+    }
 
     // Scenario 1: Competitor took #1 or user lost #1
     if (bestComp.rank === 1 && (userRank === null || userRank > 1)) {
@@ -541,3 +603,109 @@ export function simulateRankingShift(
 
   return { newAlert, updatedAlerts };
 }
+
+/**
+ * Simulates a sudden surge/spike in competitor keyword search volume and sends a real-time notification
+ */
+export function simulateVolumeSpikeAlert(
+  config: SiteConfig,
+  existingAlerts: SeoCompetitiveAlert[]
+): {
+  newAlert: SeoCompetitiveAlert;
+  updatedAlerts: SeoCompetitiveAlert[];
+} {
+  const fallback = generateFallbackCompetitiveSeo(config);
+  const comp = fallback.competitors[0] || { name: "Lider Rakip A", domain: "rakip1.com" };
+  const sectorTerm = config.sector || "Oto Kurtarıcı & Çekici";
+  const city = config.city || "İstanbul";
+
+  const volumeSurges = [
+    {
+      keyword: `En Yakın 7/24 ${sectorTerm}`,
+      prev: 2800,
+      curr: 6900,
+      pct: 146,
+      intent: "Acil / Yerel" as const,
+      sparkline: [2800, 3100, 3700, 5200, 6900]
+    },
+    {
+      keyword: `${city} Acil ${sectorTerm} Fiyatları 2026`,
+      prev: 1900,
+      curr: 4600,
+      pct: 142,
+      intent: "Ticari" as const,
+      sparkline: [1900, 2200, 2800, 3700, 4600]
+    },
+    {
+      keyword: `Garantili ${sectorTerm} Hizmeti ${city}`,
+      prev: 3200,
+      curr: 7800,
+      pct: 143,
+      intent: "İşlemsel" as const,
+      sparkline: [3200, 3600, 4400, 6100, 7800]
+    }
+  ];
+
+  // Pick random or cycle
+  const picked = volumeSurges[Math.floor(Math.random() * volumeSurges.length)];
+
+  const newAlert: SeoCompetitiveAlert = {
+    id: `alert-vol-spike-${Date.now()}`,
+    keyword: picked.keyword,
+    monthlyVolume: `${(picked.curr / 1000).toFixed(1)}K / ay`,
+    previousMonthlyVolume: `${(picked.prev / 1000).toFixed(1)}K / ay`,
+    currentMonthlyVolume: `${(picked.curr / 1000).toFixed(1)}K / ay`,
+    volumeChangePercentage: picked.pct,
+    volumeTrendSparkline: picked.sparkline,
+    volatilityLevel: "extreme",
+    competitorTrafficShare: "%64 SERP Trafik Payı",
+    searchIntent: picked.intent,
+    competitorName: comp.name,
+    competitorDomain: comp.domain,
+    userRank: 5,
+    competitorRank: 1,
+    previousUserRank: 3,
+    previousCompetitorRank: 2,
+    rankDelta: 4,
+    userRankChange: -2,
+    competitorRankChange: +1,
+    severity: "critical",
+    category: "volume_spike",
+    title: `⚡ [ANİ HACİM ALARMI +%${picked.pct}] "${picked.keyword}" aramasında arama hacmi fırladı!`,
+    description: `Arama hacmi son 48 saatte ${(picked.prev / 1000).toFixed(1)}K'dan ${(picked.curr / 1000).toFixed(1)}K'ya (+%${picked.pct}) fırladı! ${comp.name} #1 sırada tüm ani talebi toplarken, siteniz #5'e geriledi.`,
+    trafficLossEstimate: `Tahmini -${Math.round(picked.curr * 0.28)} Kaçırılan Aylık Tıklama Riski`,
+    detectedAt: new Date().toISOString(),
+    isRead: false,
+    status: "active",
+    rootCause: `Bölgesel acil talep patlaması ve rakibin zengin snippet / hızlı mobil açılış sayfası güncellemesi.`,
+    recommendedAction: {
+      type: "blog",
+      label: "Hemen Karşı Blog Yazısı Yayınla",
+      description: `AI Blog Engine ile "${picked.keyword}" aramasında anında otoriter ve yüksek CTR'lı bir makale oluşturun.`,
+      targetTab: "ai-blog-engine",
+      prefillKeyword: picked.keyword,
+      prefillDraftTitle: `${city} ${picked.keyword} - 7/24 Kesintisiz Profesyonel Çözümler`
+    }
+  };
+
+  const updatedAlerts = [newAlert, ...existingAlerts];
+  saveCompetitiveAlerts(updatedAlerts);
+
+  return { newAlert, updatedAlerts };
+}
+
+/**
+ * Dispatches audio chime, in-app toast, and native browser push notification
+ */
+export async function dispatchCompetitiveAlertNotification(
+  alert: SeoCompetitiveAlert,
+  settings: SeoCompetitiveAlertSettings
+): Promise<void> {
+  if (settings.audioCueEnabled) {
+    playAlertChime();
+  }
+  if (settings.browserPushEnabled) {
+    await triggerBrowserPushNotification(alert);
+  }
+}
+

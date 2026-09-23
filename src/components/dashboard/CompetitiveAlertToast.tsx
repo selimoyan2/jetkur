@@ -14,8 +14,9 @@ import {
 export interface CompetitiveAlertToastProps {
   alert: SeoCompetitiveAlert | null;
   onClose: () => void;
-  onOpenAlertCenter: () => void;
+  onOpenAlertCenter?: () => void;
   onTakeAction?: (alert: SeoCompetitiveAlert) => void;
+  onActionClick?: (alert: SeoCompetitiveAlert) => void;
   autoCloseDelay?: number; // ms, default 10000
 }
 
@@ -24,6 +25,7 @@ export const CompetitiveAlertToast: React.FC<CompetitiveAlertToastProps> = ({
   onClose,
   onOpenAlertCenter,
   onTakeAction,
+  onActionClick,
   autoCloseDelay = 10000
 }) => {
   const [progress, setProgress] = useState(100);
@@ -77,7 +79,11 @@ export const CompetitiveAlertToast: React.FC<CompetitiveAlertToastProps> = ({
               <span>SEO Rekabet Alarmı</span>
             </span>
             <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/30">
-              {alert.severity === "critical" ? "Kritik Gerileme" : "Sıralama Değişimi"}
+              {alert.category === "volume_spike"
+                ? `⚡ Hacim Patlaması (+%${alert.volumeChangePercentage || 120})`
+                : alert.severity === "critical"
+                ? "Kritik Gerileme"
+                : "Sıralama Değişimi"}
             </span>
           </div>
 
@@ -129,9 +135,9 @@ export const CompetitiveAlertToast: React.FC<CompetitiveAlertToastProps> = ({
             type="button"
             onClick={() => {
               onClose();
-              onOpenAlertCenter();
+              if (onOpenAlertCenter) onOpenAlertCenter();
             }}
-            className="text-xs text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-colors"
+            className="text-xs text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-colors cursor-pointer"
           >
             <span>Tüm Alarmları Gör</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -143,7 +149,9 @@ export const CompetitiveAlertToast: React.FC<CompetitiveAlertToastProps> = ({
               onClose();
               if (onTakeAction) {
                 onTakeAction(alert);
-              } else {
+              } else if (onActionClick) {
+                onActionClick(alert);
+              } else if (onOpenAlertCenter) {
                 onOpenAlertCenter();
               }
             }}

@@ -851,6 +851,7 @@ export interface SiteConfig {
   whatsapp: string;
   email: string;
   address: string;
+  logo?: string;
   googleMapsEmbed?: string;
   workingHours: string;
   customDomain?: string;
@@ -1829,6 +1830,8 @@ export type CustomerPanelTab =
   | "seo-competitive-strategy"
   | "competitor-analysis"
   | "competitor-url-analysis"
+  | "competitor-comparison"
+  | "competitor-comparison-dashboard"
   | "content-gap-map"
   | "content-gap"
   | "market-share-panel"
@@ -2750,6 +2753,173 @@ export interface CompetitiveSwotAnalysis {
   searchGroundingSources?: GroundingSourceItem[];
 }
 
+export type ActionTaskPriority = "Kritik" | "Yüksek" | "Orta";
+export type ActionTaskCategory = "Teknik SEO" | "İçerik Stratejisi" | "Yerel SEO & Harita" | "Otorite & Backlink" | "Dönüşüm (CRO)";
+export type ActionTaskImpact = "Çok Yüksek" | "Yüksek" | "Orta";
+export type ActionTaskEffort = "Düşük" | "Orta" | "Yüksek";
+
+export interface ActionPlanTask {
+  id: string;
+  month: 1 | 2 | 3;
+  monthLabel: "1. Ay (Gün 1-30)" | "2. Ay (Gün 31-60)" | "3. Ay (Gün 61-90)";
+  title: string;
+  description: string;
+  category: ActionTaskCategory;
+  priority: ActionTaskPriority;
+  impact: ActionTaskImpact;
+  effort: ActionTaskEffort;
+  targetKpi: string;
+  radarAxisAffected: "Hız & CWV" | "Domain Otoritesi" | "İçerik Derinliği" | "Mobil UX" | "Yerel Varlık" | "Dönüşüm Oranı";
+  competitorGapAddressed: string;
+  suggestedSteps: string[];
+  estimatedDaysToComplete: number;
+  completed?: boolean;
+}
+
+export interface ContentOptimizationDirective {
+  id: string;
+  pageTarget: string;
+  currentStatus: string;
+  targetKeywords: string[];
+  recommendedWordCount: number;
+  hierarchyAction: string;
+  lsiAdditions: string[];
+  paaQuestionsToAdd: string[];
+  expectedImpact: string;
+}
+
+export interface StrategicActionPlan {
+  analyzedAt: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  domain: string;
+  radarScoresSnapshot: {
+    siteOverall: number;
+    competitorAvgOverall: number;
+    gapSummary: string;
+    axes: { name: string; userScore: number; competitorAvg: number; status: "superior" | "competitive" | "lagging" }[];
+  };
+  executiveSummary: string;
+  monthlyFocus: {
+    month1Focus: string;
+    month2Focus: string;
+    month3Focus: string;
+  };
+  tasks: ActionPlanTask[];
+  contentDirectives: ContentOptimizationDirective[];
+  quickWins: string[];
+  searchGroundingSources?: { title: string; url: string }[];
+}
+
+export type SearchIntentType = "Bilgilendirici" | "Ticari / Karar" | "Acil / İşlemsel" | "Yerel Keşif";
+export type ContentFormatType = "Kapsamlı Rehber" | "Soru & Cevap (PAA)" | "Fiyat & Karşılaştırma" | "Nasıl Yapılır (How-To)" | "Yerel Semt Listesi";
+
+export interface CompetitorContentExpansionIdea {
+  id: string;
+  blogTitle: string;
+  metaTitle: string;
+  metaDescription: string;
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  searchIntent: SearchIntentType;
+  estimatedMonthlySearchVolume: string;
+  competitorBenchmarkSource: string;
+  competitorGapToExploit: string;
+  suggestedHeadings: string[];
+  targetAudience: string;
+  contentFormat: ContentFormatType;
+  difficulty: "Kolay" | "Orta" | "Zor";
+  expectedTrafficShare: string;
+  priorityScore: number;
+}
+
+export interface CompetitorContentExpansionReport {
+  analyzedAt: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  domain: string;
+  executiveSummary: string;
+  topCompetitorInsights: {
+    name: string;
+    topArticleTitle: string;
+    estimatedTraffic: string;
+    weaknessesToBeat: string;
+  }[];
+  contentIdeas: CompetitorContentExpansionIdea[];
+  searchGroundingSources?: { title: string; url: string }[];
+}
+
+export type AdEfficiencyRating = "Çok Yüksek" | "Yüksek" | "Orta" | "Düşük / İsraf";
+
+export interface CompetitorAdBenchmark {
+  id: string;
+  competitorName: string;
+  domain: string;
+  isUser: boolean;
+  estimatedMonthlyAdSpend: number; // in TRY
+  estimatedCpc: number; // in TRY
+  estimatedPaidClicks: number;
+  paidSearchShare: number; // percentage (e.g. 34%)
+  primaryAdKeywords: string[];
+  roasScore: number; // e.g. 3.6x
+  efficiencyRating: AdEfficiencyRating;
+  wastedSpendEstimate: number; // in TRY
+  strategyObservation: string;
+  topAdCopies: {
+    headline: string;
+    description: string;
+    displayUrl: string;
+    adExtensions: string[];
+  }[];
+}
+
+export interface AdEfficiencyChannelBreakdown {
+  channel: "Google Search (Arama Ağı)" | "Google Haritalar (Yerel Pin Reklamları)" | "Meta (Instagram / Facebook)" | "TikTok & YouTube Video";
+  competitorSpendShare: number; // percentage
+  userRecommendedSpendShare: number; // percentage
+  cpcAverage: number;
+  recommendation: string;
+}
+
+export interface CpcArbitrageKeyword {
+  keyword: string;
+  avgCpc: number; // in TRY
+  monthlySearchVolume: string;
+  competitorTotalSpendEstimate: string;
+  organicOpportunity: string;
+  recommendationType: "SEO ile Tasarruf Et" | "Düşük Teklifle Yakala" | "Negatife Al";
+}
+
+export interface AdWastePreventionTactic {
+  title: string;
+  estimatedSaving: string;
+  riskDescription: string;
+  actionProtocol: string;
+  negativeKeywordsToExclude?: string[];
+}
+
+export interface CompetitorAdSpendEfficiencyReport {
+  analyzedAt: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  domain: string;
+  marketSummary: {
+    totalEstimatedMonthlyAdSpend: number; // in TRY
+    avgIndustryCpc: number; // in TRY
+    totalCompetitorWastedSpend: number; // in TRY
+    potentialMonthlySavingsForUser: number; // in TRY
+    avgRoasAcrossCompetitors: number;
+  };
+  competitors: CompetitorAdBenchmark[];
+  channelDistribution: AdEfficiencyChannelBreakdown[];
+  cpcArbitrageOpportunities: CpcArbitrageKeyword[];
+  wastePreventionTactics: AdWastePreventionTactic[];
+  searchGroundingSources?: { title: string; url: string }[];
+}
+
 export interface CompetitiveSeoInsightData {
   analyzedAt: string;
   sector: string;
@@ -2785,7 +2955,11 @@ export type CompetitiveAlertCategory =
   | "lost_top3"              // User fell out of Google Top 3 / Local 3-Pack
   | "lost_number_one"        // User was #1, now competitor took #1
   | "competitor_surge"       // Competitor climbed +3 or more spots rapidly
-  | "high_volume_threat";    // High search volume keyword where competitor ranks top 3 and user is trailing
+  | "high_volume_threat"     // High search volume keyword where competitor ranks top 3 and user is trailing
+  | "volume_spike"           // Sudden surge/spike in competitor keyword search volume (+50% or higher)
+  | "volume_drop"            // Sudden collapse in search volume or demand shift
+  | "competitor_volume_hijack" // Competitor captured rank #1 during a high-volume surge
+  | "seasonal_surge";        // Seasonal / viral search volume explosion
 
 export interface SeoCompetitiveAlertAction {
   type: "blog" | "meta" | "schema" | "speed" | "backlink" | "reviews";
@@ -2810,6 +2984,15 @@ export interface SeoCompetitiveAlert {
   rankDelta: number;                // Difference (positive = competitor is ahead)
   userRankChange?: number;          // e.g. -2 (dropped 2 spots)
   competitorRankChange?: number;    // e.g. +3 (gained 3 spots)
+  // Sudden search volume volatility fields
+  volumeChangePercentage?: number;  // e.g. +145% or -40%
+  previousMonthlyVolume?: string;   // e.g. "3.2K / ay"
+  currentMonthlyVolume?: string;    // e.g. "7.8K / ay"
+  volumeTrendSparkline?: number[];  // e.g. [3200, 3500, 4200, 5900, 7800]
+  volatilityLevel?: "extreme" | "high" | "moderate";
+  competitorTrafficShare?: string;  // e.g. "%58 SERP Trafik Payı"
+  notificationSent?: boolean;
+  notificationType?: "browser_push" | "in_app" | "sound" | "all";
   severity: CompetitiveAlertSeverity;
   category: CompetitiveAlertCategory;
   title: string;                    // e.g. "Rakip 'İstanbul Tesisat' aramasında #1'e yükseldi ve sitenizi geçti"
@@ -2831,6 +3014,9 @@ export interface SeoCompetitiveAlertSettings {
   alertOnTop3Loss: boolean;           // Trigger critical alert if lost Top 3
   alertOnHighVolumeOnly: boolean;     // Only alert if search volume > 2000
   minimumRankGap: number;             // Only alert if competitor is ahead by at least X spots (default 1)
+  // Search Volume Volatility Settings
+  alertOnVolumeSpike?: boolean;       // Alert when search volume suddenly spikes
+  volumeSpikeThresholdPercent?: number; // e.g. 30, 50, 100 (% increase threshold)
   lastCheckedAt?: string;
   autoCheckIntervalHours: number;     // e.g. 6 or 24
 }

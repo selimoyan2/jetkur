@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as d3 from "d3";
 import html2pdf from "html2pdf.js";
 import { motion, AnimatePresence } from "motion/react";
@@ -39,13 +39,30 @@ import {
   Sliders,
   Compass,
   MapPin,
-  PieChart
+  PieChart,
+  Radio,
+  BellRing,
+  Table,
+  MousePointerClick,
+  Activity,
+  SlidersHorizontal,
+  Coins
 } from "lucide-react";
-import { SiteConfig, CompetitiveStrategyEntity, CompetitiveRadarAxisDef } from "../types";
+import { 
+  SiteConfig, 
+  CompetitiveStrategyEntity, 
+  CompetitiveRadarAxisDef,
+  SeoCompetitiveAlert,
+  CompetitiveAlertSummary
+} from "../types";
 import { 
   buildCompetitiveStrategyData, 
   EXTENDED_RADAR_AXES 
 } from "../utils/competitiveStrategyGenerator";
+import { 
+  loadCompetitiveAlerts, 
+  calculateAlertSummary 
+} from "../utils/seoCompetitiveAlertEngine";
 import { WeeklyQuickSeoWins } from "./dashboard/WeeklyQuickSeoWins";
 import { CompetitiveAnalysisReport } from "./dashboard/CompetitiveAnalysisReport";
 import { GlobalSeoAgentWorkspace } from "./dashboard/GlobalSeoAgentWorkspace";
@@ -55,6 +72,25 @@ import { MarketShareBenchmarkTable } from "./dashboard/MarketShareBenchmarkTable
 import { LocalSeoLocationMap } from "./dashboard/LocalSeoLocationMap";
 import { MarketShareCompetitorAnalysisPanel } from "./dashboard/MarketShareCompetitorAnalysisPanel";
 import { CompetitiveKeywordRankingTable } from "./dashboard/CompetitiveKeywordRankingTable";
+import { InteractiveCompetitorComparisonTable } from "./dashboard/InteractiveCompetitorComparisonTable";
+import { generateFallbackCompetitiveSeo } from "../utils/competitiveSeoUtils";
+import { StrategicPdfExportModal } from "./dashboard/StrategicPdfExportModal";
+import { RealtimeCompetitorKeywordBenchmark } from "./dashboard/RealtimeCompetitorKeywordBenchmark";
+import { CompetitorSeoPerformanceRadarModule } from "./dashboard/CompetitorSeoPerformanceRadarModule";
+import { SeoCompetitiveAlertModule } from "./dashboard/SeoCompetitiveAlertModule";
+import { SeoCompetitiveAlertWidget } from "./dashboard/SeoCompetitiveAlertWidget";
+import { CompetitiveAlertToast } from "./dashboard/CompetitiveAlertToast";
+import { SectoralSeoStrategySummaryCard } from "./dashboard/SectoralSeoStrategySummaryCard";
+import { D3FutureSeoPerformancePredictor } from "./dashboard/D3FutureSeoPerformancePredictor";
+import { CompetitorPriceStrategyCard } from "./dashboard/CompetitorPriceStrategyCard";
+import { GlobalSeoHeatmapWidget } from "./dashboard/GlobalSeoHeatmapWidget";
+import { CustomizableStrategicReportEditorModal } from "./dashboard/CustomizableStrategicReportEditorModal";
+import { CompetitorSeoScorecardWidget } from "./dashboard/CompetitorSeoScorecardWidget";
+import { CompetitorSwotMatrixCard } from "./dashboard/CompetitorSwotMatrixCard";
+import { CompetitorContentStrategyComparator } from "./dashboard/CompetitorContentStrategyComparator";
+import { StrategicActionPlannerCard } from "./dashboard/StrategicActionPlannerCard";
+import { CompetitorContentExpansionCard } from "./dashboard/CompetitorContentExpansionCard";
+import { CompetitorAdEfficiencyCard } from "./dashboard/CompetitorAdEfficiencyCard";
 
 // ============================================================================
 // DATA CONTRACTS
@@ -176,11 +212,110 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
   const competitors = entities.filter(e => !e.isUser);
   const marketLeader = competitors.find(c => c.rank === 1) || competitors[0];
 
+  // Recent SEO Competitive Alerts & Summary for the Comprehensive PDF
+  const [recentAlerts, setRecentAlerts] = useState<SeoCompetitiveAlert[]>(() => {
+    return loadCompetitiveAlerts(activeConfig);
+  });
+
+  // Active push-style notification toast state for Strategic Analysis view
+  const [activePushAlert, setActivePushAlert] = useState<SeoCompetitiveAlert | null>(null);
+
+  useEffect(() => {
+    const loaded = loadCompetitiveAlerts(activeConfig);
+    setRecentAlerts(loaded);
+  }, [activeConfig]);
+
+  const alertSummary = useMemo(() => {
+    return calculateAlertSummary(recentAlerts, activeConfig);
+  }, [recentAlerts, activeConfig]);
+
+  // Handle incoming real-time alerts from the SEO Competitive Alert Widget
+  const handleAlertTriggered = useCallback((alert: SeoCompetitiveAlert) => {
+    setActivePushAlert(alert);
+    setRecentAlerts(prev => [alert, ...prev.filter(a => a.id !== alert.id)]);
+  }, []);
+
+  // Handle one-click action from the floating push toast
+  const handleToastAction = useCallback((alert: SeoCompetitiveAlert) => {
+    setActivePushAlert(null);
+    if (alert.recommendedAction.type === "blog") {
+      if (onNavigateTab) {
+        onNavigateTab("customer-panel");
+        return;
+      }
+    }
+    setActiveStrategicTab("seo-competitive-alert");
+    setTimeout(() => {
+      const el = document.getElementById("seo-rekabet-alarmi-section");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }, 150);
+  }, [onNavigateTab]);
+
+  // Competitor Keyword Rankings dataset for the view and the printable PDF report
+  const pdfKeywordRankings = useMemo(() => {
+    const compSeo = generateFallbackCompetitiveSeo(activeConfig);
+    return compSeo.keywordRankings || [];
+  }, [activeConfig]);
+
+  // Radar SVG Math for Printable PDF
+  const radarSvgConfig = useMemo(() => {
+    const cx = 220;
+    const cy = 175;
+    const radius = 115;
+    const count = sixAxes.length;
+
+    const getPoints = (metrics: Record<string, number>) => {
+      return sixAxes.map((axis, i) => {
+        const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
+        const val = Math.max(10, Math.min(100, metrics[axis.key] || 0));
+        const r = (val / 100) * radius;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+    };
+
+    const axisPoints = sixAxes.map((axis, i) => {
+      const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
+      const xOuter = cx + radius * Math.cos(angle);
+      const yOuter = cy + radius * Math.sin(angle);
+      const xLabel = cx + (radius + 24) * Math.cos(angle);
+      const yLabel = cy + (radius + 24) * Math.sin(angle);
+      const cosA = Math.cos(angle);
+      const textAnchor = cosA > 0.3 ? "start" : cosA < -0.3 ? "end" : "middle";
+      return {
+        key: axis.key,
+        label: axis.shortLabel || axis.label,
+        xOuter,
+        yOuter,
+        xLabel,
+        yLabel,
+        textAnchor
+      };
+    });
+
+    const webRings = [0.2, 0.4, 0.6, 0.8, 1.0].map(ratio => {
+      const points = sixAxes.map((_, i) => {
+        const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
+        const r = radius * ratio;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+      return { ratio, points, percentage: Math.round(ratio * 100) };
+    });
+
+    return { cx, cy, radius, getPoints, axisPoints, webRings };
+  }, [sixAxes]);
+
   // Active strategic module tab
-  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "seo-competitor-comparison" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
+  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "seo-rakip-puan-karti" | "seo-swot-matrisi" | "icerik-stratejisi-kiyaslayici" | "stratejik-aksiyon-planlayici" | "icerik-gelistirme-onerileri" | "reklam-verimliligi-analiz" | "sektorel-seo-ozet" | "sektorel-rekabet-analiz" | "seo-competitive-alert" | "competitor-seo-performance-radar" | "keyword-benchmark-radar" | "rakip-kiyaslama-tablosu" | "seo-competitor-comparison" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [pdfSuccessNotice, setPdfSuccessNotice] = useState<boolean>(false);
+  const [isAiPdfModalOpen, setIsAiPdfModalOpen] = useState<boolean>(false);
+  const [isCustomReportModalOpen, setIsCustomReportModalOpen] = useState<boolean>(false);
   const printableReportRef = useRef<HTMLDivElement>(null);
+  const companyLogoUrl = activeConfig.logo || activeConfig.header?.logoImage;
 
   // --------------------------------------------------------------------------
   // 3. GOOGLE SEARCH TRENDS & RADAR STATE
@@ -262,13 +397,20 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
     setPdfSuccessNotice(false);
 
     try {
+      // Refresh alert logs directly from storage to capture latest simulated/real events
+      const freshAlerts = loadCompetitiveAlerts(activeConfig);
+      setRecentAlerts(freshAlerts);
+
+      // Brief delay to ensure React commits state to DOM
+      await new Promise(r => setTimeout(r, 60));
+
       const element = printableReportRef.current;
       const cleanCompany = (activeConfig.companyName || "Sirket").replace(/[^a-zA-Z0-9]/g, "_");
       const dateTag = new Date().toISOString().slice(0, 10);
 
       const options = {
         margin: [8, 8, 8, 8] as [number, number, number, number],
-        filename: `SEO_Rekabet_Analiz_Raporu_${cleanCompany}_${dateTag}.pdf`,
+        filename: `${cleanCompany}_SEO_Radar_ve_Rakip_Metrikleri_Raporu_${dateTag}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
         enableLinks: true,
         html2canvas: {
@@ -278,12 +420,13 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           letterRendering: true,
           windowWidth: 1080
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const }
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] }
       };
 
       await html2pdf().set(options).from(element).save();
       setPdfSuccessNotice(true);
-      setTimeout(() => setPdfSuccessNotice(false), 4000);
+      setTimeout(() => setPdfSuccessNotice(false), 5000);
     } catch (err) {
       console.error("PDF generation failed:", err);
       // Fallback to browser print dialog
@@ -406,6 +549,117 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
             <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
+                id="banner-sektorel-seo-ozet-btn"
+                onClick={() => {
+                  setActiveStrategicTab("sektorel-seo-ozet");
+                  setTimeout(() => {
+                    const el = document.getElementById("sektorel-seo-strateji-ozet-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-500/40 to-purple-500/40 border border-indigo-400/70 text-indigo-100 text-xs font-black tracking-wide hover:from-indigo-500/60 hover:to-purple-500/60 transition-all cursor-pointer shadow-xs ring-1 ring-white/10"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>Sektörel SEO Strateji Özet Kartı (Gemini AI)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500 text-white text-[10px] font-mono font-bold">
+                  30 Gün
+                </span>
+              </button>
+              <button
+                type="button"
+                id="banner-future-seo-predictor-btn"
+                onClick={() => {
+                  setActiveStrategicTab("gelecek-seo-tahmincisi");
+                  setTimeout(() => {
+                    const el = document.getElementById("gelecek-seo-performans-tahmincisi-container");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 text-xs font-black tracking-wide hover:bg-cyan-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+                <span>Gelecek SEO Tahmincisi (D3.js 6 Ay)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-cyan-600 text-white text-[10px] font-mono font-bold">
+                  D3.js
+                </span>
+              </button>
+              <button
+                type="button"
+                id="banner-price-competitiveness-btn"
+                onClick={() => {
+                  setActiveStrategicTab("fiyat-rekabeti");
+                  setTimeout(() => {
+                    const el = document.getElementById("fiyat-rekabeti-strateji-karti-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-200 text-xs font-black tracking-wide hover:bg-emerald-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <Scale className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
+                <span>Fiyat Rekabeti (Gemini AI)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px] font-mono font-bold">
+                  Canlı Takip
+                </span>
+              </button>
+              <button
+                type="button"
+                id="banner-global-heatmap-btn"
+                onClick={() => {
+                  setActiveStrategicTab("global-isi-haritasi");
+                  setTimeout(() => {
+                    const el = document.getElementById("global-seo-heatmap-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 text-xs font-black tracking-wide hover:bg-cyan-500/40 transition-all cursor-pointer shadow-xs"
+                title="Hedef pazarlarda rakip dijital ayak izi ve Global SEO Isı Haritası"
+              >
+                <Globe className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+                <span>Global SEO Isı Haritası (Gemini AI)</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-cyan-600 text-white text-[10px] font-mono font-bold">
+                  Canlı Isı Haritası
+                </span>
+              </button>
+              <button
+                type="button"
+                id="banner-seo-competitive-alert-btn"
+                onClick={() => {
+                  setActiveStrategicTab("seo-competitive-alert");
+                  setTimeout(() => {
+                    const el = document.getElementById("seo-rekabet-alarmi-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/30 border border-rose-400/60 text-rose-200 text-xs font-black tracking-wide hover:bg-rose-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <Flame className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                <span>SEO Rekabet Alarmı (Canlı Widget)</span>
+                {alertSummary.unreadCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                    {alertSummary.unreadCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                id="banner-rakip-kiyaslama-tablosu-btn"
+                onClick={() => setActiveStrategicTab("rakip-kiyaslama-tablosu")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 text-xs font-black tracking-wide hover:bg-indigo-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <Table className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Rakip Kıyaslama Tablosu</span>
+              </button>
+              <button
+                type="button"
+                id="banner-sektorel-rekabet-analiz-btn"
+                onClick={() => setActiveStrategicTab("sektorel-rekabet-analiz")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/30 border border-violet-400/50 text-violet-200 text-xs font-black tracking-wide hover:bg-violet-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <Radio className="w-3.5 h-3.5 text-violet-300 animate-pulse" />
+                <span>Sektörel Rekabet Analiz (D3.js Radar)</span>
+              </button>
+              <button
+                type="button"
                 id="banner-market-share-panel-btn"
                 onClick={() => setActiveStrategicTab("market-share-panel")}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 text-xs font-black tracking-wide hover:bg-indigo-500/40 transition-all cursor-pointer shadow-xs"
@@ -483,6 +737,16 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
+              id="open-strategic-ai-pdf-modal-btn"
+              onClick={() => setIsAiPdfModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 transition-all shadow-lg active:scale-95 cursor-pointer ring-1 ring-indigo-400/40"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>Stratejik PDF Raporu Oluştur (Gemini AI)</span>
+            </button>
+
+            <button
+              type="button"
               id="print-stakeholder-report-btn"
               onClick={handlePrint}
               className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
@@ -497,7 +761,8 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
               id="export-stakeholder-pdf-btn"
               onClick={handleExportStakeholderPdf}
               disabled={isGeneratingPdf}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 transition-all shadow-lg active:scale-95 cursor-pointer ring-1 ring-blue-400/40 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs sm:text-sm font-black flex items-center gap-2.5 transition-all shadow-xl active:scale-95 cursor-pointer ring-2 ring-blue-400/50 hover:ring-blue-300 disabled:opacity-50"
+              title="Rakiplerin SEO metriklerini ve D3.js radar verilerini içeren şirket logolu profesyonel PDF raporunu indir"
             >
               {isGeneratingPdf ? (
                 <>
@@ -506,8 +771,26 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
                 </>
               ) : (
                 <>
-                  <FileDown className="w-4 h-4 text-cyan-200" />
-                  <span>Paydaş Raporunu İndir (PDF)</span>
+                  {companyLogoUrl ? (
+                    <img 
+                      src={companyLogoUrl} 
+                      alt="" 
+                      className="w-6 h-6 rounded-lg object-contain bg-white p-0.5 border border-white/40 shadow-xs shrink-0" 
+                    />
+                  ) : (
+                    <span className="w-6 h-6 rounded-lg bg-white/20 text-white font-black text-xs flex items-center justify-center border border-white/40 shadow-xs shrink-0">
+                      {(activeConfig.companyName || "S").charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <div className="flex flex-col text-left leading-tight">
+                    <span className="flex items-center gap-1.5 font-black text-xs sm:text-sm text-white">
+                      <FileDown className="w-3.5 h-3.5 text-cyan-200" />
+                      <span>Şirket Logolu PDF Raporu</span>
+                    </span>
+                    <span className="text-[10px] text-blue-200/90 font-normal">
+                      D3 Radar & Rakip Metrikleri
+                    </span>
+                  </div>
                 </>
               )}
             </button>
@@ -518,9 +801,60 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
         {pdfSuccessNotice && (
           <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-400" />
-            <span>A4 Stakeholder PDF raporu başarıyla indirildi.</span>
+            <span>SEO Radarı ve Rekabet Alarmları Kapsamlı PDF Raporu başarıyla indirildi.</span>
           </div>
         )}
+
+        {/* Live Competitor Ranking Shift Ticker Ribbon */}
+        <div 
+          id="strategic-live-competitor-ticker"
+          className="bg-slate-900/90 border border-indigo-700/50 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs shadow-lg"
+        >
+          <div className="flex items-center gap-3 overflow-hidden">
+            <span className="flex h-2.5 w-2.5 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+            </span>
+            <span className="font-mono text-emerald-400 font-black uppercase tracking-wider text-[11px] shrink-0 flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+              <span>Canlı SERP Radarı:</span>
+            </span>
+            <div className="text-slate-200 truncate text-xs">
+              {recentAlerts[0] ? (
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-black text-amber-300">{recentAlerts[0].competitorName}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="font-bold text-white">"{recentAlerts[0].keyword}"</span>
+                  <span className="text-slate-400">teriminde</span>
+                  <span className="px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-300 font-mono font-bold text-[11px] border border-rose-500/40">
+                    #{recentAlerts[0].competitorRank} {recentAlerts[0].competitorRankChange ? `(+${recentAlerts[0].competitorRankChange})` : 'Önde'}
+                  </span>
+                  <span className="text-amber-400/90 font-medium">({recentAlerts[0].trafficLossEstimate})</span>
+                </span>
+              ) : (
+                <span>Tüm kritik anahtar kelimeler taranıyor, sıralama hareketleri canlı izleniyor.</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              id="ticker-open-alerts-btn"
+              onClick={() => {
+                setActiveStrategicTab("seo-competitive-alert");
+                setTimeout(() => {
+                  const el = document.getElementById("seo-rekabet-alarmi-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }, 100);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              <BellRing className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>Alarmları İncele ({alertSummary.activeCount})</span>
+            </button>
+          </div>
+        </div>
 
         {/* 4 Key Benchmarking Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
@@ -587,16 +921,241 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
 
           <button
             type="button"
-            id="strategic-tab-seo-competitor-comparison"
-            onClick={() => setActiveStrategicTab("seo-competitor-comparison")}
+            id="strategic-tab-seo-rakip-puan-karti"
+            onClick={() => setActiveStrategicTab("seo-rakip-puan-karti")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeStrategicTab === "seo-competitor-comparison"
+              activeStrategicTab === "seo-rakip-puan-karti"
+                ? "bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 text-white shadow-xs ring-2 ring-cyan-300"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>SEO Rakip Puan Kartı</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-700 border border-cyan-500/30">
+              Otorite & Backlink & Trafik
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-seo-swot-matrisi"
+            onClick={() => setActiveStrategicTab("seo-swot-matrisi")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "seo-swot-matrisi"
+                ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white shadow-xs ring-2 ring-purple-300"
+                : "text-slate-600 hover:text-purple-700 hover:bg-purple-50"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
+            <span>SEO & Pazar SWOT Matrisi</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-700 border border-purple-500/30">
+              Gemini 3.8 Flash
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-icerik-stratejisi-kiyaslayici"
+            onClick={() => setActiveStrategicTab("icerik-stratejisi-kiyaslayici")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "icerik-stratejisi-kiyaslayici"
+                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white shadow-xs ring-2 ring-blue-300"
+                : "text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+            <span>İçerik Stratejisi Kıyaslayıcı</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-500/20 text-blue-700 border border-blue-500/30">
+              En Çok Trafik Çeken Sayfalar
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-stratejik-aksiyon-planlayici"
+            onClick={() => setActiveStrategicTab("stratejik-aksiyon-planlayici")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "stratejik-aksiyon-planlayici"
+                ? "bg-gradient-to-r from-indigo-600 via-blue-600 to-emerald-600 text-white shadow-xs ring-2 ring-indigo-300"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+            <span>Stratejik Aksiyon Planlayıcı</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-500/20 text-indigo-700 border border-indigo-500/30">
+              3 Aylık Büyüme & Gemini
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-icerik-gelistirme-onerileri"
+            onClick={() => setActiveStrategicTab("icerik-gelistirme-onerileri")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "icerik-gelistirme-onerileri"
+                ? "bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-xs ring-2 ring-cyan-300"
+                : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-50"
+            }`}
+          >
+            <MousePointerClick className="w-3.5 h-3.5 text-cyan-500 animate-pulse" />
+            <span>İçerik Geliştirme Önerileri</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-700 border border-cyan-500/30">
+              Blog & Meta Taslakları
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-reklam-verimliligi-analiz"
+            onClick={() => setActiveStrategicTab("reklam-verimliligi-analiz")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "reklam-verimliligi-analiz"
+                ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-xs ring-2 ring-emerald-300"
+                : "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <Coins className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+            <span>Reklam Verimliliği Analizi</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-700 border border-emerald-500/30">
+              Bütçe & ROAS
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-sektorel-seo-ozet"
+            onClick={() => setActiveStrategicTab("sektorel-seo-ozet")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "sektorel-seo-ozet"
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xs ring-2 ring-indigo-300"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+            <span>Sektörel SEO Strateji Özet Kartı</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-500/20 text-indigo-700 border border-indigo-500/30">
+              Gemini + D3 Radar
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-future-seo-predictor"
+            onClick={() => setActiveStrategicTab("gelecek-seo-tahmincisi")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "gelecek-seo-tahmincisi"
+                ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-xs ring-2 ring-cyan-300"
+                : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-50"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-500 animate-pulse" />
+            <span>Gelecek SEO Tahmincisi</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-700 border border-cyan-500/30">
+              D3.js 6 Ay
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-price-competitiveness"
+            onClick={() => setActiveStrategicTab("fiyat-rekabeti")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "fiyat-rekabeti"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs ring-2 ring-emerald-300"
+                : "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+            <span>Fiyat Rekabeti</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-700 border border-emerald-500/30">
+              Gemini AI
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-global-seo-heatmap"
+            onClick={() => setActiveStrategicTab("global-isi-haritasi")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "global-isi-haritasi" || activeStrategicTab === "global-seo-heatmap"
+                ? "bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-xs ring-2 ring-cyan-300"
+                : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-50"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-500 animate-pulse" />
+            <span>Global SEO Isı Haritası</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-700 border border-cyan-500/30">
+              Gemini + Ayak İzi
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-sektorel-rekabet-analiz"
+            onClick={() => setActiveStrategicTab("sektorel-rekabet-analiz")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "sektorel-rekabet-analiz" || activeStrategicTab === "keyword-benchmark-radar"
+                ? "bg-violet-600 text-white shadow-xs ring-2 ring-violet-300"
+                : "text-slate-600 hover:text-violet-700 hover:bg-violet-50"
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+            <span>Sektörel Rekabet Analiz</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Canlı D3.js Radar
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-seo-competitive-alert"
+            onClick={() => setActiveStrategicTab("seo-competitive-alert")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "seo-competitive-alert"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-amber-700 hover:bg-amber-50"
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+            <span>SEO Rekabet Alarmı (Canlı)</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-ai-pdf"
+            onClick={() => setIsAiPdfModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+            <span>Stratejik PDF Raporu (Gemini AI)</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-competitor-seo-performance-radar"
+            onClick={() => setActiveStrategicTab("competitor-seo-performance-radar")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "competitor-seo-performance-radar"
+                ? "bg-cyan-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-50"
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 text-cyan-400" />
+            <span>SEO Performans Radarı (D3.js)</span>
+          </button>
+
+          <button
+            type="button"
+            id="strategic-tab-rakip-kiyaslama-tablosu"
+            onClick={() => setActiveStrategicTab("rakip-kiyaslama-tablosu")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "rakip-kiyaslama-tablosu" || activeStrategicTab === "seo-competitor-comparison"
                 ? "bg-indigo-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
             }`}
           >
-            <Target className="w-3.5 h-3.5 text-indigo-400" />
-            <span>SEO Rakip Kıyaslama Tablosu</span>
+            <Table className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Rakip Kıyaslama Tablosu</span>
           </button>
 
           <button
@@ -726,17 +1285,465 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           </button>
         </div>
 
-        <div className="text-[11px] font-bold text-slate-500 hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-xl border border-slate-200">
-          <Sparkles className="w-3 h-3 text-indigo-600" />
-          <span>{activeConfig.city} • {activeConfig.sector}</span>
+        <div className="flex items-center gap-2">
+          <div className="text-[11px] font-bold text-slate-500 hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-xl border border-slate-200">
+            <Sparkles className="w-3 h-3 text-indigo-600" />
+            <span>{activeConfig.city} • {activeConfig.sector}</span>
+          </div>
+
+          <button
+            type="button"
+            id="tab-bar-customize-report-btn"
+            onClick={() => setIsCustomReportModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-slate-900 hover:bg-slate-800 text-indigo-200 border border-indigo-400/40 shadow-xs"
+            title="Radar grafiklerini ve ısı haritasını vektörel kalitede düzenleyip indirin"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Raporu Özelleştir</span>
+            <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-mono font-bold">
+              Vektörel
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="tab-bar-download-pdf-btn"
+            onClick={handleExportStakeholderPdf}
+            disabled={isGeneratingPdf}
+            className="px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-sm active:scale-95 disabled:opacity-50 ring-1 ring-blue-400/30"
+            title="Rakiplerin SEO metriklerini ve radar verilerini içeren şirket logolu PDF raporunu indir"
+          >
+            {isGeneratingPdf ? (
+              <RefreshCw className="w-3.5 h-3.5 text-white animate-spin" />
+            ) : companyLogoUrl ? (
+              <img 
+                src={companyLogoUrl} 
+                alt="" 
+                className="w-4 h-4 rounded object-contain bg-white p-0.5" 
+              />
+            ) : (
+              <span className="w-4 h-4 rounded bg-white/20 text-white font-black text-[9px] flex items-center justify-center">
+                {(activeConfig.companyName || "S").charAt(0).toUpperCase()}
+              </span>
+            )}
+            <FileDown className="w-3.5 h-3.5 text-cyan-200" />
+            <span>Şirket Logolu PDF İndir</span>
+          </button>
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* 2.2a SEO RAKİP KIYASLAMA TABLOSU & SEO STRATEJİK FIRSAT ANALİZİ */}
+      {/* ŞİRKET LOGOLU STRATEJİK PDF RAPORU & RAKİP METRİKLERİ DIŞA AKTARMA MERKEZİ */}
       {/* ===================================================================== */}
-      {(activeStrategicTab === "all" || activeStrategicTab === "seo-competitor-comparison") && (
+      <div 
+        id="gemini-ai-strategic-pdf-banner"
+        className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 rounded-3xl p-5 sm:p-6 text-white shadow-2xl relative overflow-hidden ring-1 ring-indigo-400/20"
+      >
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-indigo-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-start gap-4 max-w-2xl">
+            {/* Şirket Logosu Rozeti */}
+            <div className="shrink-0 hidden sm:flex flex-col items-center">
+              {companyLogoUrl ? (
+                <div className="w-16 h-16 rounded-2xl bg-white/95 border-2 border-indigo-300/60 p-1.5 flex items-center justify-center shadow-lg shadow-indigo-950/60 overflow-hidden ring-2 ring-white/20">
+                  <img
+                    src={companyLogoUrl}
+                    alt={activeConfig.companyName || "Şirket Logosu"}
+                    className="w-full h-full object-contain"
+                    crossOrigin="anonymous"
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-blue-600 text-white flex flex-col items-center justify-center font-black shadow-lg shadow-indigo-950/60 ring-2 ring-white/20">
+                  <span className="text-2xl leading-none">{(activeConfig.companyName || "S").charAt(0).toUpperCase()}</span>
+                  <span className="text-[8px] tracking-widest uppercase opacity-80 mt-0.5">LOGO</span>
+                </div>
+              )}
+              <span className="text-[9px] font-bold text-indigo-300 mt-1 uppercase tracking-wider">
+                Şirket Logolu
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                  <ShieldCheck className="w-3 h-3 text-white" />
+                  <span>Resmi Paydaş Belgesi</span>
+                </span>
+                <span className="text-[10px] font-bold text-indigo-200 bg-indigo-900/60 px-2.5 py-0.5 rounded-full border border-indigo-400/40">
+                  D3.js 6-Eksen Radar & Rakip Metrikleri
+                </span>
+                <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-500/40 font-mono">
+                  A4 Vektörel PDF
+                </span>
+              </div>
+
+              <h3 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>{activeConfig.companyName || "Şirketiniz"} İçin Profesyonel Stratejik SEO & Radar Raporu</span>
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Rakiplerin <strong>Site Hızı (TTFB/LCP)</strong>, <strong>Domain Otoritesi (DA)</strong>, <strong>D3.js 6-Eksen Radar Verileri</strong>, <strong>Anahtar Kelime Kümeleri & Zorluk Seviyeleri</strong> ile <strong>Fiyat Rekabeti Direktiflerini</strong> içeren şirket logolu resmi A4 PDF raporu oluşturun.
+              </p>
+
+              {/* Rapor İçerik Kapsam Hapları */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-300">
+                <span className="px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Şirket Logosu & Başlık</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>D3.js Radar Çizelgesi</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Rakip Metrik Tablosu</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Kaşe & İmza Onayı</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch gap-3 w-full lg:w-auto shrink-0">
+            {/* Primary Customizer: Özelleştirilebilir Rapor Düzenleyici */}
+            <button
+              type="button"
+              id="btn-open-custom-report-editor"
+              onClick={() => setIsCustomReportModalOpen(true)}
+              className="px-4 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-indigo-950/70 hover:shadow-indigo-500/30 transition-all active:scale-95 cursor-pointer ring-2 ring-indigo-400/60"
+              title="Rapor sayfalarını, tüm radar grafiklerini ve ısı haritasını vektörel kalitede düzenleyin"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-cyan-200" />
+              <span>Özelleştirilebilir Rapor Düzenleyici</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-cyan-400/30 text-cyan-100 text-[10px] font-bold border border-cyan-300/40">
+                Vektörel
+              </span>
+            </button>
+
+            {/* Şirket Logolu Profesyonel PDF Dışa Aktarma Düğmesi */}
+            <button
+              type="button"
+              id="export-company-logo-stakeholder-pdf-btn"
+              onClick={handleExportStakeholderPdf}
+              disabled={isGeneratingPdf}
+              className="px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-teal-950/60 hover:shadow-teal-500/30 transition-all active:scale-95 cursor-pointer ring-2 ring-emerald-300/60 disabled:opacity-50"
+              title="Rakiplerin SEO metriklerini ve radar verilerini içeren şirket logolu profesyonel PDF raporunu anında indir"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <RefreshCw className="w-4 h-4 text-slate-950 animate-spin" />
+                  <span>PDF Derleniyor & İndiriliyor...</span>
+                </>
+              ) : (
+                <>
+                  {companyLogoUrl ? (
+                    <img
+                      src={companyLogoUrl}
+                      alt=""
+                      className="w-5 h-5 rounded-md object-contain bg-white p-0.5 border border-slate-300 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <span className="w-5 h-5 rounded-md bg-slate-900 text-white font-black text-[10px] flex items-center justify-center shrink-0">
+                      {(activeConfig.companyName || "S").charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <FileDown className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                  <span>Şirket Logolu PDF Raporu İndir</span>
+                </>
+              )}
+            </button>
+
+            {/* Secondary: Gemini AI Stratejik Rapor Önizleme & SWOT */}
+            <button
+              type="button"
+              id="btn-generate-ai-pdf-banner"
+              onClick={() => setIsAiPdfModalOpen(true)}
+              className="px-4 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 text-indigo-200 border border-indigo-400/40 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Gemini AI Önizleme</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 2.1a SEO REKABET ALARMI (ANİ HACİM DEĞİŞİMLERİ & ANLIK BİLDİRİM WIDGET) */}
+      {/* ===================================================================== */}
+      <div 
+        id="seo-rekabet-alarmi-section" 
+        className={`space-y-6 scroll-mt-6 ${
+          (activeStrategicTab === "all" || activeStrategicTab === "seo-competitive-alert") ? "block" : "hidden"
+        }`}
+      >
+        <SeoCompetitiveAlertWidget 
+          config={activeConfig} 
+          onNavigateTab={onNavigateTab} 
+          onDownloadPdf={handleExportStakeholderPdf}
+          onAlertTriggered={handleAlertTriggered}
+        />
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 2.1b SEKTOREL SEO STRATEJİ ÖZET KARTI (GEMINI AI + D3 RADAR + 30-GÜNLÜK TRENDLER) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "sektorel-seo-ozet") && (
+        <div id="sektorel-seo-strateji-ozet-section" className="space-y-6 scroll-mt-6">
+          <SectoralSeoStrategySummaryCard
+            config={activeConfig}
+            radarEntities={entities}
+            onNavigateTab={onNavigateTab}
+            onDownloadPdf={handleExportStakeholderPdf}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-2 SEO RAKİP PUAN KARTI (OTORİTE, BACKLİNK, TRAFİK TEK BAKIŞTA) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "seo-rakip-puan-karti") && (
+        <div id="seo-rakip-puan-karti-section" className="space-y-6 scroll-mt-6">
+          <CompetitorSeoScorecardWidget
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onDownloadPdf={handleExportStakeholderPdf}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-3 GEMINI SEO & PAZAR SWOT MATRİSİ (GÜÇLÜ, ZAYIF, FIRSAT, TEHDİT) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "seo-swot-matrisi") && (
+        <div id="seo-swot-matrisi-section" className="space-y-6 scroll-mt-6">
+          <CompetitorSwotMatrixCard
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (tab === "seo-rakip-puan-karti") {
+                setActiveStrategicTab("seo-rakip-puan-karti");
+              } else if (tab === "icerik-stratejisi-kiyaslayici") {
+                setActiveStrategicTab("icerik-stratejisi-kiyaslayici");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onDownloadPdf={handleExportStakeholderPdf}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-4 İÇERİK STRATEJİSİ KIYASLAYICI (BAŞLIK, UZUNLUK, KW YOĞUNLUĞU) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "icerik-stratejisi-kiyaslayici") && (
+        <div id="icerik-stratejisi-kiyaslayici-section" className="space-y-6 scroll-mt-6">
+          <CompetitorContentStrategyComparator
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (tab === "seo-rakip-puan-karti") {
+                setActiveStrategicTab("seo-rakip-puan-karti");
+              } else if (tab === "seo-swot-matrisi") {
+                setActiveStrategicTab("seo-swot-matrisi");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-5 STRATEJİK AKSİYON PLANLAYICI (GEMINI DESTEKLİ 3 AYLIK YOL HARİTASI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "stratejik-aksiyon-planlayici") && (
+        <div id="stratejik-aksiyon-planlayici-section" className="space-y-6 scroll-mt-6">
+          <StrategicActionPlannerCard
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "customer-panel" || tab === "seo-automation") {
+                if (onNavigateTab) onNavigateTab(tab);
+              } else if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (tab === "competitor-seo-performance-radar") {
+                setActiveStrategicTab("competitor-seo-performance-radar");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-6 İÇERİK GELİŞTİRME ÖNERİLERİ (BLOG & META TASLAKLARI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "icerik-gelistirme-onerileri") && (
+        <div id="icerik-gelistirme-onerileri-section" className="space-y-6 scroll-mt-6">
+          <CompetitorContentExpansionCard
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "customer-panel" || tab === "seo-automation") {
+                if (onNavigateTab) onNavigateTab(tab);
+              } else if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (tab === "stratejik-aksiyon-planlayici") {
+                setActiveStrategicTab("stratejik-aksiyon-planlayici");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1b-7 REKLAM VERİMLİLİĞİ ANALİZİ (BÜTÇE, CPC & ROAS ARBİTRAJI) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "reklam-verimliligi-analiz") && (
+        <div id="reklam-verimliligi-analiz-section" className="space-y-6 scroll-mt-6">
+          <CompetitorAdEfficiencyCard
+            config={activeConfig}
+            onNavigateTab={(tab) => {
+              if (tab === "customer-panel" || tab === "seo-automation") {
+                if (onNavigateTab) onNavigateTab(tab);
+              } else if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (tab === "stratejik-aksiyon-planlayici") {
+                setActiveStrategicTab("stratejik-aksiyon-planlayici");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1c REAL-TIME COMPETITOR SEO PERFORMANCE RADAR (D3.JS) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "competitor-seo-performance-radar") && (
+        <div id="sektorel-rakip-seo-performans-radari-section" className="space-y-6 scroll-mt-6">
+          <CompetitorSeoPerformanceRadarModule 
+            config={activeConfig} 
+            onDownloadPdf={handleExportStakeholderPdf}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1d GELECEK SEO PERFORMANS TAHMİNCİSİ (D3.JS 6 AYLIK PROJEKSİYON) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "gelecek-seo-tahmincisi") && (
+        <div id="gelecek-seo-performans-tahmincisi-container" className="space-y-6 scroll-mt-6">
+          <D3FutureSeoPerformancePredictor
+            config={activeConfig}
+            customKeywordRankings={pdfKeywordRankings}
+            onNavigateTab={(tab) => {
+              if (tab === "rakip-kiyaslama-tablosu") {
+                setActiveStrategicTab("rakip-kiyaslama-tablosu");
+              } else if (onNavigateTab) {
+                onNavigateTab(tab);
+              }
+            }}
+            onDownloadPdf={handleExportStakeholderPdf}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1e RAKİPLERİN FİYATLANDIRMA STRATEJİLERİ & GEMINI FİYAT REKABETİ */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "fiyat-rekabeti") && (
+        <div id="fiyat-rekabeti-strateji-section" className="space-y-6 scroll-mt-6">
+          <CompetitorPriceStrategyCard
+            config={activeConfig}
+            onDownloadPdf={handleExportStakeholderPdf}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.1f GLOBAL SEO ISI HARİTASI & RAKİP DİJİTAL AYAK İZİ (GEMINI 3.8 FLASH) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "global-isi-haritasi" || activeStrategicTab === "global-seo-heatmap") && (
+        <div id="global-seo-heatmap-section" className="space-y-6 scroll-mt-6">
+          <GlobalSeoHeatmapWidget
+            config={activeConfig}
+            onDownloadPdf={handleExportStakeholderPdf}
+            onOpenCustomReport={() => setIsCustomReportModalOpen(true)}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.2 SEKTOREL REKABET ANALIZ: REAL-TIME COMPETITOR KEYWORD BENCHMARK RADAR (D3.JS) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "sektorel-rekabet-analiz" || activeStrategicTab === "keyword-benchmark-radar") && (
+        <div id="sektorel-rekabet-analiz-section" data-legacy-id="sektorel-keyword-benchmark-radar-section" className="space-y-6 scroll-mt-6">
+          <RealtimeCompetitorKeywordBenchmark 
+            config={activeConfig} 
+            onDownloadPdf={handleExportStakeholderPdf}
+          />
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 2.2 RAKİP KIYASLAMA TABLOSU (ANAHTAR KELİME PERFORMANSLARI, HACİMLER & ZORLUK SEVİYELERİ) */}
+      {/* ===================================================================== */}
+      {(activeStrategicTab === "all" || activeStrategicTab === "rakip-kiyaslama-tablosu" || activeStrategicTab === "seo-competitor-comparison") && (
         <div id="seo-rakip-kiyaslama-tablosu-section" className="space-y-6 scroll-mt-6">
+          {/* İnteraktif Rakip Kıyaslama Tablosu (Anahtar Kelime Performansları, Hacimler ve Zorluk Seviyeleri) */}
+          <InteractiveCompetitorComparisonTable
+            siteConfig={activeConfig}
+            userName={activeConfig.companyName || "Siteniz"}
+            userDomain={activeConfig.cloudflare?.customDomain || "sitemiz.com.tr"}
+            onApplyKeyword={(kw) => {
+              if (onUpdateSiteConfig) {
+                const rawKeywords = activeConfig.seo?.keywords || "";
+                const currentKws = rawKeywords ? rawKeywords.split(",").map(s => s.trim()) : [];
+                if (!currentKws.includes(kw)) {
+                  currentKws.push(kw);
+                  onUpdateSiteConfig({
+                    ...activeConfig,
+                    seo: {
+                      ...activeConfig.seo,
+                      keywords: currentKws.join(", ")
+                    }
+                  });
+                }
+              }
+            }}
+            onSendToAiBlog={(kw, draftTitle) => {
+              if (onNavigateTab) {
+                onNavigateTab("customer-panel");
+              }
+            }}
+            onDownloadPdf={handleExportStakeholderPdf}
+          />
+
           {/* Metin Tabanlı 'SEO Stratejik Fırsat Analizi' Özet Kutucuğu */}
           <div 
             id="seo-stratejik-firsat-analizi-box"
@@ -1320,20 +2327,37 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           {/* Header */}
           <div className="border-b-2 border-slate-900 pb-6 flex items-start justify-between">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-2xl">
-                  {(activeConfig.companyName || "S").charAt(0).toUpperCase()}
-                </div>
+              <div className="flex items-center gap-3.5">
+                {companyLogoUrl ? (
+                  <div className="w-16 h-16 rounded-2xl bg-white border-2 border-slate-300 p-1.5 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
+                    <img
+                      src={companyLogoUrl}
+                      alt={activeConfig.companyName || "Şirket Logosu"}
+                      className="w-full h-full object-contain"
+                      crossOrigin="anonymous"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-slate-900 text-white flex flex-col items-center justify-center font-black shadow-sm border border-indigo-400/40 shrink-0">
+                    <span className="text-2xl leading-none">{(activeConfig.companyName || "S").charAt(0).toUpperCase()}</span>
+                    <span className="text-[8px] tracking-widest uppercase opacity-80 mt-0.5">LOGO</span>
+                  </div>
+                )}
                 <div>
-                  <h1 className="text-2xl font-black text-slate-950 tracking-tight">
-                    {activeConfig.companyName || "Kurumsal İşletmeniz"}
-                  </h1>
-                  <div className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-black text-slate-950 tracking-tight">
+                      {activeConfig.companyName || "Kurumsal İşletmeniz"}
+                    </h1>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold">
+                      Resmi Kurumsal Rapor
+                    </span>
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 flex items-center gap-2 mt-0.5">
                     <span>{activeConfig.sector}</span>
                     <span>•</span>
                     <span>{activeConfig.city}</span>
                     <span>•</span>
-                    <span className="font-mono text-indigo-600">{activeConfig.cloudflare?.customDomain || "hizliweb.site"}</span>
+                    <span className="font-mono text-indigo-600 font-bold">{activeConfig.cloudflare?.customDomain || "hizliweb.site"}</span>
                   </div>
                 </div>
               </div>
@@ -1344,7 +2368,7 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
 
             <div className="text-right space-y-1 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
               <div className="text-[10px] uppercase font-black tracking-wider text-indigo-700">
-                PAYDAŞ REKABET & SEO ANALİZ RAPORU
+                STRATEJİK SEO RADAR & ALARM RAPORU
               </div>
               <div className="font-mono font-bold text-slate-900 text-sm">
                 {reportMetadata.reportId}
@@ -1352,31 +2376,38 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
               <div className="text-slate-500 text-[11px]">
                 Tarih: {reportMetadata.formattedDate}
               </div>
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                <span>Doğrulanmış D3.js 6 Eksen Verisi</span>
+              <div className="flex items-center justify-end gap-1.5 pt-0.5">
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>D3.js 6-Eksen Radar</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  <BellRing className="w-3 h-3 text-amber-600" />
+                  <span>Canlı Rekabet Alarmları</span>
+                </span>
               </div>
             </div>
           </div>
 
           {/* Executive Overview Narrative */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-1">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-1.5" style={{ pageBreakInside: "avoid" }}>
             <div className="font-black text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Yönetici & Paydaş Özeti: Pazar Konumlandırması</span>
+              <span>Yönetici & Paydaş Özeti: Pazar Konumlandırması & Tehdit Matrisi</span>
             </div>
             <p>
               Bu rapor, <strong>{activeConfig.companyName || "İşletmeniz"}</strong> için {activeConfig.city} bölgesinde 
               faaliyet gösteren <strong>{activeConfig.sector}</strong> pazarındaki rakiplerin dijital varlıklarını 
-              D3.js 6 eksenli kıyaslama matrisi ile incelemektedir.
-              Sitenizin <strong>96/100 Core Web Vitals açılış hızı (0.02s)</strong> ve kusursuz 
-              LocalBusiness Schema.org etiketleri sayesinde, yavaş monolit sistemler kullanan rakipler karşısında 
-              organik aramalarda doğrudan üstünlük kurma potansiyeli teyit edilmiştir.
+              <strong>D3.js 6 eksenli radar kıyaslama matrisi</strong> ve son 48 saatte tespit edilen 
+              <strong>SEO rekabet alarm günlükleri</strong> ile sentezleyerek sunmaktadır.
+              Siteniz, <strong>96/100 Core Web Vitals açılış hızı (0.02s)</strong> ve kusursuz LocalBusiness Şema altyapısı 
+              ile liderden +32 puan daha hızlı taranabilir bir altyapıya sahiptir. Ancak arama hacmi aniden sıçrayan terimlerde 
+              rakiplerin agresif içerik ataklarına karşı anlık karşı hamleler gerekmektedir.
             </p>
           </div>
 
           {/* 4 Performance KPI Cards */}
-          <div className="grid grid-cols-4 gap-3 text-center text-xs">
+          <div className="grid grid-cols-4 gap-3 text-center text-xs" style={{ pageBreakInside: "avoid" }}>
             <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
               <div className="text-[10px] text-indigo-700 font-bold uppercase">Sitenizin Hızı</div>
               <div className="text-xl font-black font-mono text-indigo-950 my-1">{userEntity.metrics.siteSpeed} / 100</div>
@@ -1387,46 +2418,255 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
               <div className="text-xl font-black font-mono text-slate-900 my-1">{marketLeader.metrics.siteSpeed} / 100</div>
               <div className="text-[10px] text-rose-700 font-bold">Ağır LCP (+3.4sn)</div>
             </div>
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="text-[10px] text-slate-600 font-bold uppercase">Mevcut Sıra</div>
-              <div className="text-xl font-black font-mono text-slate-900 my-1">#{userEntity.rank}</div>
-              <div className="text-[10px] text-indigo-700 font-bold">1. Sıra İçin Güçlü Aday</div>
-            </div>
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-              <div className="text-[10px] text-amber-800 font-bold uppercase">Hedef Pazar Payı</div>
-              <div className="text-xl font-black font-mono text-amber-950 my-1">%40+</div>
-              <div className="text-[10px] text-amber-700 font-bold">Organik Büyüme</div>
+              <div className="text-[10px] text-amber-800 font-bold uppercase">Aktif Rekabet Alarmları</div>
+              <div className="text-xl font-black font-mono text-amber-950 my-1">{alertSummary.totalAlerts} Alarm</div>
+              <div className="text-[10px] text-amber-700 font-bold">{alertSummary.volumeSpikeAlerts} Ani Hacim Sıçraması</div>
+            </div>
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+              <div className="text-[10px] text-rose-800 font-bold uppercase">Risk Altındaki Trafik</div>
+              <div className="text-xl font-black font-mono text-rose-950 my-1">-{alertSummary.totalEstimatedTrafficLoss.toLocaleString()}</div>
+              <div className="text-[10px] text-rose-700 font-bold">Ziyaretçi/Ay Tehdit</div>
             </div>
           </div>
 
-          {/* 6-Axis Comparison Table */}
-          <div className="space-y-2">
-            <div className="font-black text-slate-900 text-xs uppercase tracking-wider">
-              1. 6 Eksenli Baş Başa Karşılaştırma Tablosu
+          {/* ================================================================= */}
+          {/* SECTION 1: COMPETITOR SEO RADAR BENCHMARK (SVG VECTOR + TABLE) */}
+          {/* ================================================================= */}
+          <div className="space-y-4 pt-2" style={{ pageBreakInside: "avoid" }}>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-black">1</span>
+                <span>Sektörel Rakip SEO Performans Radarı (D3.js 6-Eksen Vektör Verisi)</span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase">
+                {activeConfig.sector} • {activeConfig.city}
+              </span>
             </div>
+
+            {/* Radar SVG Visualizer + Legend Side-by-Side */}
+            <div className="grid grid-cols-12 gap-4 items-center bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
+              {/* Inline High-Res SVG Radar Chart */}
+              <div className="col-span-6 flex justify-center">
+                <svg 
+                  width="440" 
+                  height="350" 
+                  viewBox="0 0 440 350" 
+                  className="overflow-visible"
+                >
+                  {/* Concentric Web Rings */}
+                  {radarSvgConfig.webRings.map((ring, idx) => (
+                    <g key={idx}>
+                      <polygon
+                        points={ring.points}
+                        fill={idx === radarSvgConfig.webRings.length - 1 ? "#ffffff" : "none"}
+                        stroke="#cbd5e1"
+                        strokeWidth="1"
+                        strokeDasharray={idx < radarSvgConfig.webRings.length - 1 ? "3 3" : "none"}
+                      />
+                      <text
+                        x={radarSvgConfig.cx + 4}
+                        y={radarSvgConfig.cy - (radarSvgConfig.radius * ring.ratio) + 11}
+                        fill="#94a3b8"
+                        fontSize="9"
+                        fontWeight="600"
+                        fontFamily="monospace"
+                      >
+                        %{ring.percentage}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* Axis Spokes & Labels */}
+                  {radarSvgConfig.axisPoints.map((axis, idx) => (
+                    <g key={idx}>
+                      <line
+                        x1={radarSvgConfig.cx}
+                        y1={radarSvgConfig.cy}
+                        x2={axis.xOuter}
+                        y2={axis.yOuter}
+                        stroke="#cbd5e1"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x={axis.xLabel}
+                        y={axis.yLabel}
+                        textAnchor={axis.textAnchor as any}
+                        dominantBaseline="central"
+                        fill="#1e293b"
+                        fontSize="10"
+                        fontWeight="800"
+                        fontFamily="sans-serif"
+                      >
+                        {axis.label}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* 3. Rakip Polygon (Purple) */}
+                  {competitors[1] && (
+                    <polygon
+                      points={radarSvgConfig.getPoints(competitors[1].metrics)}
+                      fill="rgba(168, 85, 247, 0.08)"
+                      stroke="#a855f7"
+                      strokeWidth="1.5"
+                    />
+                  )}
+
+                  {/* 2. Rakip Polygon (Amber) */}
+                  {competitors[0] && competitors[0].id !== marketLeader.id && (
+                    <polygon
+                      points={radarSvgConfig.getPoints(competitors[0].metrics)}
+                      fill="rgba(245, 158, 11, 0.1)"
+                      stroke="#f59e0b"
+                      strokeWidth="1.5"
+                    />
+                  )}
+
+                  {/* 1. Rakip (Pazar Lideri) Polygon (Rose Dashed) */}
+                  <polygon
+                    points={radarSvgConfig.getPoints(marketLeader.metrics)}
+                    fill="rgba(239, 68, 68, 0.12)"
+                    stroke="#dc2626"
+                    strokeWidth="2"
+                    strokeDasharray="4 2"
+                  />
+
+                  {/* Siteniz (User Entity) Polygon (Indigo Bold) */}
+                  <polygon
+                    points={radarSvgConfig.getPoints(userEntity.metrics)}
+                    fill="rgba(79, 70, 229, 0.22)"
+                    stroke="#4338ca"
+                    strokeWidth="2.5"
+                  />
+
+                  {/* User Data Dots */}
+                  {sixAxes.map((axis, i) => {
+                    const angle = (i / sixAxes.length) * 2 * Math.PI - Math.PI / 2;
+                    const val = Math.max(10, Math.min(100, userEntity.metrics[axis.key] || 0));
+                    const r = (val / 100) * radarSvgConfig.radius;
+                    const x = radarSvgConfig.cx + r * Math.cos(angle);
+                    const y = radarSvgConfig.cy + r * Math.sin(angle);
+                    return (
+                      <circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r="3.5"
+                        fill="#4338ca"
+                        stroke="#ffffff"
+                        strokeWidth="1.5"
+                      />
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Radar Legend & Key Findings */}
+              <div className="col-span-6 space-y-3">
+                {/* Entities Legend */}
+                <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200">
+                  <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                    Radar Katmanları & Puan Ortalaması
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center justify-between p-1.5 rounded-lg bg-indigo-50/70 border border-indigo-100 font-bold text-indigo-950">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-indigo-600 ring-2 ring-indigo-200"></span>
+                        <span>{userEntity.name} (Siteniz)</span>
+                      </div>
+                      <span className="font-mono text-indigo-700">#{userEntity.rank} Sıra • Puan: 84/100</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-1.5 rounded-lg bg-rose-50/70 border border-rose-100 font-bold text-rose-950">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-rose-600 ring-2 ring-rose-200"></span>
+                        <span>{marketLeader.name} (Pazar Lideri)</span>
+                      </div>
+                      <span className="font-mono text-rose-700">#1 Sıra • Puan: 88/100</span>
+                    </div>
+
+                    {competitors.slice(1, 3).map((c, i) => (
+                      <div key={c.id} className="flex items-center justify-between p-1 rounded-lg bg-slate-50 text-slate-700 text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${i === 0 ? "bg-amber-500" : "bg-purple-500"}`}></span>
+                          <span>{c.name}</span>
+                        </div>
+                        <span className="font-mono text-slate-500">#{c.rank} Sıra</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Analytical Insights from Radar */}
+                <div className="space-y-1 text-[11px] text-slate-700">
+                  <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <span className="font-bold text-emerald-900">✓ Sitenizin Liderlik Alanı: </span>
+                    Sayfa Açılış Hızı (96/100, 0.02s Edge CDN) ve Teknik SEO & LocalBusiness Şema (94/100).
+                  </div>
+                  <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
+                    <span className="font-bold text-amber-900">⚠ Kapatılması Gereken Açık: </span>
+                    Backlink Kalitesi ve İçerik Rehberi Derinliği (rakip siteler blog kümesi ile otorite topluyor).
+                  </div>
+                  <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-200">
+                    <span className="font-bold text-indigo-900">⚡ Stratejik Fırsat: </span>
+                    Rakiplerin ağır LCP süreleri (+3.4sn) sayesinde, yeni arama trendlerinde hızlıca ilk sırayı alma potansiyeli.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 6-Axis Comparative Benchmark Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 font-black text-[11px] text-slate-700">
-                    <th className="p-2.5">Eksen</th>
-                    <th className="p-2.5 text-indigo-800 bg-indigo-50/60 font-black">{userEntity.name}</th>
-                    {competitors.map(c => (
+                    <th className="p-2.5">Eksen / Boyut</th>
+                    <th className="p-2.5 text-indigo-900 bg-indigo-50/70 font-black">{userEntity.name} (Siteniz)</th>
+                    <th className="p-2.5 text-rose-900 bg-rose-50/50">{marketLeader.name} (#1)</th>
+                    {competitors.slice(1, 3).map(c => (
                       <th key={c.id} className="p-2.5">{c.name} (#{c.rank})</th>
                     ))}
-                    <th className="p-2.5 text-right">Durum</th>
+                    <th className="p-2.5">Sektör Ort.</th>
+                    <th className="p-2.5 text-right">Rekabet Durumu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[11px]">
                   {sixAxes.map(axis => {
                     const uScore = userEntity.metrics[axis.key] || 0;
+                    const lScore = marketLeader.metrics[axis.key] || 0;
+                    const diff = uScore - lScore;
                     return (
                       <tr key={axis.key}>
-                        <td className="p-2.5 font-bold text-slate-900">{axis.label}</td>
-                        <td className="p-2.5 font-mono font-black text-indigo-900 bg-indigo-50/30">{uScore} / 100</td>
-                        {competitors.map(c => (
-                          <td key={c.id} className="p-2.5 font-mono">{c.metrics[axis.key] || 0} / 100</td>
+                        <td className="p-2.5 font-bold text-slate-900">
+                          <div>{axis.label}</div>
+                          <div className="text-[9px] text-slate-400 font-normal">{axis.idealRange} ideal</div>
+                        </td>
+                        <td className="p-2.5 font-mono font-black text-indigo-950 bg-indigo-50/40">
+                          {uScore} / 100
+                        </td>
+                        <td className="p-2.5 font-mono font-bold text-rose-900 bg-rose-50/20">
+                          {lScore} / 100
+                        </td>
+                        {competitors.slice(1, 3).map(c => (
+                          <td key={c.id} className="p-2.5 font-mono text-slate-600">
+                            {c.metrics[axis.key] || 0} / 100
+                          </td>
                         ))}
-                        <td className="p-2.5 text-right text-emerald-700 font-bold">Doğrulandı ✓</td>
+                        <td className="p-2.5 font-mono text-slate-500">72 / 100</td>
+                        <td className="p-2.5 text-right font-bold">
+                          {diff > 0 ? (
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              +{diff} Puan Üstün ✓
+                            </span>
+                          ) : diff === 0 ? (
+                            <span className="text-slate-600">Baş Başa</span>
+                          ) : (
+                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              {diff} Puan Açık
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -1435,92 +2675,463 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
             </div>
           </div>
 
-          {/* Tactical Action Plan */}
-          <div className="space-y-2">
-            <div className="font-black text-slate-900 text-xs uppercase tracking-wider">
-              2. 1. Sıraya Yerleşmek İçin Öncelikli Eylem Planı
+          {/* ================================================================= */}
+          {/* SECTION 2: RAKİP KIYASLAMA TABLOSU (ANAHTAR KELİME PERFORMANSLARI, HACİMLER & ZORLUK SEVİYELERİ) */}
+          {/* ================================================================= */}
+          <div className="space-y-4 pt-4 border-t border-slate-200" style={{ pageBreakInside: "avoid" }}>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-black">2</span>
+                <span>Rakip Kıyaslama Tablosu (Anahtar Kelime Performansları, Arama Hacimleri ve Zorluk Seviyeleri)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                  {pdfKeywordRankings.length} Anahtar Kelime Kıyaslandı
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {pdfKeywordRankings.filter(k => k.status === "leading").length} Terimde Liderlik
+                </span>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-xs">
-              {tacticalActions.slice(0, 3).map((act, i) => (
-                <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <div className="font-bold text-slate-900 text-[11px]">
-                    {i + 1}. {act.title}
+
+            {/* Keyword Comparison Quick Metric Highlights */}
+            <div className="grid grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold block uppercase">Kıyaslanan Anahtar Kelime</span>
+                <span className="text-sm font-black font-mono text-slate-900">{pdfKeywordRankings.length} Terim</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-cyan-700 font-bold block uppercase">Toplam Arama Hacmi</span>
+                <span className="text-sm font-black font-mono text-cyan-900">
+                  {(() => {
+                    const totalVol = pdfKeywordRankings.reduce((acc, k) => {
+                      const clean = (k.monthlyVolume || "").toLowerCase().replace(/[^0-9.k]/g, "");
+                      if (clean.includes("k")) return acc + parseFloat(clean.replace("k", "")) * 1000;
+                      return acc + (parseFloat(clean) || 0);
+                    }, 0);
+                    return totalVol > 1000 ? `${(totalVol / 1000).toFixed(1)}K / ay` : `${totalVol} / ay`;
+                  })()}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-amber-700 font-bold block uppercase">Ortalama Zorluk Seviyesi</span>
+                <span className="text-sm font-black font-mono text-amber-900">
+                  %{Math.round(pdfKeywordRankings.reduce((acc, k) => acc + (k.difficulty || 0), 0) / (pdfKeywordRankings.length || 1))} (Orta)
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-indigo-700 font-bold block uppercase">Tahmini Trafik Kazancı</span>
+                <span className="text-sm font-black font-mono text-indigo-950">+2.480 Ziyaretçi / ay</span>
+              </div>
+            </div>
+
+            {/* Printable Comparison Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 font-black text-[10px] text-slate-700 uppercase tracking-wide">
+                    <th className="p-2">Anahtar Kelime & Niyet</th>
+                    <th className="p-2 text-right">Aylık Hacim</th>
+                    <th className="p-2">Zorluk Seviyesi</th>
+                    <th className="p-2 text-center bg-indigo-50/60 text-indigo-950 border-x border-indigo-200">
+                      Siteniz ({userEntity.name})
+                    </th>
+                    <th className="p-2 text-center bg-rose-50/30 text-rose-900">
+                      {marketLeader.name} (#1)
+                    </th>
+                    <th className="p-2 text-center bg-amber-50/30 text-amber-900">
+                      {competitors[1]?.name || "2. Rakip"}
+                    </th>
+                    <th className="p-2 text-center">Fark & Durum</th>
+                    <th className="p-2 text-right">Fırsat & Tavsiye</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {pdfKeywordRankings.map((kw) => {
+                    const diffScore = kw.difficulty || 0;
+                    const diffLabel = diffScore < 30 ? "Kolay" : diffScore <= 45 ? "Orta" : "Zor";
+                    const diffColor = diffScore < 30 
+                      ? "text-emerald-700 bg-emerald-50 border-emerald-200" 
+                      : diffScore <= 45 
+                      ? "text-amber-700 bg-amber-50 border-amber-200" 
+                      : "text-rose-700 bg-rose-50 border-rose-200";
+
+                    return (
+                      <tr key={kw.id} className="hover:bg-slate-50/80">
+                        <td className="p-2 font-bold text-slate-900">
+                          <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <span>{kw.keyword}</span>
+                            {kw.status === "leading" && (
+                              <span className="text-[9px] px-1 rounded bg-amber-100 text-amber-800 font-bold">#1</span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-slate-500 font-normal">
+                            {kw.searchIntent} • {kw.serpFeatures?.[0] || "SERP Sonucu"}
+                          </div>
+                        </td>
+
+                        <td className="p-2 text-right font-mono font-bold text-cyan-900">
+                          {kw.monthlyVolume}
+                        </td>
+
+                        <td className="p-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${diffColor}`}>
+                            %{diffScore} {diffLabel}
+                          </span>
+                        </td>
+
+                        <td className="p-2 text-center font-mono font-black text-indigo-950 bg-indigo-50/30 border-x border-indigo-100">
+                          {kw.userRank !== null ? (
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-bold">
+                              #{kw.userRank}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">&gt;20</span>
+                          )}
+                        </td>
+
+                        <td className="p-2 text-center font-mono font-bold text-rose-800 bg-rose-50/20">
+                          {kw.comp1Rank !== null ? `#${kw.comp1Rank}` : "-"}
+                        </td>
+
+                        <td className="p-2 text-center font-mono text-amber-800 bg-amber-50/20">
+                          {kw.comp2Rank !== null ? `#${kw.comp2Rank}` : "-"}
+                        </td>
+
+                        <td className="p-2 text-center">
+                          {kw.status === "leading" ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              Lider ✓
+                            </span>
+                          ) : kw.gap > 0 ? (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                              {kw.gap} Sıra Açık
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              +{Math.abs(kw.gap)} Sıra Önde
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-2 text-right">
+                          <div className="font-mono font-bold text-emerald-700 text-[10px]">
+                            {kw.trafficOpportunity}
+                          </div>
+                          <div className="text-[9px] text-slate-500 max-w-[220px] truncate ml-auto" title={kw.aiRecommendation}>
+                            {kw.aiRecommendation}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* SECTION 3: RECENT SEO ALERT LOGS (VOLUME SPIKES & RANK LOSSES) */}
+          {/* ================================================================= */}
+          <div className="space-y-4 pt-4 border-t border-slate-200" style={{ pageBreakInside: "avoid" }}>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-amber-600 text-white flex items-center justify-center text-xs font-black">3</span>
+                <span>Güncel SEO Rekabet Alarm Günlükleri (Ani Hacim & Sıralama Dalgalanmaları)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  {recentAlerts.length} Kayıtlı Olay
+                </span>
+                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                  {alertSummary.volumeSpikeAlerts} Ani Hacim Patlaması
+                </span>
+              </div>
+            </div>
+
+            {/* Alert Summary Banner */}
+            <div className="grid grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold block uppercase">Toplam Kayıtlı Alarm</span>
+                <span className="text-sm font-black font-mono text-slate-900">{alertSummary.totalAlerts} Bildirim</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-amber-700 font-bold block uppercase">Kritik Hacim Patlaması</span>
+                <span className="text-sm font-black font-mono text-amber-900">{alertSummary.volumeSpikeAlerts} Terim (+%35 Üstü)</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-rose-700 font-bold block uppercase">Aylık Trafik Riski</span>
+                <span className="text-sm font-black font-mono text-rose-900">-{alertSummary.totalEstimatedTrafficLoss.toLocaleString()} Ziyaretçi</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-indigo-700 font-bold block uppercase">En Büyük Tehdit</span>
+                <span className="text-sm font-black text-indigo-950 truncate block">{alertSummary.topThreatCompetitor || marketLeader.name}</span>
+              </div>
+            </div>
+
+            {/* Comprehensive SEO Alert Logs Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 font-black text-[11px] text-slate-700">
+                    <th className="p-2.5">Zaman & Seviye</th>
+                    <th className="p-2.5">Anahtar Kelime & Niyet</th>
+                    <th className="p-2.5">Arama Hacmi Değişimi</th>
+                    <th className="p-2.5">Rakip & Sıralama</th>
+                    <th className="p-2.5">Siteniz</th>
+                    <th className="p-2.5">Trafik Etkisi</th>
+                    <th className="p-2.5">Teşhis & Karşı Hamle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {recentAlerts.slice(0, 6).map((alert) => (
+                    <tr key={alert.id} className={alert.severity === "critical" ? "bg-rose-50/20" : ""}>
+                      <td className="p-2.5">
+                        <div className="font-bold text-slate-900">{alert.detectedAtFormatted || "Bugün"}</div>
+                        <span className={`inline-block text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
+                          alert.severity === "critical"
+                            ? "bg-rose-100 text-rose-800"
+                            : alert.severity === "warning"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}>
+                          {alert.severity === "critical" ? "Kritik" : alert.severity === "warning" ? "Uyarı" : "Fırsat"}
+                        </span>
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        <div className="text-indigo-900 font-mono">{alert.keyword}</div>
+                        <span className="text-[9px] text-slate-500 font-normal capitalize">
+                          {alert.searchIntent || "Ticari Niyet"}
+                        </span>
+                      </td>
+                      <td className="p-2.5">
+                        <div className="font-mono text-slate-900">
+                          {alert.previousSearchVolume?.toLocaleString() || "8,400"} ➜ <span className="font-bold text-amber-700">{alert.currentSearchVolume?.toLocaleString() || "19,500"}</span>
+                        </div>
+                        <span className="inline-block text-[10px] font-black text-amber-700 bg-amber-50 px-1 rounded border border-amber-200">
+                          ⚡ +%{alert.volumeChangePercentage || 132} Sıçrama
+                        </span>
+                      </td>
+                      <td className="p-2.5">
+                        <div className="font-bold text-slate-800">{alert.competitorName}</div>
+                        <div className="font-mono text-rose-700 font-bold">#{alert.competitorCurrentRank} (+{alert.competitorRankChange || 2} sıra yükseldi)</div>
+                      </td>
+                      <td className="p-2.5">
+                        <div className="font-mono font-bold text-slate-700">#{alert.userCurrentRank}</div>
+                        <div className="text-[10px] text-rose-600 font-semibold">-{alert.userRankChange || 1} geriledi</div>
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-rose-700">
+                        -{alert.estimatedTrafficLoss || 420} /ay
+                      </td>
+                      <td className="p-2.5 text-[10px] text-slate-600 max-w-xs">
+                        <p className="font-semibold text-slate-800">{alert.diagnosticAnalysis || "Rakip yeni H1 ve kapsamlı rehber yayınladı."}</p>
+                        <p className="text-indigo-700 font-bold mt-0.5">{alert.recommendedAction || "Karşı blog makalesi ve yerel şema takviyesi yapın."}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Featured Critical Alert Diagnosis Cards */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              {recentAlerts.filter(a => a.severity === "critical").slice(0, 2).map((critAlert, idx) => (
+                <div key={idx} className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-black">
+                    <span className="text-amber-950 flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-amber-600" />
+                      <span>{critAlert.keyword} (Ani Hacim Alarmı)</span>
+                    </span>
+                    <span className="text-rose-700 font-mono">+{critAlert.volumeChangePercentage}% Patlama</span>
                   </div>
-                  <p className="text-slate-600 text-[10px] leading-relaxed">
-                    {act.strategySummary}
+                  <p className="text-slate-700 text-[10px] leading-relaxed">
+                    <strong>Algoritmik Teşhis: </strong>{critAlert.diagnosticAnalysis}
                   </p>
-                  <div className="text-emerald-700 font-bold text-[10px]">
-                    Etki: {act.impactScore}
+                  <div className="p-2 bg-white rounded-lg border border-amber-200 text-[10px] text-indigo-900 font-bold flex items-start gap-1.5">
+                    <Zap className="w-3 h-3 text-indigo-600 shrink-0 mt-0.5" />
+                    <span>Önerilen Önlem: {critAlert.recommendedAction}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Bu Haftanın 3 Hızlı SEO Kazanımı (Stakeholder Özeti) */}
-          <div className="space-y-2">
-            <div className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between">
-              <span>3. Bu Haftanın 3 Hızlı SEO Kazanımı & Doğrudan Aksiyonlar</span>
-              <span className="text-[10px] text-indigo-700 font-semibold lowercase">3-5 dakikalık uygulama süresi</span>
+          {/* ================================================================= */}
+          {/* SECTION 4: TACTICAL ACTION PLAN FOR #1 RANKING */}
+          {/* ================================================================= */}
+          <div className="space-y-3 pt-4 border-t border-slate-200" style={{ pageBreakInside: "avoid" }}>
+            <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black">4</span>
+              <span>1. Sıraya Yerleşmek İçin Öncelikli Taktik Eylem Planı (Roadmap)</span>
             </div>
             <div className="grid grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1">
-                <div className="font-bold text-indigo-950 text-[11px]">
-                  1. Meta Başlık Yerel Optimizasyonu
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="font-bold text-slate-900 text-[11px] flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                  <span>Ani Hacim Kazanan Kelimelere Karşı Küme</span>
                 </div>
                 <p className="text-slate-600 text-[10px] leading-relaxed">
-                  Şehir ({activeConfig.city}) ve "7/24 Acil" ibaresi başlığa entegre edilerek arama tıklama oranı artırılacaktır.
+                  Son 48 saatte hacmi sıçrayan terimler ({recentAlerts[0]?.keyword || "yerel hizmet anahtarları"}) için 3 dakikada AI Blog ile karşı makale ve derinlemesine rehber yayınlayın.
                 </p>
                 <div className="text-emerald-700 font-bold text-[10px]">
-                  Tahmini Etki: +%38 CTR
+                  Tahmini Etki: +450 Ziyaretçi/Ay
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1">
-                <div className="font-bold text-indigo-950 text-[11px]">
-                  2. Meta Açıklamasına Doğrudan Çağrı
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="font-bold text-slate-900 text-[11px] flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                  <span>Sayfa Hızı (0.02s) Üstünlüğünü SERP'e Yansıtma</span>
                 </div>
                 <p className="text-slate-600 text-[10px] leading-relaxed">
-                  Açıklama alanına doğrudan aranabilir telefon ({activeConfig.phone || "Telefon"}) ve dakikalar içinde servis garantisi eklendi.
+                  Meta başlığa "Anında Yanıt & 7/24 Kesintisiz Hizmet" ekleyerek, yavaş monolit rakiplerden kaçan sabırsız mobil kullanıcıların tıklama oranını (CTR) %38 artırın.
                 </p>
                 <div className="text-emerald-700 font-bold text-[10px]">
-                  Tahmini Etki: +22 Dönüşüm
+                  Tahmini Etki: +%38 SERP CTR
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1">
-                <div className="font-bold text-indigo-950 text-[11px]">
-                  3. Yüksek Niyetli Arama Terimleri
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="font-bold text-slate-900 text-[11px] flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                  <span>LocalBusiness & FAQPage Şema Baskısı</span>
                 </div>
                 <p className="text-slate-600 text-[10px] leading-relaxed">
-                  "en yakın", "acil", "fiyatları" ve "telefonu" gibi satın alma niyeti yüksek 5 terim site etiketlerine işlendi.
+                  {activeConfig.city} ve {activeConfig.sector} sorgularında Google Haritalar yerel 3'lü paketinde (Local 3-Pack) en üst sırada yer almak için şema doğrulamalarını canlı tutun.
                 </p>
                 <div className="text-emerald-700 font-bold text-[10px]">
-                  Tahmini Etki: +310 Ziyaretçi/Ay
+                  Tahmini Etki: +28 Doğrudan Arama
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Official Sign-Off Block */}
-          <div className="pt-6 border-t-2 border-slate-200">
+          {/* ================================================================= */}
+          {/* SECTION 4b: RAKİP FİYATLANDIRMA STRATEJİSİ & GEMINI FİYAT REKABETİ YÖNETİCİ ÖZETİ */}
+          {/* ================================================================= */}
+          <div className="space-y-3 pt-4 border-t border-slate-200" style={{ pageBreakInside: "avoid" }}>
+            <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-teal-600 text-white flex items-center justify-center text-xs font-black">5</span>
+                <span>Rakiplerin Fiyatlandırma Stratejisi & Gemini Fiyat Rekabeti Yönetici Özeti</span>
+              </div>
+              <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
+                Pazar Liderine Göre -%26 Daha Makul (Sweet Spot)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="text-[10px] font-bold uppercase text-slate-500">Pazar Fiyat Endeksi</div>
+                <div className="font-mono text-sm font-black text-slate-900">
+                  Siteniz: 97 <span className="text-emerald-700 text-xs">(Optimum Değer)</span>
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Lider: 126 (+%26) • Bölgesel: 84 (-%16)
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="text-[10px] font-bold uppercase text-slate-500">Fiyat Rekabet Gücü</div>
+                <div className="font-mono text-sm font-black text-teal-700">
+                  %92 / 100
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Kâr marjını kırmadan dönüşüm artışı
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="text-[10px] font-bold uppercase text-slate-500">Potansiyel Gelir Artışı</div>
+                <div className="font-mono text-sm font-black text-indigo-700">
+                  +%28 Ek Ciro
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Çıpalama & Şeffaf Fiyat Vitrini ile
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs space-y-1">
+              <div className="font-bold text-emerald-950 text-[11px] flex items-center gap-1.5">
+                <Scale className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Gemini Fiyat Rekabeti Stratejik Direktifi</span>
+              </div>
+              <p className="text-slate-700 text-[10px] leading-relaxed">
+                Pazar lideri marka rantına güvenerek yüksek fiyat uygularken, bölgesel rakip ise sonradan gizli maliyet çıkararak müşteri güvenini kaybetmektedir. Siteniz "Her Şey Dahil Sabit Fiyat Sözü + 15 Dakikada Varış + Kasko Teminatı" güvencesiyle fiyat kırma savaşına girmeden en yüksek dönüşüm ve kârlılığı yakalayabilir.
+              </p>
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* SECTION 6: GLOBAL SEO ISI HARİTASI & RAKİP DİJİTAL AYAK İZİ ÖZETİ */}
+          {/* ================================================================= */}
+          <div className="space-y-3 pt-4 border-t border-slate-200" style={{ pageBreakInside: "avoid" }}>
+            <div className="font-black text-slate-950 text-sm uppercase tracking-wider flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-indigo-700 text-white flex items-center justify-center text-xs font-black">6</span>
+                <span>Global SEO Isı Haritası & Rakip Dijital Ayak İzi Analizi (Gemini 3.8 Flash)</span>
+              </div>
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                10 Hedef Pazar • %76 Global Ayak İzi Endeksi
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">İstanbul & Marmara</div>
+                <div className="font-mono text-xs font-black text-slate-900 mt-0.5">Siteniz: %28 Pay (Skor: 84)</div>
+                <div className="text-[10px] text-slate-500">Lider: %42 (Skor: 94)</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">İzmir & Ege Bölgesi</div>
+                <div className="font-mono text-xs font-black text-emerald-700 mt-0.5">Siteniz: %32 Pay (1. Sıra)</div>
+                <div className="text-[10px] text-slate-500">Lider: %28 • Dominant</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">Almanya / DACH (Gurbetçi)</div>
+                <div className="font-mono text-xs font-black text-indigo-700 mt-0.5">Beyaz Boşluk / Fırsat</div>
+                <div className="text-[10px] text-slate-500">74K Arama • Rakipler 0</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">Körfez / BAE (Dubai Hub)</div>
+                <div className="font-mono text-xs font-black text-amber-700 mt-0.5">Sıfır Rakip Varlığı</div>
+                <div className="text-[10px] text-slate-500">Arapça/İngilizce Katalog</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1">
+              <div className="font-bold text-indigo-950 text-[11px] flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-indigo-700" />
+                <span>Gemini Dijital Ayak İzi & Kuşatma (Flanking) Direktifi</span>
+              </div>
+              <p className="text-slate-700 text-[10px] leading-relaxed">
+                Liderin yüksek backlink hacmiyle kilitlediği ana metropolde doğrudan kaynak tüketmek yerine; Ankara B2B sanayi koridoru, Akdeniz turizm rotaları ve Almanya DACH pazarında "de-DE" hreflang mimarisiyle çevreleme yapılarak organik pazar payı %42 genişletilmelidir.
+              </p>
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* SECTION 7: OFFICIAL SIGN-OFF BLOCK */}
+          {/* ================================================================= */}
+          <div className="pt-6 border-t-2 border-slate-200" style={{ pageBreakInside: "avoid" }}>
             <div className="grid grid-cols-2 gap-12 text-xs">
               <div className="space-y-6">
                 <div className="font-black text-slate-900 uppercase tracking-wider text-[11px]">
-                  Raporu Hazırlayan / Teknik Danışman
+                  Raporu Hazırlayan / Teknik SEO & Analitik Danışmanı
                 </div>
                 <div className="border-b border-slate-400 pb-1 flex justify-between text-slate-500 font-mono text-[10px]">
                   <span>İmza: ___________________________</span>
                   <span>Kaşe / Mühür</span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  HızlıWeb Bulut Mimarisi & D3.js Analitik Birimi
+                  HızlıWeb Bulut Mimarisi & D3.js Vektörel SEO Analitik Birimi
                 </div>
               </div>
 
               <div className="space-y-6">
                 <div className="font-black text-slate-900 uppercase tracking-wider text-[11px]">
-                  Müşteri Paydaşı / Yönetim Onayı
+                  Müşteri Paydaşı / Şirket Yönetim Onayı
                 </div>
                 <div className="border-b border-slate-400 pb-1 flex justify-between text-slate-500 font-mono text-[10px]">
                   <span>İmza: ___________________________</span>
@@ -1534,6 +3145,36 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* GEMINI AI STRATEGIC PDF REPORT MODAL */}
+      <StrategicPdfExportModal
+        isOpen={isAiPdfModalOpen}
+        onClose={() => setIsAiPdfModalOpen(false)}
+        siteConfig={activeConfig}
+      />
+
+      {/* CUSTOMIZABLE STRATEGIC REPORT & VECTOR RADAR / HEATMAP EDITOR MODAL */}
+      <CustomizableStrategicReportEditorModal
+        isOpen={isCustomReportModalOpen}
+        onClose={() => setIsCustomReportModalOpen(false)}
+        siteConfig={activeConfig}
+      />
+
+      {/* REAL-TIME PUSH-STYLE COMPETITIVE ALERT TOAST */}
+      {activePushAlert && (
+        <CompetitiveAlertToast
+          alert={activePushAlert}
+          onClose={() => setActivePushAlert(null)}
+          onTakeAction={handleToastAction}
+          onOpenAlertCenter={() => {
+            setActiveStrategicTab("seo-competitive-alert");
+            setTimeout(() => {
+              const el = document.getElementById("seo-rekabet-alarmi-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          }}
+        />
+      )}
     </div>
   );
 };
