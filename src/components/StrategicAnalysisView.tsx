@@ -79,6 +79,7 @@ import { RealtimeCompetitorKeywordBenchmark } from "./dashboard/RealtimeCompetit
 import { CompetitorSeoPerformanceRadarModule } from "./dashboard/CompetitorSeoPerformanceRadarModule";
 import { SeoCompetitiveAlertModule } from "./dashboard/SeoCompetitiveAlertModule";
 import { SeoCompetitiveAlertWidget } from "./dashboard/SeoCompetitiveAlertWidget";
+import { SeoCompetitiveAlertConfigPanel } from "./dashboard/SeoCompetitiveAlertConfigPanel";
 import { CompetitiveAlertToast } from "./dashboard/CompetitiveAlertToast";
 import { SectoralSeoStrategySummaryCard } from "./dashboard/SectoralSeoStrategySummaryCard";
 import { D3FutureSeoPerformancePredictor } from "./dashboard/D3FutureSeoPerformancePredictor";
@@ -310,7 +311,8 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
   }, [sixAxes]);
 
   // Active strategic module tab
-  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "seo-otorite-matrisi" | "seo-rakip-puan-karti" | "seo-swot-matrisi" | "icerik-stratejisi-kiyaslayici" | "stratejik-aksiyon-planlayici" | "icerik-gelistirme-onerileri" | "reklam-verimliligi-analiz" | "sektorel-seo-ozet" | "sektorel-rekabet-analiz" | "seo-competitive-alert" | "competitor-seo-performance-radar" | "keyword-benchmark-radar" | "rakip-kiyaslama-tablosu" | "seo-competitor-comparison" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
+  const [activeStrategicTab, setActiveStrategicTab] = useState<"all" | "seo-competitive-alert-config" | "seo-otorite-matrisi" | "seo-rakip-puan-karti" | "seo-swot-matrisi" | "icerik-stratejisi-kiyaslayici" | "stratejik-aksiyon-planlayici" | "icerik-gelistirme-onerileri" | "reklam-verimliligi-analiz" | "sektorel-seo-ozet" | "sektorel-rekabet-analiz" | "seo-competitive-alert" | "competitor-seo-performance-radar" | "keyword-benchmark-radar" | "rakip-kiyaslama-tablosu" | "seo-competitor-comparison" | "market-share-panel" | "market-share-benchmark" | "content-gap-map" | "local-seo-map" | "competitor-url-analysis" | "global-ai-seo" | "quick-wins" | "competitive" | "trends">("all");
+  const [isAlertConfigModalOpen, setIsAlertConfigModalOpen] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [pdfSuccessNotice, setPdfSuccessNotice] = useState<boolean>(false);
   const [isAiPdfModalOpen, setIsAiPdfModalOpen] = useState<boolean>(false);
@@ -643,6 +645,24 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
                     {alertSummary.unreadCount}
                   </span>
                 )}
+              </button>
+              <button
+                type="button"
+                id="banner-seo-alert-config-btn"
+                onClick={() => {
+                  setActiveStrategicTab("seo-competitive-alert-config");
+                  setTimeout(() => {
+                    const el = document.getElementById("seo-alarm-yapilandirma-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/60 text-indigo-200 text-xs font-black tracking-wide hover:bg-indigo-500/40 transition-all cursor-pointer shadow-xs"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-300" />
+                <span>SEO Rekabet Alarmı Yapılandırma</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500 text-white text-[10px] font-black">
+                  DA & Trafik Eşikleri
+                </span>
               </button>
               <button
                 type="button"
@@ -1143,6 +1163,23 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
 
           <button
             type="button"
+            id="strategic-tab-seo-alert-config"
+            onClick={() => setActiveStrategicTab("seo-competitive-alert-config")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeStrategicTab === "seo-competitive-alert-config"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+            <span>SEO Rekabet Alarmı Yapılandırma</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-500/20 text-indigo-700 border border-indigo-500/30">
+              DA & Trafik Eşikleri
+            </span>
+          </button>
+
+          <button
+            type="button"
             id="strategic-tab-ai-pdf"
             onClick={() => setIsAiPdfModalOpen(true)}
             className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs"
@@ -1497,6 +1534,23 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* 2.1-CONFIG SEO REKABET ALARMI YAPILANDIRMA PANELİ (DA & TRAFİK EŞİKLERİ) */}
+      {/* ===================================================================== */}
+      <div 
+        id="seo-alarm-yapilandirma-section" 
+        className={`space-y-6 scroll-mt-6 ${
+          (activeStrategicTab === "all" || activeStrategicTab === "seo-competitive-alert-config") ? "block" : "hidden"
+        }`}
+      >
+        <SeoCompetitiveAlertConfigPanel
+          config={activeConfig}
+          isOpen={true}
+          mode="inline"
+          onAlertTriggered={handleAlertTriggered}
+        />
       </div>
 
       {/* ===================================================================== */}
@@ -3898,6 +3952,17 @@ export const StrategicAnalysisView: React.FC<StrategicAnalysisViewProps> = ({
         onClose={() => setIsCustomReportModalOpen(false)}
         siteConfig={activeConfig}
       />
+
+      {/* SEO COMPETITIVE ALERT CONFIGURATION MODAL */}
+      {isAlertConfigModalOpen && (
+        <SeoCompetitiveAlertConfigPanel
+          config={activeConfig}
+          isOpen={isAlertConfigModalOpen}
+          onClose={() => setIsAlertConfigModalOpen(false)}
+          mode="modal"
+          onAlertTriggered={handleAlertTriggered}
+        />
+      )}
 
       {/* REAL-TIME PUSH-STYLE COMPETITIVE ALERT TOAST */}
       {activePushAlert && (

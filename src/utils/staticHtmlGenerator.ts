@@ -2,6 +2,8 @@ import { SiteConfig, HeroSlide, GeneratedPageFile, ServiceItem, BlogPostItem, Pr
 import { getEffectiveTaxConfig, calculateProductTax } from "./taxUtils";
 import { getEffectiveLanguageConfig } from "./languageUtils";
 import { generateCompositeSchemaGraph, getEffectiveSchemaConfig } from "./schemaOrgGenerator";
+import { generateStaticCss } from "./staticCssGenerator";
+export { generateStaticSite } from "./generator";
 
 function renderCommonHead(
   config: SiteConfig,
@@ -84,84 +86,10 @@ function renderCommonHead(
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              DEFAULT: '${pColor}',
-              dark: '${pDark}',
-              light: '${pSecondary}',
-              accent: '${pAccent}',
-              text: '${pText}'
-            }
-          },
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
-
-  <style>
-    body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    body.rtl-layout {
-      direction: rtl;
-      text-align: right;
-    }
-    body.rtl-layout .site-language-switcher {
-      direction: ltr;
-      text-align: left;
-    }
-    .hero-gradient {
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.90) 0%, rgba(15, 23, 42, 0.75) 100%);
-    }
-    .slide-item {
-      transition: opacity 0.6s ease-in-out;
-    }
-    .prose-rendered {
-      line-height: 1.75;
-    }
-    .prose-rendered p {
-      margin-bottom: 0.85rem;
-    }
-    .prose-rendered ul {
-      list-style-type: disc;
-      padding-left: 1.35rem;
-      margin-bottom: 0.85rem;
-    }
-    .prose-rendered ol {
-      list-style-type: decimal;
-      padding-left: 1.35rem;
-      margin-bottom: 0.85rem;
-    }
-    .prose-rendered h2, .prose-rendered h3, .prose-rendered h4 {
-      font-weight: 800;
-      color: #0f172a;
-      margin-top: 1.25rem;
-      margin-bottom: 0.5rem;
-    }
-    .prose-rendered blockquote {
-      border-left: 4px solid ${pColor};
-      padding-left: 1rem;
-      font-style: italic;
-      color: #475569;
-      margin: 1rem 0;
-      background: #f8fafc;
-      padding-top: 0.5rem;
-      padding-bottom: 0.5rem;
-      border-radius: 0 0.5rem 0.5rem 0;
-    }
-    .prose-rendered strong {
-      font-weight: 700;
-      color: #0f172a;
-    }
+  <!-- JetKur Pure Static CSS Pipeline (Zero Runtime Framework Dependency) -->
+  <link rel="stylesheet" href="assets/site.css">
+  <style id="jetkur-static-css">
+${generateStaticCss(config)}
   </style>
 
   <!-- Schema.org JSON-LD (Automatic Structured Business Data) -->
@@ -5000,6 +4928,17 @@ export function generateAllSiteFiles(config: SiteConfig): GeneratedPageFile[] {
       description: "Global Edge CDN & Statik Barındırma için HTTP güvenlik başlıkları (HSTS, CSP, X-Frame-Options, nosniff)"
     });
   }
+
+  // 11. Static Stylesheet Asset (assets/site.css)
+  const staticCssContent = generateStaticCss(config);
+  addFile({
+    filename: "assets/site.css",
+    title: "JetKur Statik CSS Paketi (assets/site.css)",
+    type: "other",
+    html: staticCssContent,
+    slug: "site-css",
+    description: "Sıfır runtime bağımlılıklı, derlenmiş ve optimize JetKur statik stil dosyası"
+  });
 
   return files;
 }

@@ -43,6 +43,7 @@ import {
   JetkurClientSite,
   calculateDaysRemaining
 } from "../utils/platformSettingsStorage";
+import { SeoContentReviserTool } from "./dashboard/SeoContentReviserTool";
 
 interface AdminSuperPanelProps {
   currentConfig: SiteConfig;
@@ -60,6 +61,7 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
   initialTab = "overview"
 }) => {
   const [activeTab, setActiveTab] = useState<AdminPanelTab>(initialTab);
+  const [targetReviserSiteId, setTargetReviserSiteId] = useState<string>("site-1");
   const [edgeToken, setEdgeToken] = useState("edge_live_98a72b3c4d5e6f7g8h9i0j");
   const [isPurgingCache, setIsPurgingCache] = useState(false);
   const [cachePurgedSuccess, setCachePurgedSuccess] = useState(false);
@@ -407,6 +409,23 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
             <span>JetKur Ana Sayfa Yönetimi</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab("seo-content-reviser")}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "seo-content-reviser"
+                ? "bg-amber-500 text-slate-950 shadow-md font-black"
+                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>SEO İçerik Revize Aracı</span>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-900 font-black">
+              GEMINI
+            </span>
+          </button>
+
           <div className="pt-3 border-t border-slate-200/80 my-2" />
 
           <button
@@ -475,6 +494,13 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    onClick={() => setActiveTab("seo-content-reviser")}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Gemini SEO İçerik Revize</span>
+                  </button>
                   <button
                     onClick={() => {
                       setIsAddingNewSite(true);
@@ -962,6 +988,19 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
 
                       {/* Action buttons */}
                       <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                        {/* Gemini SEO Content Revise */}
+                        <button
+                          onClick={() => {
+                            setTargetReviserSiteId(site.id);
+                            setActiveTab("seo-content-reviser");
+                          }}
+                          title="Gemini ile sitenin başlık ve meta açıklamalarını revize et"
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm transition-transform hover:scale-105 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                          <span>SEO Revize Et</span>
+                        </button>
+
                         {/* Quick 1 Year Extend */}
                         <button
                           onClick={() => handleExtendRenewal(site.id)}
@@ -1685,6 +1724,14 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ==================== TAB 8: SEO CONTENT REVISE TOOL (GEMINI) ==================== */}
+          {activeTab === "seo-content-reviser" && (
+            <SeoContentReviserTool
+              clientSites={clientSites}
+              preselectedSiteId={targetReviserSiteId}
+            />
           )}
         </div>
       </div>

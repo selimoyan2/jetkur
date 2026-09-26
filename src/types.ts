@@ -2249,7 +2249,8 @@ export type AdminPanelTab =
   | "renewals"
   | "pricing-plans"
   | "homepage-manager"
-  | "edge-settings";
+  | "edge-settings"
+  | "seo-content-reviser";
 
 // ==========================================
 // LEAD FORECASTING & SALES PROJECTION TYPES (D3.js)
@@ -2959,6 +2960,10 @@ export type CompetitiveAlertCategory =
   | "volume_spike"           // Sudden surge/spike in competitor keyword search volume (+50% or higher)
   | "volume_drop"            // Sudden collapse in search volume or demand shift
   | "competitor_volume_hijack" // Competitor captured rank #1 during a high-volume surge
+  | "domain_authority_spike" // Competitor Moz DA / Ahrefs DR significantly jumped or overtook user
+  | "domain_authority_threat" // Competitor DA approaching or threatening user's market authority
+  | "traffic_volume_spike"   // Competitor monthly organic traffic volume jumped significantly
+  | "traffic_volume_drop"    // Competitor or industry traffic drop
   | "seasonal_surge";        // Seasonal / viral search volume explosion
 
 export interface SeoCompetitiveAlertAction {
@@ -2984,13 +2989,21 @@ export interface SeoCompetitiveAlert {
   rankDelta: number;                // Difference (positive = competitor is ahead)
   userRankChange?: number;          // e.g. -2 (dropped 2 spots)
   competitorRankChange?: number;    // e.g. +3 (gained 3 spots)
-  // Sudden search volume volatility fields
+  // Domain Authority & Backlink fields
+  competitorDa?: number;            // Competitor Moz DA (e.g. 56)
+  previousCompetitorDa?: number;    // Previous Moz DA (e.g. 52)
+  userDa?: number;                  // User Moz DA (e.g. 48)
+  referringDomainsDelta?: number;   // New referring domains gained (e.g. +24)
+  // Sudden search volume volatility & organic traffic fields
   volumeChangePercentage?: number;  // e.g. +145% or -40%
   previousMonthlyVolume?: string;   // e.g. "3.2K / ay"
   currentMonthlyVolume?: string;    // e.g. "7.8K / ay"
   volumeTrendSparkline?: number[];  // e.g. [3200, 3500, 4200, 5900, 7800]
   volatilityLevel?: "extreme" | "high" | "moderate";
   competitorTrafficShare?: string;  // e.g. "%58 SERP Trafik Payı"
+  competitorMonthlyTraffic?: number; // Total monthly organic visits
+  previousCompetitorTraffic?: number;
+  trafficGrowthPercentage?: number; // e.g. +45% traffic growth
   notificationSent?: boolean;
   notificationType?: "browser_push" | "in_app" | "sound" | "all";
   severity: CompetitiveAlertSeverity;
@@ -3007,18 +3020,40 @@ export interface SeoCompetitiveAlert {
 }
 
 export interface SeoCompetitiveAlertSettings {
+  // Notification channels
   browserPushEnabled: boolean;
   inAppToastEnabled: boolean;
   audioCueEnabled: boolean;
+  emailAlertsEnabled?: boolean;
+  notificationEmail?: string;
+  webhookAlertsEnabled?: boolean;
+  webhookUrl?: string;
+
+  // Domain Authority (DA / DR) Alert Rules
+  alertOnDomainAuthorityChange?: boolean; // Alert when competitor DA changes
+  domainAuthorityDeltaThreshold?: number; // e.g. 1, 2, 3, 5 DA points
+  alertOnCompetitorSurpassingUserDa?: boolean; // Alert when competitor overtakes or approaches user's DA
+  alertOnNewReferringDomains?: boolean; // Alert on surge in backlink / ref domains
+  referringDomainJumpThreshold?: number; // e.g. 10, 20, 30 ref domains
+
+  // Organic Traffic Volume Alert Rules
+  alertOnTrafficVolumeChange?: boolean; // Alert on significant monthly organic traffic change
+  trafficVolumeChangePercent?: number; // e.g. 20%, 35%, 50%
+  alertOnVolumeSpike?: boolean;       // Alert when search volume suddenly spikes
+  volumeSpikeThresholdPercent?: number; // e.g. 30, 50, 100 (% increase threshold)
+  alertOnEstimatedTrafficLoss?: boolean; // Alert if user's estimated monthly traffic loss exceeds threshold
+  trafficLossThreshold?: number; // e.g. 250, 500 visits
+
+  // SERP Rank Rules
   alertOnAnyOvertake: boolean;        // Trigger alert whenever a competitor is higher
   alertOnTop3Loss: boolean;           // Trigger critical alert if lost Top 3
   alertOnHighVolumeOnly: boolean;     // Only alert if search volume > 2000
   minimumRankGap: number;             // Only alert if competitor is ahead by at least X spots (default 1)
-  // Search Volume Volatility Settings
-  alertOnVolumeSpike?: boolean;       // Alert when search volume suddenly spikes
-  volumeSpikeThresholdPercent?: number; // e.g. 30, 50, 100 (% increase threshold)
+
+  // Scheduling & Scope
+  autoCheckIntervalHours: number;     // e.g. 1, 6, 12, 24
+  monitoredCompetitors?: string[];    // Array of competitor domains to monitor or 'all'
   lastCheckedAt?: string;
-  autoCheckIntervalHours: number;     // e.g. 6 or 24
 }
 
 export interface CompetitiveAlertSummary {
@@ -3911,6 +3946,129 @@ export interface AiSeoContentAssistantRequest {
   city?: string;
   siteServices?: string[];
 }
+
+// ==========================================
+// GEMINI SEO CONTENT REVISION ENGINE TYPES (ADMIN SUPER PANEL)
+// ==========================================
+export type SeoRevisionStrategyKey = "high_ctr" | "authority_eeat" | "local_urgent" | "value_pricing";
+
+export interface SeoContentRevisionProposal {
+  id: string;
+  strategyKey: SeoRevisionStrategyKey;
+  strategyName: string;
+  strategyBadge: string;
+  targetAudience: string;
+  revisedTitle: string;
+  revisedTitleCharCount: number;
+  revisedTitlePixelWidth: number;
+  revisedMetaDescription: string;
+  revisedMetaDescriptionCharCount: number;
+  revisedH1: string;
+  revisedH2s: string[];
+  targetKeywordsIncluded: string[];
+  expectedCtrBoost: string; // e.g. "+48% Tıklama Oranı"
+  projectedRankingBoost: string; // e.g. "İlk 3 Sıraya Giriş Potansiyeli"
+  whyItWorks: string;
+  callToAction: string;
+  googleSnippet: {
+    title: string;
+    url: string;
+    description: string;
+    displayDate?: string;
+  };
+}
+
+export interface SeoContentPageAudit {
+  currentScore: number; // 0-100
+  predictedScore: number; // 0-100
+  scoreDelta: number;
+  titleIssues: string[];
+  descriptionIssues: string[];
+  headingIssues: string[];
+  keywordGaps: string[];
+  ctrRiskLevel: "high" | "medium" | "low";
+  currentMetrics: {
+    titleLength: number;
+    titlePixelWidth: number;
+    descLength: number;
+    hasCtaInDesc: boolean;
+    hasLocationInTitle: boolean;
+    hasUrgencyInTitle: boolean;
+    h1MatchesKeyword: boolean;
+  };
+}
+
+export interface SeoPageVariationItem {
+  pageKey: string;
+  pageTitle: string;
+  currentTitle: string;
+  currentDesc: string;
+  currentH1: string;
+  suggestedTitle: string;
+  suggestedDesc: string;
+  suggestedH1: string;
+  suggestedH2s: string[];
+}
+
+export interface SeoContentRevisionResponse {
+  siteId: string;
+  companyName: string;
+  sector: string;
+  city: string;
+  domain: string;
+  selectedPage: string;
+  analyzedAt: string;
+  audit: SeoContentPageAudit;
+  proposals: SeoContentRevisionProposal[];
+  pagesBreakdown?: SeoPageVariationItem[];
+  geminiExecutiveSummary: string;
+  keyTargetKeywords: string[];
+  source: "gemini" | "algorithmic_fallback";
+}
+
+export interface RegisteredSmeSeoProfile {
+  siteId: string;
+  companyName: string;
+  sector: string;
+  domain: string;
+  city: string;
+  pages: {
+    home: {
+      metaTitle: string;
+      metaDescription: string;
+      h1: string;
+      h2s: string[];
+    };
+    services?: {
+      metaTitle: string;
+      metaDescription: string;
+      h1: string;
+      h2s: string[];
+    };
+    about?: {
+      metaTitle: string;
+      metaDescription: string;
+      h1: string;
+      h2s: string[];
+    };
+    contact?: {
+      metaTitle: string;
+      metaDescription: string;
+      h1: string;
+      h2s: string[];
+    };
+  };
+  targetKeywords: string[];
+  appliedRevision?: {
+    strategyKey: string;
+    title: string;
+    description: string;
+    h1: string;
+    h2s: string[];
+    appliedAt: string;
+  };
+}
+
 
 
 

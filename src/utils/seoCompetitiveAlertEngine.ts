@@ -18,13 +18,34 @@ export const DEFAULT_ALERT_SETTINGS: SeoCompetitiveAlertSettings = {
   browserPushEnabled: true,
   inAppToastEnabled: true,
   audioCueEnabled: true,
+  emailAlertsEnabled: false,
+  notificationEmail: "",
+  webhookAlertsEnabled: false,
+  webhookUrl: "",
+
+  // Domain Authority (DA / DR) Alert Rules
+  alertOnDomainAuthorityChange: true,
+  domainAuthorityDeltaThreshold: 2,
+  alertOnCompetitorSurpassingUserDa: true,
+  alertOnNewReferringDomains: true,
+  referringDomainJumpThreshold: 20,
+
+  // Organic Traffic Volume Alert Rules
+  alertOnTrafficVolumeChange: true,
+  trafficVolumeChangePercent: 30,
+  alertOnVolumeSpike: true,
+  volumeSpikeThresholdPercent: 35,
+  alertOnEstimatedTrafficLoss: true,
+  trafficLossThreshold: 350,
+
+  // SERP Rank Rules
   alertOnAnyOvertake: true,
   alertOnTop3Loss: true,
   alertOnHighVolumeOnly: false,
   minimumRankGap: 1,
-  alertOnVolumeSpike: true,
-  volumeSpikeThresholdPercent: 35,
-  autoCheckIntervalHours: 6
+
+  autoCheckIntervalHours: 6,
+  monitoredCompetitors: ["all"]
 };
 
 /**
@@ -685,6 +706,141 @@ export function simulateVolumeSpikeAlert(
       targetTab: "ai-blog-engine",
       prefillKeyword: picked.keyword,
       prefillDraftTitle: `${city} ${picked.keyword} - 7/24 Kesintisiz Profesyonel Çözümler`
+    }
+  };
+
+  const updatedAlerts = [newAlert, ...existingAlerts];
+  saveCompetitiveAlerts(updatedAlerts);
+
+  return { newAlert, updatedAlerts };
+}
+
+/**
+ * Simulates a competitor Domain Authority (DA) jump or threat alert
+ */
+export function simulateDomainAuthorityAlert(
+  config: SiteConfig,
+  existingAlerts: SeoCompetitiveAlert[],
+  settings?: SeoCompetitiveAlertSettings
+): {
+  newAlert: SeoCompetitiveAlert;
+  updatedAlerts: SeoCompetitiveAlert[];
+} {
+  const fallback = generateFallbackCompetitiveSeo(config);
+  const competitors = [
+    { name: "Pazar Lideri (#1)", domain: "liderfirma.com.tr", prevDa: 54, newDa: 57, refDelta: 28 },
+    { name: "Bölgesel Meydan Okuyan", domain: "bolgesel-hizmet.com.tr", prevDa: 44, newDa: 49, refDelta: 34 },
+    { name: "Sektörel Rakip Servis", domain: "sektor-uzmani.com", prevDa: 36, newDa: 40, refDelta: 19 }
+  ];
+  const picked = competitors[Math.floor(Math.random() * competitors.length)];
+  const userDa = 48;
+  const daDiff = picked.newDa - picked.prevDa;
+  const isSurpassingUser = picked.newDa >= userDa && picked.prevDa < userDa;
+
+  const keyword = `${config.sector || 'Hizmet'} Otorite ve Kalite Standardı`;
+
+  const newAlert: SeoCompetitiveAlert = {
+    id: `alert-da-shift-${Date.now()}`,
+    keyword: keyword,
+    monthlyVolume: "14.5K / ay",
+    searchIntent: "Ticari",
+    competitorName: picked.name,
+    competitorDomain: picked.domain,
+    userRank: isSurpassingUser ? 4 : 2,
+    competitorRank: 1,
+    previousUserRank: 2,
+    previousCompetitorRank: 3,
+    rankDelta: isSurpassingUser ? 3 : 1,
+    competitorDa: picked.newDa,
+    previousCompetitorDa: picked.prevDa,
+    userDa: userDa,
+    referringDomainsDelta: picked.refDelta,
+    severity: isSurpassingUser ? "critical" : "warning",
+    category: isSurpassingUser ? "domain_authority_threat" : "domain_authority_spike",
+    title: isSurpassingUser
+      ? `🚨 [OTORİTE TEHDİDİ] ${picked.name} DA ${picked.newDa}'a fırladı ve sitenizi geçti!`
+      : `🛡️ [DOMAİN OTORİTESİ ALARMI] ${picked.name} Moz DA ${picked.prevDa} -> ${picked.newDa} (+${daDiff} DA, +${picked.refDelta} DoFollow Ref Domain)`,
+    description: isSurpassingUser
+      ? `${picked.name} son 30 günde ${picked.refDelta} yeni yüksek otoriteli referans domain kazanarak Moz DA skorunu ${picked.prevDa}'ten ${picked.newDa}'e yükseltti. Sitenizin DA ${userDa} olan pazar liderliğini zorluyor!`
+      : `Rakip ${picked.name}, ${picked.refDelta} adet DA 60+ sektörel haber ve referans sitesinden dofollow backlink aldı. DA skoru ${picked.prevDa}'ten ${picked.newDa}'ya çıktı (+${daDiff}).`,
+    trafficLossEstimate: "Tahmini -540 Otorite Kaynaklı Aylık Organik Trafik Riski",
+    detectedAt: new Date().toISOString(),
+    isRead: false,
+    status: "active",
+    rootCause: "Rakip DA 60+ otoriteli sektörel sitelerden basın bülteni (Dijital PR) ve kırık link yönlendirmesi sağladı.",
+    recommendedAction: {
+      type: "backlink",
+      label: "Dijital PR & Backlink Hamlesi Başlat",
+      description: "SEO Otorite Matrisi üzerinden DA farkını kapatmak için 3 yüksek otoriteli DoFollow referans alanı oluşturun.",
+      targetTab: "seo-otorite-matrisi" as any,
+      prefillKeyword: keyword
+    }
+  };
+
+  const updatedAlerts = [newAlert, ...existingAlerts];
+  saveCompetitiveAlerts(updatedAlerts);
+
+  return { newAlert, updatedAlerts };
+}
+
+/**
+ * Simulates a competitor organic traffic volume surge or spike alert
+ */
+export function simulateTrafficVolumeAlert(
+  config: SiteConfig,
+  existingAlerts: SeoCompetitiveAlert[],
+  settings?: SeoCompetitiveAlertSettings
+): {
+  newAlert: SeoCompetitiveAlert;
+  updatedAlerts: SeoCompetitiveAlert[];
+} {
+  const comp = { name: "Pazar Lideri (#1)", domain: "liderfirma.com.tr" };
+  const prevTraffic = 16800;
+  const currTraffic = 24900;
+  const growthPct = Math.round(((currTraffic - prevTraffic) / prevTraffic) * 100);
+  const city = config.city || "İstanbul";
+  const sector = config.sector || "Hizmet";
+  const targetKeyword = `${city} ${sector} Fiyatları ve Hizmetleri`;
+
+  const newAlert: SeoCompetitiveAlert = {
+    id: `alert-traffic-spike-${Date.now()}`,
+    keyword: targetKeyword,
+    monthlyVolume: `${(currTraffic / 1000).toFixed(1)}K / ay`,
+    previousMonthlyVolume: `${(prevTraffic / 1000).toFixed(1)}K / ay`,
+    currentMonthlyVolume: `${(currTraffic / 1000).toFixed(1)}K / ay`,
+    volumeChangePercentage: growthPct,
+    competitorMonthlyTraffic: currTraffic,
+    previousCompetitorTraffic: prevTraffic,
+    trafficGrowthPercentage: growthPct,
+    volumeTrendSparkline: [prevTraffic, 18200, 20100, 22400, currTraffic],
+    volatilityLevel: "extreme",
+    competitorTrafficShare: "%68 Toplam Pazar Payı",
+    searchIntent: "Ticari",
+    competitorName: comp.name,
+    competitorDomain: comp.domain,
+    userRank: 4,
+    competitorRank: 1,
+    previousUserRank: 3,
+    previousCompetitorRank: 2,
+    rankDelta: 3,
+    userRankChange: -1,
+    competitorRankChange: +1,
+    severity: "critical",
+    category: "traffic_volume_spike",
+    title: `⚡ [TRAFİK HACMİ ALARMI +%${growthPct}] ${comp.name} aylık organik trafiğinde patlama!`,
+    description: `${comp.name}, tahmini aylık organik trafiğini ${(prevTraffic / 1000).toFixed(1)}K'dan ${(currTraffic / 1000).toFixed(1)}K'ya çıkardı (+%${growthPct}). Sektördeki 1. sıra anahtar kelime hakimiyetini güçlendirdi.`,
+    trafficLossEstimate: "Tahmini -780 Kaçırılan Aylık Müşteri Ziyareti",
+    detectedAt: new Date().toISOString(),
+    isRead: false,
+    status: "active",
+    rootCause: "Rakip semt bazlı 14 yeni köşe taşı sayfa yayınladı ve sayfa içi Core Web Vitals LCP süresini 1.6s'ye düşürdü.",
+    recommendedAction: {
+      type: "blog",
+      label: "Acil Karşı İçerik & Fiyat Sayfası Aç",
+      description: "AI Blog Engine ile pazar talebini yakalayacak köşe taşı semt ve fiyat karşılaştırma içeriği üretin.",
+      targetTab: "ai-blog-engine",
+      prefillKeyword: targetKeyword,
+      prefillDraftTitle: `${city} En Uygun ${sector} Fiyatları 2026 - Şeffaf ve Garantili Tarife`
     }
   };
 

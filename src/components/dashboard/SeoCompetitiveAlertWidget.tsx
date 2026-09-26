@@ -21,9 +21,12 @@ import {
   getNotificationPermission,
   simulateRankingShift,
   simulateVolumeSpikeAlert,
+  simulateDomainAuthorityAlert,
+  simulateTrafficVolumeAlert,
   dispatchCompetitiveAlertNotification,
   evaluateCompetitiveRankings
 } from "../../utils/seoCompetitiveAlertEngine";
+import { SeoCompetitiveAlertConfigPanel } from "./SeoCompetitiveAlertConfigPanel";
 import { 
   Bell, 
   BellRing, 
@@ -233,6 +236,50 @@ export const SeoCompetitiveAlertWidget: React.FC<SeoCompetitiveAlertWidgetProps>
       });
       setTimeout(() => setStatusNotice(null), 5000);
     }, 900);
+  };
+
+  // Manual Trigger: Immediate Competitor Domain Authority (DA) Shift Alert
+  const handleTriggerDaShift = async () => {
+    setIsScanning(true);
+    setStatusNotice(null);
+
+    setTimeout(async () => {
+      const { newAlert, updatedAlerts } = simulateDomainAuthorityAlert(config, alerts, settings);
+      setAlerts(updatedAlerts);
+      setIsScanning(false);
+      setLastCheckTimestamp(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+
+      await dispatchAlertNotification(newAlert);
+      if (onAlertTriggered) onAlertTriggered(newAlert);
+
+      setStatusNotice({
+        type: "success",
+        message: `🛡️ [DOMAİN OTORİTESİ ALARMI] "${newAlert.competitorName}" DA değeri güncellendi (DA ${newAlert.previousCompetitorDa} -> ${newAlert.competitorDa})! Bildirim iletildi.`
+      });
+      setTimeout(() => setStatusNotice(null), 5000);
+    }, 800);
+  };
+
+  // Manual Trigger: Immediate Competitor Organic Traffic Volume Surge Alert
+  const handleTriggerTrafficShift = async () => {
+    setIsScanning(true);
+    setStatusNotice(null);
+
+    setTimeout(async () => {
+      const { newAlert, updatedAlerts } = simulateTrafficVolumeAlert(config, alerts, settings);
+      setAlerts(updatedAlerts);
+      setIsScanning(false);
+      setLastCheckTimestamp(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+
+      await dispatchAlertNotification(newAlert);
+      if (onAlertTriggered) onAlertTriggered(newAlert);
+
+      setStatusNotice({
+        type: "success",
+        message: `⚡ [TRAFİK HACMİ PATLAMASI] "${newAlert.competitorName}" aylık organik trafiğinde %${newAlert.volumeChangePercentage} artış tespit edildi!`
+      });
+      setTimeout(() => setStatusNotice(null), 5000);
+    }, 800);
   };
 
   // Manual Trigger: Instant Push Test
@@ -452,6 +499,48 @@ export const SeoCompetitiveAlertWidget: React.FC<SeoCompetitiveAlertWidgetProps>
               <Bell className="w-4 h-4" />
             </button>
 
+            {/* Open Alert Configuration Panel */}
+            <button
+              type="button"
+              id="widget-open-settings-panel-btn"
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isSettingsOpen
+                  ? "bg-indigo-600 border-indigo-400 text-white shadow-md ring-2 ring-indigo-300"
+                  : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
+              }`}
+              title="SEO Rekabet Alarmı Eşik ve Bildirim Yapılandırma Paneli"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-300" />
+              <span>Alarm Yapılandırması</span>
+            </button>
+
+            {/* DA Shift Simulation */}
+            <button
+              type="button"
+              id="widget-trigger-da-btn"
+              onClick={handleTriggerDaShift}
+              disabled={isScanning}
+              className="px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              title="Domain Otoritesi (DA) değişimini ve tehdidini simüle et"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-indigo-200" />
+              <span>DA Değişimi Test Et</span>
+            </button>
+
+            {/* Traffic Shift Simulation */}
+            <button
+              type="button"
+              id="widget-trigger-traffic-btn"
+              onClick={handleTriggerTrafficShift}
+              disabled={isScanning}
+              className="px-3 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              title="Rakip aylık organik trafik hacmi sıçramasını test et"
+            >
+              <Zap className="w-3.5 h-3.5 text-teal-200" />
+              <span>Trafik Artışı Test Et</span>
+            </button>
+
             {/* Instant SERP Shift Simulation */}
             <button
               type="button"
@@ -492,6 +581,32 @@ export const SeoCompetitiveAlertWidget: React.FC<SeoCompetitiveAlertWidgetProps>
             </button>
           </div>
         </div>
+
+        {/* ===================================================================== */}
+        {/* 1.1 CONFIGURATION PANEL DRAWER (IF OPEN) */}
+        {/* ===================================================================== */}
+        {isSettingsOpen && (
+          <div className="mt-4 pt-4 border-t border-indigo-900/60 animate-in fade-in duration-200">
+            <SeoCompetitiveAlertConfigPanel
+              config={config}
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              onSettingsSaved={(newSettings) => {
+                setSettings(newSettings);
+                setStatusNotice({
+                  type: "success",
+                  message: "SEO Rekabet Alarmı eşik ayarları başarıyla kaydedildi ve canlı takip motoruna uygulandı."
+                });
+                setTimeout(() => setStatusNotice(null), 4000);
+              }}
+              onAlertTriggered={(newAlert) => {
+                setAlerts((prev) => [newAlert, ...prev]);
+                if (onAlertTriggered) onAlertTriggered(newAlert);
+              }}
+              mode="inline"
+            />
+          </div>
+        )}
 
         {/* Live Broadcast Notice Bar */}
         {statusNotice && (

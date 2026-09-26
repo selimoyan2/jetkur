@@ -26,6 +26,7 @@ import {
   evaluateCompetitiveRankings
 } from "../../utils/seoCompetitiveAlertEngine";
 import { CompetitiveAlertToast } from "./CompetitiveAlertToast";
+import { SeoCompetitiveAlertConfigPanel } from "./SeoCompetitiveAlertConfigPanel";
 import { 
   Bell, 
   BellRing, 
@@ -434,85 +435,19 @@ export const SeoCompetitiveAlertModule: React.FC<SeoCompetitiveAlertModuleProps>
 
       {/* 4. SETTINGS PANEL (IF OPEN) */}
       {isSettingsOpen && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-5 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-sm font-bold text-slate-900">SEO Rekabet Alarmı Eşik ve Bildirim Ayarları</h3>
-            </div>
-            <button 
-              type="button"
-              onClick={() => setIsSettingsOpen(false)}
-              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Setting 1: Volume Spike Alert Threshold */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
-              <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                <span>Ani Hacim Eşiği (%)</span>
-                <span className="text-indigo-600 font-mono">+{settings.volumeSpikeThresholdPercent || 35}%</span>
-              </label>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                Arama hacmi bu yüzdenin üstünde artan kelimelerde anında alarm verilir.
-              </p>
-              <select
-                value={settings.volumeSpikeThresholdPercent || 35}
-                onChange={(e) => handleUpdateSettings({ volumeSpikeThresholdPercent: Number(e.target.value) })}
-                className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800"
-              >
-                <option value={20}>+%20 (Hassas İzleme)</option>
-                <option value={35}>+%35 (Önerilen Denge)</option>
-                <option value={50}>+%50 (Sadece Büyük Sıçramalar)</option>
-                <option value={100}>+%100 (İki Katına Çıkanlar)</option>
-              </select>
-            </div>
-
-            {/* Setting 2: Web Push */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-800 block">Tarayıcı Masaüstü Bildirimi</span>
-                <span className="text-[11px] text-slate-500">Google Chrome / Safari masaüstü push bildirimi</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.browserPushEnabled}
-                onChange={(e) => handleUpdateSettings({ browserPushEnabled: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
-              />
-            </div>
-
-            {/* Setting 3: Audio Chime */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-800 block">Sesli Uyarı Melodisi</span>
-                <span className="text-[11px] text-slate-500">Alarm anında soft Web Audio tınısı çalar</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.audioCueEnabled}
-                onChange={(e) => handleUpdateSettings({ audioCueEnabled: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
-              />
-            </div>
-
-            {/* Setting 4: In-App Toast */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-800 block">Panel İçi Bildirim Toast'ı</span>
-                <span className="text-[11px] text-slate-500">Sağ üst köşede açılır detaylı toast kutusu</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.inAppToastEnabled}
-                onChange={(e) => handleUpdateSettings({ inAppToastEnabled: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
-              />
-            </div>
-          </div>
+        <div className="animate-in fade-in duration-200">
+          <SeoCompetitiveAlertConfigPanel
+            config={config}
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            onSettingsSaved={(newSettings) => {
+              setSettings(newSettings);
+              setStatusNotice({ type: "success", message: "Alarm yapılandırma ayarları başarıyla kaydedildi." });
+              setTimeout(() => setStatusNotice(null), 3000);
+            }}
+            onAlertTriggered={(newAlert) => setAlerts((prev) => [newAlert, ...prev])}
+            mode="inline"
+          />
         </div>
       )}
 

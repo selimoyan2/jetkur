@@ -1,10 +1,14 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { authRouter, tenantRouter } from "./src/server/auth";
+import { entitlementRouter } from "./src/server/entitlements";
+import { industryRouter } from "./src/server/industries";
 import { generateFallbackSeoContentOptimizer, calculateGooglePixelWidth } from "./src/utils/seoContentOptimizerEngine";
 import { generateFallbackBlogArticle, auditBlogArticleSeo, generateBlogJsonLdSchema, STOCK_ARTICLE_COVERS } from "./src/utils/aiBlogEngineUtils";
 import { generateFallbackAiImageOptimization } from "./src/utils/imageOptimizer";
@@ -28,6 +32,7 @@ import { generateFallbackGlobalSeoHeatmap } from "./src/utils/globalSeoHeatmapEn
 import { generateFallbackStrategicActionPlan } from "./src/utils/strategicActionPlannerEngine";
 import { generateFallbackContentExpansion } from "./src/utils/competitorContentExpansionEngine";
 import { generateFallbackAdEfficiencyReport } from "./src/utils/competitorAdEfficiencyEngine";
+import { generateFallbackSeoContentRevision } from "./src/utils/aiSeoContentReviserEngine";
 
 dotenv.config();
 
@@ -51,6 +56,13 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: "10mb" }));
+  app.use(cookieParser());
+
+  // JetKur Sprint 03, 04 & 05: Core Architecture API Routes
+  app.use("/api/auth", authRouter);
+  app.use("/api/tenants", tenantRouter);
+  app.use("/api/workspaces", entitlementRouter);
+  app.use("/api/industries", industryRouter);
 
   // API Routes
   app.get("/api/health", (_req, res) => {
@@ -7480,6 +7492,199 @@ Lütfen bu site için SADECE aşağıdaki JSON şemasında profesyonel, Türkçe
         success: false,
         error: `SSL/TLS ayarları güncellenirken hata oluştu: ${err?.message || "Bilinmeyen hata"}`
       });
+    }
+  });
+
+  // GEMINI-POWERED SEO CONTENT REVISE ENGINE FOR REGISTERED SME SITES
+  app.post("/api/seo-content-revise", async (req, res) => {
+    try {
+      const {
+        siteId = "site-custom",
+        companyName = "KOBİ İşletmesi",
+        sector = "Kurumsal Hizmet",
+        city = "İstanbul",
+        domain = "sitemiz.com",
+        pageKey = "home",
+        currentMetaTitle = "",
+        currentMetaDescription = "",
+        currentH1 = "",
+        currentH2s = [],
+        targetKeywords = [],
+        preferredStrategy = "high_ctr"
+      } = req.body;
+
+      const ai = getAIClient();
+
+      if (!ai) {
+        const fallback = generateFallbackSeoContentRevision({
+          siteId,
+          companyName,
+          sector,
+          city,
+          domain,
+          pageKey,
+          currentMetaTitle,
+          currentMetaDescription,
+          currentH1,
+          currentH2s,
+          targetKeywords,
+          preferredStrategy
+        });
+        return res.json({ success: true, source: "deterministic_fallback", data: fallback });
+      }
+
+      const prompt = `Sen Google Türkiye algoritmaları, SERP CTR optimizasyonu, E-E-A-T ve arama niyeti (Search Intent) konularında kıdemli bir SEO Uzmanı ve Dönüşüm Metin Yazarlarısın.
+Türkiye'deki tescilli KOBİ sitesi "${companyName}" (${sector} sektörü, ${city} bölgesi) için mevcut meta açıklamalarını ve ana başlıklarını (H1, H2) detaylı analiz et. Google'da çok daha yüksek sıralama alması ve arama sonuçlarında (SERP) en yüksek tıklama oranına (CTR) ulaşması için daha etkileyici, ikna edici, anahtar kelime odaklı metinler ve eylem çağrıları öner.
+
+MEVCUT SİTE BİLGİLERİ:
+- Firma Adı: ${companyName}
+- Sektör / Niş: ${sector}
+- Şehir / Bölge: ${city}
+- Domain: ${domain}
+- İncelenen Sayfa: ${pageKey}
+- Mevcut Meta Title (Başlık): "${currentMetaTitle || `${companyName} | ${sector} Hizmetleri`}"
+- Mevcut Meta Description (Açıklama): "${currentMetaDescription || `${companyName} olarak kaliteli hizmet veriyoruz.`}"
+- Mevcut H1 Ana Başlığı: "${currentH1 || `${companyName} Hoş Geldiniz`}"
+- Mevcut H2 Alt Başlıkları: ${Array.isArray(currentH2s) ? JSON.stringify(currentH2s) : "[]"}
+- Odak Anahtar Kelimeler: ${Array.isArray(targetKeywords) ? targetKeywords.join(", ") : `${city} ${sector}`}
+- Tercih Edilen Öncelikli Strateji: ${preferredStrategy}
+
+GÖREVLERİN:
+1. Mevcut Başlık ve Meta Açıklamanın Analizi:
+   - Başlığın eksiklikleri (Google SERP piksel genişliği, coğrafi hedefleme, CTR kancası vb.)
+   - Meta açıklamanın eksiklikleri (karakter uzunluğu, aciliyet, eylem çağrısı CTA eksikliği vb.)
+   - H1 ve H2 başlıklarının eksiklikleri (jenerik olma, anahtar kelime eşleşmesi, yapısal derinlik vb.)
+   - Mevcut SEO İçerik Skoru (0-100) ve Potansiyel Yeni Skor.
+2. 4 Farklı Stratejide Revizyon Seçeneği Üret:
+   a) "high_ctr" (Yüksek Tıklama Oranı - CTR Booster): Hızlı müdahale, sabit fiyat veya aciliyet vurgusu.
+   b) "authority_eeat" (E-E-A-T & Kurumsal Otorite): Yılların tecrübesi, resmi sertifikasyon, kasko güvencesi.
+   c) "local_urgent" (Yerel SEO & 7/24 Acil Çağrı): En yakın mobil ekip, 15 dakikada varış, telefon/WhatsApp acil hat.
+   d) "value_pricing" (Fiyat Şeffaflığı & Uygun Maliyet): 2026 güncel fiyat tarifesi, indirim, bütçe dostu garanti.
+   Her seçenek için:
+   - revisedTitle: 50-60 karakter arası tam Google SERP dostu başlık.
+   - revisedMetaDescription: 140-160 karakter arası, doğrudan eylem çağrılı (CTA) akıcı Türkçe açıklama.
+   - revisedH1: Sayfaya girdiğinde okuyucuyu yakalayan ve anahtar kelimeyi doğal içeren güçlü ana başlık.
+   - revisedH2s: Sayfa içeriğini yapılandıran 4 adet güçlü semantik alt başlık.
+   - targetKeywordsIncluded: Metne yedirilmiş anahtar kelimeler listesi.
+   - expectedCtrBoost: Örn. "+48% Tıklama Artışı"
+   - projectedRankingBoost: Örn. "Google SERP İlk 3 Sıra Hedefi"
+   - whyItWorks: Bu revizyonun neden Google'da ve kullanıcıda işe yarayacağına dair teknik/psikolojik gerekçe.
+   - callToAction: Tavsiye edilen eylem butonu metni.
+3. Yönetici Özeti (geminiExecutiveSummary): Yapılan analizin KOBİ sahibine yönelik 2-3 cümlelik net profesyonel özeti.
+
+Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
+{
+  "audit": {
+    "currentScore": 48,
+    "predictedScore": 96,
+    "scoreDelta": 48,
+    "titleIssues": ["Başlık Google SERP için çok kısa..."],
+    "descriptionIssues": ["Açıklamada doğrudan bir eylem çağrısı (CTA) yer almıyor..."],
+    "headingIssues": ["H1 başlığı jenerik..."],
+    "keywordGaps": ["anahtar kelime 1"],
+    "ctrRiskLevel": "high"
+  },
+  "proposals": [
+    {
+      "id": "prop-1",
+      "strategyKey": "high_ctr",
+      "strategyName": "Yüksek Tıklama Oranı (CTR Booster)",
+      "strategyBadge": "En Çok Tercih Edilen",
+      "targetAudience": "Hızlı ve güvenilir çözüm arayan müşteriler",
+      "revisedTitle": "50-60 karakter başlık",
+      "revisedTitleCharCount": 56,
+      "revisedTitlePixelWidth": 520,
+      "revisedMetaDescription": "140-160 karakter meta açıklama...",
+      "revisedMetaDescriptionCharCount": 152,
+      "revisedH1": "Çekici H1 başlığı",
+      "revisedH2s": ["H2 Başlık 1", "H2 Başlık 2", "H2 Başlık 3", "H2 Başlık 4"],
+      "targetKeywordsIncluded": ["kelime 1", "kelime 2"],
+      "expectedCtrBoost": "+48% Tıklama Artışı",
+      "projectedRankingBoost": "Google SERP İlk 3 Sıra",
+      "whyItWorks": "Açıklama...",
+      "callToAction": "Hemen Arayın",
+      "googleSnippet": {
+        "title": "...",
+        "url": "https://${domain}/",
+        "description": "...",
+        "displayDate": "Bugün güncellendi"
+      }
+    }
+  ],
+  "geminiExecutiveSummary": "Özet metni..."
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      let rawText = response.text || "{}";
+      rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(rawText);
+
+      // Enhance with computed pixel widths and safety defaults
+      if (parsed.proposals && Array.isArray(parsed.proposals)) {
+        parsed.proposals.forEach((p: any) => {
+          if (p.revisedTitle) {
+            p.revisedTitleCharCount = p.revisedTitle.length;
+            p.revisedTitlePixelWidth = calculateGooglePixelWidth(p.revisedTitle);
+          }
+          if (p.revisedMetaDescription) {
+            p.revisedMetaDescriptionCharCount = p.revisedMetaDescription.length;
+          }
+          if (!p.googleSnippet) {
+            p.googleSnippet = {
+              title: p.revisedTitle || "",
+              url: `https://${domain}/`,
+              description: p.revisedMetaDescription || "",
+              displayDate: "Google İndeksli"
+            };
+          }
+        });
+      }
+
+      const fullResult = {
+        siteId,
+        companyName,
+        sector,
+        city,
+        domain,
+        selectedPage: pageKey,
+        analyzedAt: new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+        audit: {
+          currentScore: parsed.audit?.currentScore || 52,
+          predictedScore: parsed.audit?.predictedScore || 96,
+          scoreDelta: (parsed.audit?.predictedScore || 96) - (parsed.audit?.currentScore || 52),
+          titleIssues: parsed.audit?.titleIssues || [],
+          descriptionIssues: parsed.audit?.descriptionIssues || [],
+          headingIssues: parsed.audit?.headingIssues || [],
+          keywordGaps: parsed.audit?.keywordGaps || [],
+          ctrRiskLevel: parsed.audit?.ctrRiskLevel || "medium",
+          currentMetrics: {
+            titleLength: currentMetaTitle.length,
+            titlePixelWidth: calculateGooglePixelWidth(currentMetaTitle),
+            descLength: currentMetaDescription.length,
+            hasCtaInDesc: /ara|teklif|ulaş|tıkla|öğren/i.test(currentMetaDescription),
+            hasLocationInTitle: currentMetaTitle.toLocaleLowerCase("tr").includes(city.toLocaleLowerCase("tr")),
+            hasUrgencyInTitle: /15|dakika|acil|7\/24|hızlı/i.test(currentMetaTitle),
+            h1MatchesKeyword: targetKeywords.some((kw: string) => currentH1.toLocaleLowerCase("tr").includes(kw.toLocaleLowerCase("tr")))
+          }
+        },
+        proposals: parsed.proposals || [],
+        geminiExecutiveSummary: parsed.geminiExecutiveSummary || "",
+        keyTargetKeywords: targetKeywords,
+        source: "gemini"
+      };
+
+      return res.json({ success: true, source: "gemini", data: fullResult });
+    } catch (err: any) {
+      console.error("AI SEO Content Revise Error, serving deterministic fallback:", err);
+      const fallback = generateFallbackSeoContentRevision(req.body || {});
+      return res.json({ success: true, source: "fallback_recovery", data: fallback });
     }
   });
 
