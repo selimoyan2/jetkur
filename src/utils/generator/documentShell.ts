@@ -7,6 +7,7 @@
 
 import { SiteConfig } from "../../types";
 import { generateStaticCss } from "../staticCssGenerator";
+import { DesignTokens } from "../../domain/site/designTemplate";
 import { renderSeoHead, PageSeoOptions } from "./seoHeadRenderer";
 
 export interface DocumentShellOptions {
@@ -16,6 +17,7 @@ export interface DocumentShellOptions {
   scriptsContent?: string;
   lang?: string;
   isRtl?: boolean;
+  resolvedTokens?: Partial<DesignTokens>;
 }
 
 /**
@@ -29,10 +31,11 @@ export function renderDocumentShell(options: DocumentShellOptions): string {
     scriptsContent = "",
     lang = "tr",
     isRtl = false,
+    resolvedTokens,
   } = options;
 
   const seoHeadHtml = renderSeoHead(config, seo);
-  const staticCssContent = generateStaticCss(config);
+  const staticCssContent = generateStaticCss(config, resolvedTokens);
 
   const dirAttr = isRtl ? ' dir="rtl"' : "";
   const bodyRtlClass = isRtl ? " rtl-layout" : "";

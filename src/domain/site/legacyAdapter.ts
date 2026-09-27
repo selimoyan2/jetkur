@@ -66,6 +66,7 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
         secondary: legacy.palette?.secondary,
         accent: legacy.palette?.accent,
       },
+      brandKit: (legacy as any).brandKit,
     },
     workingHours: {
       raw: legacy.workingHours || "Hafta İçi: 09:00 - 18:00",
@@ -397,5 +398,87 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     sectionConfiguration,
     content,
     settings,
+    brandKit: (legacy as any).brandKit,
   };
 }
+
+/**
+ * Transforms a CanonicalSite aggregate model back into the legacy SiteConfig representation.
+ */
+export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
+  const profile = canonical.businessProfile;
+  const content = canonical.content;
+  const settings = canonical.settings;
+  const tokens = (canonical.brandKit?.palette || {}) as any;
+
+  return {
+    id: canonical.id,
+    templateId: canonical.designTemplate?.templateId || "tmpl-rapid-service",
+    companyName: profile.identity.companyName,
+    sector: profile.identity.sector || "general",
+    slogan: profile.identity.slogan || "",
+    phone: profile.contact.phone || "",
+    whatsapp: profile.contact.whatsapp || "",
+    address: profile.location.address || "",
+    city: profile.location.city || "İstanbul",
+    hero: {
+      badge: content.hero?.badge || "Profesyonel Hizmet",
+      title: content.hero?.title || profile.identity.companyName,
+      subtitle: content.hero?.subtitle || profile.identity.slogan || "",
+      ctaText: content.hero?.ctaPrimaryText || "Hemen Ara",
+      ctaSecondaryText: content.hero?.ctaSecondaryText || "İletişim",
+      bgImage: content.hero?.bgImageUrl || "",
+    },
+    about: {
+      title: content.about?.title || "Hakkımızda",
+      content: content.about?.contentHtml || profile.identity.shortDescription || "",
+      image: content.about?.imageUrl || "",
+      experienceYears: Number(content.about?.yearsExperience || 10),
+      completedJobs: Number(content.about?.completedProjects || 1000),
+      happyClients: 99,
+    },
+    services: (profile.services || []).map((s, idx) => ({
+      id: s.id || `srv-${idx + 1}`,
+      title: s.title,
+      description: s.shortDescription || "",
+      icon: (s.icon as any) || "CheckCircle2",
+      price: s.priceHint || "",
+      image: "",
+      featured: s.featured ?? (idx < 3),
+    })),
+    testimonials: (content.testimonials || []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      role: t.role || "Müşteri",
+      content: t.comment,
+      rating: t.rating || 5,
+    })),
+    palette: {
+      primary: tokens.primary || "#2563eb",
+      primaryDark: tokens.primaryDark || "#1d4ed8",
+      secondary: tokens.secondary || "#0f172a",
+      accent: tokens.accent || "#f59e0b",
+      text: tokens.text || "#0f172a",
+      bg: tokens.background || "#ffffff",
+      navBg: tokens.surface || "#ffffff",
+      footerBg: tokens.secondary || "#0f172a",
+    },
+    brandKit: canonical.brandKit,
+    logoUrl: profile.branding.logoUrl || canonical.brandKit?.logo?.url,
+    workingHours: profile.workingHours?.raw || "Pazartesi - Cumartesi: 08:30 - 19:30",
+    faqs: (content.faqs || []).map((f) => ({
+      id: f.id,
+      question: f.question,
+      answer: f.answer,
+    })),
+    seo: {
+      metaTitle: settings.seo?.metaTitle || profile.identity.companyName,
+      metaDescription: settings.seo?.metaDescription || "",
+      keywords: settings.seo?.keywords || "",
+      canonicalUrl: settings.seo?.canonicalUrl,
+    },
+  } as unknown as SiteConfig;
+}
+
+export const toSiteConfig = toLegacySiteConfig;
+

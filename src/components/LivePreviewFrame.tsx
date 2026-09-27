@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { SiteConfig, ColorPalette, GeneratedPageFile } from "../types";
 import { COLOR_PALETTES } from "../data/templates";
-import { generateAllSiteFiles } from "../utils/staticHtmlGenerator";
+import { generateProductionSiteFiles } from "../utils/productionGeneratorBridge";
 import { slugifySubdomain } from "../utils/url";
 import {
   Monitor,
@@ -121,9 +121,9 @@ export const LivePreviewFrame: React.FC<LivePreviewFrameProps> = ({
     return () => clearInterval(timer);
   }, [isAutoTouring, deviceMode]);
 
-  // Generate all site pages
+  // Generate all site pages via canonical modular renderer
   const allFiles: GeneratedPageFile[] = useMemo(() => {
-    return generateAllSiteFiles(config);
+    return generateProductionSiteFiles(config);
   }, [config]);
 
   // Memory Router State

@@ -19,6 +19,7 @@ import { ActiveDesignConfig } from "./designTemplate";
 import { SectionConfiguration } from "./sectionConfiguration";
 import { SiteContent } from "./siteContent";
 import { SiteSettings } from "./siteSettings";
+import { BrandKit } from "../brand/types";
 
 export type CanonicalSiteStatus = "draft" | "trial" | "active" | "suspended" | "archived";
 
@@ -74,4 +75,10 @@ export interface CanonicalSite {
    * Technical SEO, custom domain, Cloudflare edge deployment, analytics, WhatsApp widget, and leads handling.
    */
   settings: SiteSettings;
+
+  /**
+   * 7. BRAND KIT (Sprint 10):
+   * Customer-owned brand identity (logo, extracted brand colors, semantic palette, contrast audit).
+   */
+  brandKit?: BrandKit;
 }

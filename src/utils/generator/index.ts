@@ -12,6 +12,7 @@ import { GeneratedPageFile, SiteConfig } from "../../types";
 import { renderHomePage, renderKurumsalPage, renderServicesPage, renderContactPage } from "./pageRenderer";
 import { assembleStaticAssets } from "./assetAssembler";
 import { RenderContext } from "./types";
+import { resolveDesignTokens } from "../../domain/brand";
 
 // Re-export all modular components
 export * from "./types";
@@ -39,9 +40,15 @@ export function generateStaticSite(
     CANONICAL_TEMPLATE_MANIFESTS.find((m) => m.id === site.designTemplate?.templateId) ||
     CANONICAL_TEMPLATE_MANIFESTS[0];
 
+  // Resolve DesignTokens following strict hierarchy: Template < BrandKit < Site Custom
+  const brandKit = site.businessProfile?.branding?.brandKit || site.brandKit;
+  const customOverrides = site.designTemplate?.customTokens;
+  const resolvedDesignTokens = resolveDesignTokens(manifest.designTokens, brandKit, customOverrides);
+
   const context: RenderContext = {
     site,
     manifest,
+    resolvedDesignTokens,
     legacyConfig,
     activePageSlug: "index",
     currentPageType: "home",
@@ -105,26 +112,27 @@ export function generateStaticSite(
   }
 
   // Assemble Static Assets (CSS, _headers, _redirects, robots, sitemap)
-
-  const syntheticConfig: SiteConfig = legacyConfig || ({
+  const syntheticConfig: SiteConfig = {
+    ...(legacyConfig || {}),
     id: site.id,
     companyName: site.businessProfile.identity.companyName,
     palette: {
-      primary: manifest.designTokens.palette.primary,
-      primaryDark: manifest.designTokens.palette.primaryDark,
-      secondary: manifest.designTokens.palette.secondary,
-      accent: manifest.designTokens.palette.accent,
-      text: manifest.designTokens.palette.text,
-      bg: manifest.designTokens.palette.background,
+      primary: resolvedDesignTokens.palette.primary,
+      primaryDark: resolvedDesignTokens.palette.primaryDark,
+      secondary: resolvedDesignTokens.palette.secondary,
+      accent: resolvedDesignTokens.palette.accent,
+      text: resolvedDesignTokens.palette.text,
+      bg: resolvedDesignTokens.palette.surface,
     },
     seo: {
       canonicalUrl: site.settings?.seo?.canonicalUrl || (site.settings?.domain as any)?.canonicalUrl || "",
       robots: "index, follow",
     },
-  } as unknown as SiteConfig);
+  } as unknown as SiteConfig;
 
   const assetFiles = assembleStaticAssets({
     config: syntheticConfig,
+    resolvedTokens: resolvedDesignTokens,
     pages: files.map((f) => ({ filename: f.filename, slug: f.slug })),
   });
 

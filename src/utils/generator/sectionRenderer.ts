@@ -177,9 +177,10 @@ export function renderServicesSection(context: SectionRenderContext): string {
       </div>
 
       <div class="jk-services-grid">
-        ${services.map((s, idx) => {
-          const sTitle = escapeHtml(s.title);
+        ${services.map((s: any, idx: number) => {
+          const sTitle = escapeHtml(s.name || s.title || "Hizmet");
           const sDesc = escapeHtml(s.description || "");
+          const sPrice = s.price || s.priceInfo;
           const detailUrl = isMulti ? `hizmet-${s.slug || idx + 1}.html` : "#contact";
           return `
         <article class="jk-card flex flex-col justify-between">
@@ -191,7 +192,7 @@ export function renderServicesSection(context: SectionRenderContext): string {
             <p class="text-slate-600 text-sm leading-relaxed mb-4">${sDesc}</p>
           </div>
           <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span class="text-xs font-semibold text-slate-500">${s.priceInfo ? escapeHtml(s.priceInfo) : "Uygun Fiyat"}</span>
+            <span class="text-xs font-semibold text-slate-500">${sPrice ? escapeHtml(sPrice) : "Uygun Fiyat"}</span>
             <a href="${detailUrl}" class="text-sm font-bold text-brand hover:underline">Detaylı Bilgi →</a>
           </div>
         </article>`;
@@ -282,7 +283,8 @@ export function renderWhyUsSection(context: SectionRenderContext): string {
  */
 export function renderGallerySection(context: SectionRenderContext): string {
   const { site, variant } = context;
-  const items = site.content.gallery || [];
+  const rawGallery: any = site.content.gallery;
+  const items = Array.isArray(rawGallery) ? rawGallery : (rawGallery?.items || []);
 
   return `
   <!-- Gallery Section: ${variant} -->

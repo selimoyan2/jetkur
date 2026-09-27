@@ -11,11 +11,13 @@
 
 import { SiteConfig, GeneratedPageFile } from "../../types";
 import { generateStaticCss } from "../staticCssGenerator";
+import { DesignTokens } from "../../domain/site/designTemplate";
 
 export interface AssetAssemblerOptions {
   config: SiteConfig;
   pages: { filename: string; slug?: string }[];
   siteUrl?: string;
+  resolvedTokens?: Partial<DesignTokens>;
 }
 
 /**
@@ -115,7 +117,7 @@ export function assembleStaticAssets(options: AssetAssemblerOptions): GeneratedP
   const files: GeneratedPageFile[] = [];
 
   // 1. assets/site.css
-  const cssContent = generateStaticCss(config);
+  const cssContent = generateStaticCss(config, options.resolvedTokens);
   files.push({
     filename: "assets/site.css",
     fileName: "assets/site.css",

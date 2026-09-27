@@ -52,6 +52,7 @@ export function renderHomePage(context: RenderContext): string {
   `;
 
   // Fallback config for document shell
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
   const effectiveConfig: SiteConfig = legacyConfig || {
     id: site.id,
     companyName: bp.identity.companyName,
@@ -62,12 +63,12 @@ export function renderHomePage(context: RenderContext): string {
     city: bp.location.city,
     sector: bp.identity.sector,
     palette: {
-      primary: manifest.designTokens.palette.primary,
-      primaryDark: manifest.designTokens.palette.primaryDark,
-      secondary: manifest.designTokens.palette.secondary,
-      accent: manifest.designTokens.palette.accent,
-      text: manifest.designTokens.palette.text,
-      bg: manifest.designTokens.palette.background,
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
     },
     hero: {
       title: site.content.hero?.title || bp.identity.slogan || companyName,
@@ -86,7 +87,36 @@ export function renderHomePage(context: RenderContext): string {
     },
   } as unknown as SiteConfig;
 
-  const scriptsHtml = renderProgressiveScripts(effectiveConfig);
+  // Check if sections are present in configured sections and enabled
+  const isSectionActive = (type: string) => {
+    const sec = site.sectionConfiguration?.sections?.find(
+      (s) => s.type === type || (s.id && s.id.toLowerCase() === type.toLowerCase())
+    );
+    return Boolean(sec && sec.enabled !== false);
+  };
+
+  const hasFaqs = isSectionActive("faqs") && Boolean(
+    site.content.faqs && site.content.faqs.length > 0
+  );
+
+  const hasSlider = Boolean(
+    site.content.hero?.slides && site.content.hero.slides.length > 1
+  );
+
+  const hasGallery = isSectionActive("gallery") && Boolean(
+    site.content.gallery && site.content.gallery.length > 0
+  );
+
+  const hasCatalog = isSectionActive("products") && Boolean(
+    site.content.catalogProducts && site.content.catalogProducts.length > 0
+  );
+
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    faqAccordion: hasFaqs,
+    heroSlider: hasSlider,
+    galleryLightbox: hasGallery,
+    catalogModal: hasCatalog,
+  });
 
   return renderDocumentShell({
     config: effectiveConfig,
@@ -97,6 +127,7 @@ export function renderHomePage(context: RenderContext): string {
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
   });
 }
 
@@ -122,16 +153,17 @@ export function renderKurumsalPage(context: RenderContext): string {
   ${footerHtml}
   `;
 
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
   const effectiveConfig = legacyConfig || ({
     id: site.id,
     companyName: bp.identity.companyName,
     palette: {
-      primary: manifest.designTokens.palette.primary,
-      primaryDark: manifest.designTokens.palette.primaryDark,
-      secondary: manifest.designTokens.palette.secondary,
-      accent: manifest.designTokens.palette.accent,
-      text: manifest.designTokens.palette.text,
-      bg: manifest.designTokens.palette.background,
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
     },
   } as unknown as SiteConfig);
 
@@ -146,6 +178,7 @@ export function renderKurumsalPage(context: RenderContext): string {
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
   });
 }
 
@@ -171,16 +204,17 @@ export function renderServicesPage(context: RenderContext): string {
   ${footerHtml}
   `;
 
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
   const effectiveConfig = legacyConfig || ({
     id: site.id,
     companyName: bp.identity.companyName,
     palette: {
-      primary: manifest.designTokens.palette.primary,
-      primaryDark: manifest.designTokens.palette.primaryDark,
-      secondary: manifest.designTokens.palette.secondary,
-      accent: manifest.designTokens.palette.accent,
-      text: manifest.designTokens.palette.text,
-      bg: manifest.designTokens.palette.background,
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
     },
   } as unknown as SiteConfig);
 
@@ -195,6 +229,7 @@ export function renderServicesPage(context: RenderContext): string {
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
   });
 }
 
@@ -218,16 +253,17 @@ export function renderContactPage(context: RenderContext): string {
   ${footerHtml}
   `;
 
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
   const effectiveConfig = legacyConfig || ({
     id: site.id,
     companyName: bp.identity.companyName,
     palette: {
-      primary: manifest.designTokens.palette.primary,
-      primaryDark: manifest.designTokens.palette.primaryDark,
-      secondary: manifest.designTokens.palette.secondary,
-      accent: manifest.designTokens.palette.accent,
-      text: manifest.designTokens.palette.text,
-      bg: manifest.designTokens.palette.background,
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
     },
   } as unknown as SiteConfig);
 
@@ -242,6 +278,7 @@ export function renderContactPage(context: RenderContext): string {
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
   });
 }
 

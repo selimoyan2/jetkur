@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { SiteConfig, GeneratedPageFile } from "../types";
-import { generateAllSiteFiles } from "./staticHtmlGenerator";
+import { generateProductionSiteFiles } from "./productionGeneratorBridge";
 import { slugify } from "./url";
 
 export interface CloudflareDeployResult {
@@ -65,7 +65,7 @@ export function generateCloudflareRedirects(config: SiteConfig): string {
  */
 export async function downloadCloudflarePagesZip(config: SiteConfig): Promise<void> {
   const zip = new JSZip();
-  const allFiles: GeneratedPageFile[] = generateAllSiteFiles(config);
+  const allFiles: GeneratedPageFile[] = generateProductionSiteFiles(config);
 
   // Add all static HTML pages
   allFiles.forEach((file) => {

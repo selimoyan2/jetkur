@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { SiteConfig, GeneratedPageFile } from "../types";
-import { generateStaticHtml, generateAllSiteFiles } from "../utils/staticHtmlGenerator";
+import { generateProductionSiteFiles, generateProductionPreviewHtml } from "../utils/productionGeneratorBridge";
 import { slugify } from "../utils/url";
 import { downloadProjectSourceZip } from "../utils/projectZipDownloader";
 import { 
@@ -103,8 +103,8 @@ export const StaticDeployModal: React.FC<StaticDeployModalProps> = ({
   const [copiedDns, setCopiedDns] = useState<string | null>(null);
 
   const isMulti = config.siteType === "multi-page";
-  const allFiles: GeneratedPageFile[] = generateAllSiteFiles(config);
-  const singleHtml = generateStaticHtml(config);
+  const allFiles: GeneratedPageFile[] = generateProductionSiteFiles(config);
+  const singleHtml = generateProductionPreviewHtml(config);
 
   // Deployment Controller Sub-Tabs
   const [deploymentActiveTab, setDeploymentActiveTab] = useState<

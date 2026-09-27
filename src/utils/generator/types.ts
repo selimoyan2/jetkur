@@ -9,6 +9,7 @@ import { CanonicalSite } from "../../domain/site/site";
 import { TemplateManifest } from "../../domain/templates/types";
 import { CanonicalSectionId } from "../../domain/sections/types";
 import { GeneratedPageFile, SiteConfig } from "../../types";
+import { ResolvedDesignTokens } from "../../domain/brand/types";
 
 export type PageType = "home" | "about" | "services" | "service-detail" | "catalog" | "product-detail" | "blog" | "blog-detail" | "contact" | "custom" | "other";
 
@@ -37,6 +38,7 @@ export interface RenderContext {
   site: CanonicalSite;
   legacyConfig?: SiteConfig;
   manifest: TemplateManifest;
+  resolvedDesignTokens?: ResolvedDesignTokens;
   activePageSlug?: string;
   currentPageType?: PageType;
   lang?: string;

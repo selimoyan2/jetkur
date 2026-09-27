@@ -9,6 +9,8 @@
  * remain 100% intact without any data loss.
  */
 
+import { BrandKit } from "../brand/types";
+
 export interface GeoCoordinates {
   latitude: number;
   longitude: number;
@@ -112,6 +114,8 @@ export interface BusinessBranding {
     secondary?: string;
     accent?: string;
   };
+  /** Customer-owned canonical Brand Kit (Sprint 10) */
+  brandKit?: BrandKit;
 }
 
 export interface BusinessMetrics {

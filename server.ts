@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import { authRouter, tenantRouter } from "./src/server/auth";
 import { entitlementRouter } from "./src/server/entitlements";
 import { industryRouter } from "./src/server/industries";
+import { onboardingRouter } from "./src/server/onboarding/routes";
 import { generateFallbackSeoContentOptimizer, calculateGooglePixelWidth } from "./src/utils/seoContentOptimizerEngine";
 import { generateFallbackBlogArticle, auditBlogArticleSeo, generateBlogJsonLdSchema, STOCK_ARTICLE_COVERS } from "./src/utils/aiBlogEngineUtils";
 import { generateFallbackAiImageOptimization } from "./src/utils/imageOptimizer";
@@ -63,6 +64,7 @@ async function startServer() {
   app.use("/api/tenants", tenantRouter);
   app.use("/api/workspaces", entitlementRouter);
   app.use("/api/industries", industryRouter);
+  app.use("/api/onboarding", onboardingRouter);
 
   // API Routes
   app.get("/api/health", (_req, res) => {

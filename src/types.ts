@@ -1092,6 +1092,9 @@ export interface SiteConfig {
 
   // Manuel Eklenen & Canlı İzlenen Rakip URL Listesi
   monitoredCompetitors?: MonitoredCompetitorUrlItem[];
+
+  // Brand Kit & Logo Color Engine Foundation (Sprint 10)
+  brandKit?: any;
 }
 
 // ==========================================

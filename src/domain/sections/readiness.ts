@@ -128,7 +128,8 @@ export function evaluateSectionReadiness(
     }
 
     case "gallery": {
-      const items = siteContent?.gallery || [];
+      const rawGallery: any = siteContent?.gallery;
+      const items = Array.isArray(rawGallery) ? rawGallery : (rawGallery?.items || []);
       itemCount = items.length;
       if (itemCount === 0) {
         missingRequired.push("siteContent.gallery (at least 1 image required)");
