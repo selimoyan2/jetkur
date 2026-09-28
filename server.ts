@@ -1,4 +1,5 @@
 import express from "express";
+import http from "http";
 import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
@@ -54,7 +55,11 @@ function getAIClient(): GoogleGenAI | null {
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const args = process.argv.slice(2);
+  const portArgIndex = args.indexOf("--port");
+  const cliPort = portArgIndex !== -1 && args[portArgIndex + 1] ? Number(args[portArgIndex + 1]) : null;
+  const PORT = Number(process.env.PORT) || cliPort || 3000;
+  const httpServer = http.createServer(app);
 
   app.use(express.json({ limit: "10mb" }));
   app.use(cookieParser());
@@ -7693,7 +7698,12 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -7705,11 +7715,11 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`StatikWeb Engine server running on http://localhost:${PORT}`);
   });
 
-  server.on("error", (err: any) => {
+  httpServer.on("error", (err: any) => {
     if (err.code === "EADDRINUSE") {
       console.error(`Port ${PORT} is already in use by another process.`);
     } else {
