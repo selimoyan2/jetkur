@@ -7700,9 +7700,7 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: {
-          server: httpServer,
-        },
+        hmr: false,
       },
       appType: "spa",
     });
