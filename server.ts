@@ -54,7 +54,7 @@ function getAIClient(): GoogleGenAI | null {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: "10mb" }));
   app.use(cookieParser());
@@ -7693,7 +7693,7 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -7705,8 +7705,16 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`StatikWeb Engine server running on http://localhost:${PORT}`);
+  });
+
+  server.on("error", (err: any) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${PORT} is already in use by another process.`);
+    } else {
+      console.error("Server listen error:", err);
+    }
   });
 }
 

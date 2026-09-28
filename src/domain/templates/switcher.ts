@@ -88,7 +88,7 @@ export function applyTemplateManifest(
     sections: updatedSections,
     header: {
       ...currentHeader,
-      sticky: manifest.designTokens.header?.layout !== "fixed-solid",
+      sticky: (manifest.designTokens?.header || (manifest as any).defaultTokens?.header)?.layout !== "fixed-solid",
     },
     footer: {
       ...currentFooter,

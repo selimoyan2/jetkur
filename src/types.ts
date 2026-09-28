@@ -1723,6 +1723,11 @@ export interface IndividualPageSeoMeta {
 
 export type CustomerPanelTab =
   | "general"
+  | "home"
+  | "content"
+  | "sections"
+  | "plan"
+  | "business-profile"
   | "asset-manager"
   | "media-library"
   | "ai-image-optimizer"
