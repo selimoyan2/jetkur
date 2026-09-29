@@ -4,7 +4,6 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { authRouter, tenantRouter } from "./src/server/auth";
@@ -7697,6 +7696,7 @@ Lütfen SADECE geçerli bir JSON çıktısı üret. Format:
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
