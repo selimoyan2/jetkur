@@ -57,7 +57,9 @@ async function startServer() {
   const args = process.argv.slice(2);
   const portArgIndex = args.indexOf("--port");
   const cliPort = portArgIndex !== -1 && args[portArgIndex + 1] ? Number(args[portArgIndex + 1]) : null;
-  const PORT = Number(process.env.PORT) || cliPort || 3000;
+  const isProd = process.env.NODE_ENV === "production";
+  const envPort = process.env.PORT ? (isProd || process.env.PORT !== "8080" ? Number(process.env.PORT) : null) : null;
+  const PORT = cliPort || envPort || 3000;
   const httpServer = http.createServer(app);
 
   app.use(express.json({ limit: "10mb" }));
