@@ -152,11 +152,13 @@ export async function runPrismaMigrationsVerification() {
   // -------------------------------------------------------------
   console.log("Test 6: Seed Script Configuration...");
   const seedPath = path.join(process.cwd(), "prisma", "seed.ts");
+  const seedJsPath = path.join(process.cwd(), "prisma", "seed.js");
   assert.ok(fs.existsSync(seedPath), "prisma/seed.ts must exist");
+  assert.ok(fs.existsSync(seedJsPath), "prisma/seed.js must exist for production runtime");
 
   const pkgJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
   assert.ok(pkgJson.prisma?.seed, "package.json must configure prisma.seed");
-  assert.strictEqual(pkgJson.prisma.seed, "tsx prisma/seed.ts");
+  assert.strictEqual(pkgJson.prisma.seed, "node prisma/seed.js", "Prisma seed must use node prisma/seed.js without tsx");
 
   const seedContent = fs.readFileSync(seedPath, "utf8");
   assert.ok(seedContent.includes("upsert"), "Seed must use upsert for idempotency");

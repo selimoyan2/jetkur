@@ -114,7 +114,7 @@ export async function seedProductionDatabase() {
   console.log("=== SEEDING COMPLETED SUCCESSFULLY ===");
 }
 
-if (process.argv[1]?.endsWith("seed.ts")) {
+if (process.argv[1]?.endsWith("seed.ts") || process.argv[1]?.endsWith("seed.js")) {
   seedProductionDatabase()
     .then(async () => {
       await prisma.$disconnect();
