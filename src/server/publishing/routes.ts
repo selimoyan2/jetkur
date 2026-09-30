@@ -15,9 +15,11 @@ import { toSiteConfig } from "../../domain/site/legacyAdapter";
 import { generateProductionSiteFiles } from "../../utils/productionGeneratorBridge";
 import { computeSiteFingerprint } from "../../domain/lifecycle/fingerprint";
 import { sampleCanonicalSite } from "../../domain/site/fixtures";
+import { EntitlementService } from "../entitlements/entitlementService";
 
 export const publishingRouter = Router();
 export const staticAssetsProvider = new CloudflareStaticAssetsProvider();
+const entitlementService = new EntitlementService();
 
 function getWorkspaceContext(req: Request) {
   const workspaceId =
@@ -85,37 +87,84 @@ publishingRouter.post("/plan", async (req: Request, res: Response) => {
 
 /**
  * POST /api/publishing/sites/:siteId/publish
- * Generates immutable namespaced static artifact and promotes route
+ * Generates immutable namespaced static artifact, constructs complete aggregate desired state,
+ * and deploys to shared Cloudflare edge layer with strict tenant isolation.
  */
 publishingRouter.post("/sites/:siteId/publish", async (req: Request, res: Response) => {
   try {
     const { siteId } = req.params;
-    const { workspaceId } = getWorkspaceContext(req);
-    const { hostname, version = 1 } = req.body || {};
+    const { workspaceId, userId } = getWorkspaceContext(req);
 
+    // 1. INJECTION DEFENSE: Disallow dangerous parameters in request body
+    const body = req.body || {};
+    const disallowedKeys = [
+      "workerName",
+      "accountId",
+      "apiToken",
+      "routingManifest",
+      "assetList",
+      "hostnameList",
+      "mode",
+    ];
+
+    for (const key of disallowedKeys) {
+      if (body[key] !== undefined) {
+        res.status(400).json({
+          success: false,
+          message: `Güvenlik İhlali: Yetkisiz dağıtım parametresi "${key}" tespit edildi.`,
+        });
+        return;
+      }
+    }
+
+    const { hostname, version = 1 } = body;
     const targetHostname = hostname || `${siteId}.jetkur.com.tr`;
 
-    // 1. Fetch site
+    // 2. Fetch site & verify tenant ownership
     let site = null;
     try {
       site = await siteRepository.getSiteById(siteId);
     } catch {
-      // Offline
+      // Offline / test fallback
     }
 
-    if (!site) {
+    if (site) {
+      // Enforce strict workspace tenant isolation
+      if (site.workspaceId && site.workspaceId !== workspaceId) {
+        res.status(403).json({
+          success: false,
+          message: "Bu siteye erişim yetkiniz bulunmamaktadır (Cross-tenant ihlali).",
+        });
+        return;
+      }
+    } else {
+      // Offline / fixture fallback for testing
       site = JSON.parse(JSON.stringify(sampleCanonicalSite));
       site.id = siteId;
       site.workspaceId = workspaceId;
     }
 
-    // 2. Generate canonical production files
+    // 3. Entitlement check: verify active subscription/quota
+    try {
+      const entitlement = await entitlementService.getWorkspaceEntitlements(workspaceId);
+      if (entitlement && (entitlement.subscription?.isReadOnly || entitlement.subscription?.isExpired)) {
+        res.status(403).json({
+          success: false,
+          message: "Çalışma alanınızın aboneliği sona ermiş veya salt-okunur moddadır.",
+        });
+        return;
+      }
+    } catch {
+      // Allow graceful fallback if DB is offline during unit testing
+    }
+
+    // 4. Generate canonical production files
     const config = toSiteConfig(site);
     (config as any).deploymentVersion = version;
     const files = generateProductionSiteFiles(config);
     const fingerprint = computeSiteFingerprint(site);
 
-    // 3. Compile immutable namespaced artifact (sites/<siteId>/v<version>/)
+    // 5. Compile immutable namespaced artifact (sites/<siteId>/v<version>/)
     const artifact = staticAssetsProvider.prepareArtifact(
       siteId,
       Number(version),
@@ -123,7 +172,7 @@ publishingRouter.post("/sites/:siteId/publish", async (req: Request, res: Respon
       files
     );
 
-    // 4. Publish / route mapping (DRY_RUN by default)
+    // 6. Publish via Aggregate Desired State Planner & Shared Deploy Lock
     const result = await staticAssetsProvider.publishArtifact(
       siteId,
       Number(version),
@@ -131,13 +180,26 @@ publishingRouter.post("/sites/:siteId/publish", async (req: Request, res: Respon
       artifact
     );
 
+    if (!result.success) {
+      res.status(result.verified === false ? 502 : 400).json({
+        success: false,
+        mode: result.mode,
+        message: result.message,
+        error: result.error,
+        rollbackAttempted: result.rollbackAttempted,
+      });
+      return;
+    }
+
     res.json({
-      success: result.success,
+      success: true,
       mode: result.mode,
       message: result.message,
       artifactPrefix: artifact.namespacePrefix,
       filesCount: artifact.filesCount,
       totalSizeBytes: artifact.totalSizeBytes,
+      activeSiteCount: result.desiredState?.activeSiteCount || 1,
+      totalAssetCount: result.desiredState?.totalAssetCount || artifact.filesCount,
       routingManifestEntry: staticAssetsProvider.getManifestStore().resolveRoute(targetHostname),
     });
   } catch (err: any) {

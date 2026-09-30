@@ -78,6 +78,12 @@ export class CloudflareApiClient {
       );
     }
 
+    if (process.env.CLOUDFLARE_REAL_DEPLOYMENT_ENABLED !== "true") {
+      throw new Error(
+        "GÜVENLİK KİLİDİ: CLOUDFLARE_REAL_DEPLOYMENT_ENABLED=true tanımlanmadı. Gerçek dağıtım engellendi."
+      );
+    }
+
     if (!this.apiToken) {
       throw new Error("CLOUDFLARE_API_TOKEN eksik. Gerçek dağıtım yapılamaz.");
     }

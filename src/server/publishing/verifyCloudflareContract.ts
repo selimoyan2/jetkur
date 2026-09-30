@@ -76,7 +76,12 @@ export async function runCloudflareContractVerification() {
     await realClient.getWorkerScriptInfo();
   } catch (err: any) {
     realModeBlocked = true;
-    assert.ok(err.message.includes("CLOUDFLARE_API_TOKEN eksik") || err.message.includes("eksik"));
+    assert.ok(
+      err.message.includes("CLOUDFLARE_API_TOKEN eksik") ||
+      err.message.includes("eksik") ||
+      err.message.includes("GÜVENLİK KİLİDİ") ||
+      err.message.includes("tanımlanmadı")
+    );
   }
   assert.strictEqual(realModeBlocked, true, "REAL mode without token must be blocked");
   console.log("✓ Test 2 Passed: DRY_RUN is default; REAL mode requires explicit credentials.");

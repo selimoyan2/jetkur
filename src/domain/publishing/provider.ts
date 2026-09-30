@@ -1,15 +1,15 @@
 /**
- * JetKur Cloudflare Static Assets Publishing Provider (Sprint 16.1)
+ * JetKur Cloudflare Static Assets Publishing Provider (Sprint 16.1 & 16.3)
  *
  * Implements:
  * 1. Single shared customer-site publishing architecture for 0-100 sites on Cloudflare Free.
- * 2. Immutable namespaced static asset generation (sites/<siteId>/v<version>/).
- * 3. Server-authoritative routing manifest updates.
- * 4. Atomic promotion (candidate upload -> validate -> verify -> switch route).
- * 5. Dry-run mode by default (ZERO live Cloudflare API mutations).
- * 6. Root Zone Mutation Guard.
- * 7. Fast rollback without re-generation.
- * 8. Usage observability metrics tracking.
+ * 2. AGGREGATE DESIRED STATE PLANNER: Every deployment includes all active customer sites.
+ * 3. SHARED DEPLOYMENT LOCK: Serializes concurrent mutations of 'jetkur-customer-sites'.
+ * 4. Immutable namespaced static asset generation (sites/<siteId>/v<version>/).
+ * 5. Automatic edge rollback if live verification fails.
+ * 6. Dry-run mode by default (ZERO live Cloudflare API mutations).
+ * 7. Root Zone Mutation Guard.
+ * 8. Usage observability metrics tracking (asset count, bytes, manifest size).
  */
 
 import crypto from "crypto";
@@ -19,13 +19,22 @@ import {
   DeploymentPlanResult,
   DeploymentVerificationResult,
   UsageObservabilityMetrics,
-  DeploymentMarker,
 } from "./types";
 import { RoutingManifestStore, globalRoutingManifest } from "./manifest";
 import { DeploymentExecutionMode } from "../domain/types";
 import { GeneratedPageFile } from "../../types";
 import { assertNotProtectedRootHostname } from "../domain/provider";
-import { handleEdgeRequest } from "./edgeRouter";
+import {
+  AggregateDesiredStatePlanner,
+  globalDesiredStatePlanner,
+  ActiveSiteDeploymentState,
+  EdgeDesiredState,
+} from "./edgeDesiredState";
+import { SharedWorkerDeployLock, sharedWorkerDeployLock } from "./sharedDeployLock";
+import { verifyLiveEdgeDeployment } from "./liveVerification";
+import { executeAutomaticEdgeRollback } from "./edgeRollback";
+import { CloudflareApiClient } from "./cloudflareApiClient";
+import { generateCloudflareWorkerScript } from "./workerScript";
 
 export interface StaticFileCandidate {
   filename?: string;
@@ -54,12 +63,22 @@ export interface StaticDeploymentProvider {
     hostname: string,
     artifact: StaticAssetArtifact,
     canonicalUrl?: string
-  ): Promise<{ success: boolean; mode: DeploymentExecutionMode; message: string; error?: string }>;
+  ): Promise<{
+    success: boolean;
+    mode: DeploymentExecutionMode;
+    message: string;
+    error?: string;
+    desiredState?: EdgeDesiredState;
+    verified?: boolean;
+    rollbackAttempted?: boolean;
+    rollbackSucceeded?: boolean;
+  }>;
 
   verifyDeployment(
     hostname: string,
     expectedVersion: number,
-    expectedFingerprint: string
+    expectedFingerprint: string,
+    siteId?: string
   ): Promise<DeploymentVerificationResult>;
 
   rollbackArtifact(
@@ -81,6 +100,15 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
   private staticAssetsStore: Map<string, string> = new Map();
   private artifactHistory: Map<string, StaticAssetArtifact> = new Map();
 
+  // Aggregate planner, lock, and API client
+  private desiredStatePlanner: AggregateDesiredStatePlanner;
+  private deployLock: SharedWorkerDeployLock;
+  private apiClient: CloudflareApiClient;
+
+  // Previous deployment state for edge rollback
+  private lastDeployedWorkerScript?: string;
+  private lastDeployedAssetJwt?: string;
+
   // Usage observability metrics
   private metrics: UsageObservabilityMetrics = {
     publishedSites: 0,
@@ -95,12 +123,18 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
   constructor(options?: {
     mode?: DeploymentExecutionMode;
     manifestStore?: RoutingManifestStore;
+    desiredStatePlanner?: AggregateDesiredStatePlanner;
+    deployLock?: SharedWorkerDeployLock;
+    apiClient?: CloudflareApiClient;
   }) {
     this.mode =
       options?.mode ||
       (process.env.CLOUDFLARE_STATIC_ASSETS_MODE as DeploymentExecutionMode) ||
       "DRY_RUN";
     this.manifestStore = options?.manifestStore || globalRoutingManifest;
+    this.desiredStatePlanner = options?.desiredStatePlanner || globalDesiredStatePlanner;
+    this.deployLock = options?.deployLock || sharedWorkerDeployLock;
+    this.apiClient = options?.apiClient || new CloudflareApiClient({ mode: this.mode });
   }
 
   getManifestStore(): RoutingManifestStore {
@@ -109,6 +143,10 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
 
   getStaticAssetsStore(): Map<string, string> {
     return this.staticAssetsStore;
+  }
+
+  getDesiredStatePlanner(): AggregateDesiredStatePlanner {
+    return this.desiredStatePlanner;
   }
 
   getMetrics(): UsageObservabilityMetrics {
@@ -202,7 +240,8 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
   }
 
   /**
-   * Publishes artifact by updating the edge routing manifest atomically
+   * Publishes artifact by building COMPLETE Edge Desired State across all active customer sites.
+   * Acquires exclusive shared deployment lock on 'jetkur-customer-sites' to prevent lost updates.
    */
   async publishArtifact(
     siteId: string,
@@ -210,7 +249,16 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
     hostname: string,
     artifact: StaticAssetArtifact,
     canonicalUrl?: string
-  ): Promise<{ success: boolean; mode: DeploymentExecutionMode; message: string; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    mode: DeploymentExecutionMode;
+    message: string;
+    error?: string;
+    desiredState?: EdgeDesiredState;
+    verified?: boolean;
+    rollbackAttempted?: boolean;
+    rollbackSucceeded?: boolean;
+  }> {
     assertNotProtectedRootHostname(hostname, "PUBLISH_STATIC_ASSET");
 
     const validation = this.validateArtifact(artifact);
@@ -224,84 +272,133 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
       };
     }
 
-    this.metrics.publishCount++;
+    // Acquire shared worker deployment lock (serializes concurrent publishes)
+    const releaseLock = await this.deployLock.acquire(siteId);
 
-    // In DRY_RUN / SIMULATED mode, calculate and record planned routing update
-    const effectiveUrl = canonicalUrl || `https://${hostname}`;
-    this.manifestStore.setRoute(
-      hostname,
-      siteId,
-      version,
-      artifact.fingerprint,
-      effectiveUrl
-    );
+    try {
+      // 1. Candidate active site state
+      const candidateState: ActiveSiteDeploymentState = {
+        siteId,
+        version,
+        fingerprint: artifact.fingerprint,
+        hostname,
+        artifactPrefix: artifact.namespacePrefix,
+        files: artifact.files,
+        canonicalUrl: canonicalUrl || `https://${hostname}`,
+        publishedAt: new Date().toISOString(),
+      };
 
-    this.metrics.activeHostnames = this.manifestStore.activeRoutesCount;
-    this.metrics.publishedSites++;
-    this.metrics.lastUpdated = new Date().toISOString();
+      // 2. Build COMPLETE desired edge state across all active sites
+      const desiredState = this.desiredStatePlanner.buildDesiredState(candidateState);
 
-    if (this.mode === "DRY_RUN") {
+      // 3. Generate production Worker script embedding the aggregate routing manifest
+      const workerScriptCode = generateCloudflareWorkerScript(
+        JSON.stringify(desiredState.routingManifest),
+        siteId
+      );
+
+      // 4. Capture previous deployment state for emergency edge rollback
+      const previousScript = this.lastDeployedWorkerScript;
+      const previousJwt = this.lastDeployedAssetJwt;
+
+      // 5. Execute Cloudflare Deployment
+      if (this.mode === "REAL") {
+        const deployRes = await this.apiClient.executeFullStaticAssetsDeployment({
+          assetManifest: desiredState.completeAssetManifest,
+          filesByHash: desiredState.filesByHash,
+          workerScriptCode,
+        });
+
+        if (!deployRes.success) {
+          throw new Error("Cloudflare 3 aşamalı statik dağıtım başarısız oldu.");
+        }
+      } else {
+        // DRY_RUN / SIMULATED: update in-memory stores with complete desired state
+        for (const [hash, content] of desiredState.filesByHash.entries()) {
+          this.staticAssetsStore.set(`hash_${hash}`, content);
+        }
+        for (const f of artifact.files) {
+          this.staticAssetsStore.set(f.path, f.content);
+        }
+        for (const [h, entry] of Object.entries(desiredState.routingManifest)) {
+          this.manifestStore.setRoute(h, entry.siteId, entry.version, entry.fingerprint, entry.canonicalUrl);
+        }
+      }
+
+      // 6. Real Live HTTP Verification
+      const verifyRes = await this.verifyDeployment(hostname, version, artifact.fingerprint, siteId);
+
+      if (!verifyRes.verified) {
+        // Post-deploy verification failure: execute automatic edge rollback
+        const rollbackRes = await executeAutomaticEdgeRollback(
+          this.apiClient,
+          previousScript,
+          previousJwt
+        );
+
+        this.metrics.publishFailures++;
+        return {
+          success: false,
+          mode: this.mode,
+          message: "Canlı dağıtım doğrulanamadı. Otomatik geri alma uygulandı.",
+          error: verifyRes.error,
+          verified: false,
+          rollbackAttempted: rollbackRes.rollbackAttempted,
+          rollbackSucceeded: rollbackRes.rollbackSucceeded,
+        };
+      }
+
+      // 7. Successful verification: Commit desired state into aggregate authority
+      this.desiredStatePlanner.commitDesiredState(desiredState);
+      this.lastDeployedWorkerScript = workerScriptCode;
+
+      // Update observability metrics
+      this.metrics.publishedSites = desiredState.activeSiteCount;
+      this.metrics.activeHostnames = Object.keys(desiredState.routingManifest).length;
+      this.metrics.artifactCount = desiredState.totalAssetCount;
+      this.metrics.artifactBytes = desiredState.totalAssetBytes;
+      this.metrics.publishCount++;
+      this.metrics.lastUpdated = new Date().toISOString();
+
+      const successMsg =
+        this.mode === "DRY_RUN"
+          ? `[DRY_RUN] Komple Edge Desired State (${desiredState.activeSiteCount} aktif site, ${desiredState.totalAssetCount} dosya) başarıyla planlandı. "${hostname}" yönlendirmesi simüle edildi.`
+          : `Tebrikler! Siteniz Cloudflare edge üzerinde yayına alındı. (${hostname} -> ${artifact.namespacePrefix})`;
+
       return {
         success: true,
-        mode: "DRY_RUN",
-        message: `[DRY_RUN] Artefakt "${artifact.namespacePrefix}" hazırlandı. "${hostname}" yönlendirmesi simüle edildi. Canlı zone mutation yapılmadı.`,
+        mode: this.mode,
+        message: successMsg,
+        desiredState,
+        verified: true,
       };
+    } finally {
+      releaseLock();
     }
-
-    return {
-      success: true,
-      mode: this.mode,
-      message: `Siteniz başarıyla yayınlandı. (${hostname} -> ${artifact.namespacePrefix})`,
-    };
   }
 
   /**
-   * Verifies live deployment by executing simulated edge request and checking deployment markers
+   * Verifies live deployment (REAL executes outbound HTTPS; DRY_RUN executes in-memory edge router)
    */
   async verifyDeployment(
     hostname: string,
     expectedVersion: number,
-    expectedFingerprint: string
+    expectedFingerprint: string,
+    siteId?: string
   ): Promise<DeploymentVerificationResult> {
-    const start = Date.now();
-    const edgeRes = handleEdgeRequest(hostname, "/", this.manifestStore, this.staticAssetsStore);
-
-    if (edgeRes.statusCode !== 200) {
-      return {
-        verified: false,
-        hostname,
-        statusCode: edgeRes.statusCode,
-        error: `Edge yönlendirme 200 yerine ${edgeRes.statusCode} döndürdü.`,
-        latencyMs: Date.now() - start,
-      };
-    }
-
-    // Inspect meta tags in HTML
-    const html = edgeRes.body;
-    const versionMatch = html.match(/name="jetkur-deployment-version"\s+content="([^"]+)"/);
-    const siteIdMatch = html.match(/name="jetkur-site-id"\s+content="([^"]+)"/);
-    const fingerprintMatch = html.match(/name="jetkur-published-fingerprint"\s+content="([^"]+)"/);
-
-    const markerFound: DeploymentMarker | undefined = versionMatch
-      ? {
-          siteId: siteIdMatch?.[1] || "",
-          version: Number(versionMatch[1]),
-          fingerprint: fingerprintMatch?.[1] || expectedFingerprint,
-          publishedAt: new Date().toISOString(),
-        }
-      : undefined;
-
-    return {
-      verified: true,
+    return verifyLiveEdgeDeployment({
       hostname,
-      statusCode: 200,
-      markerFound,
-      latencyMs: Date.now() - start,
-    };
+      expectedSiteId: siteId || "",
+      expectedVersion,
+      expectedFingerprint,
+      mode: this.mode,
+      manifestStore: this.manifestStore,
+      staticAssetsStore: this.staticAssetsStore,
+    });
   }
 
   /**
-   * Rolls back a hostname mapping to a previously published immutable artifact
+   * Rolls back a site mapping to a previously published immutable artifact
    */
   async rollbackArtifact(
     hostname: string,
@@ -311,25 +408,47 @@ export class CloudflareStaticAssetsProvider implements StaticDeploymentProvider 
   ): Promise<{ success: boolean; message: string }> {
     assertNotProtectedRootHostname(hostname, "ROLLBACK_STATIC_ASSET");
 
-    const historyKey = `${siteId}:v${targetVersion}`;
-    const historicArtifact = this.artifactHistory.get(historyKey);
+    const releaseLock = await this.deployLock.acquire(siteId);
 
-    const effectiveFingerprint =
-      fingerprint || historicArtifact?.fingerprint || `fp_v${targetVersion}_rollback`;
+    try {
+      const historyKey = `${siteId}:v${targetVersion}`;
+      const historicArtifact = this.artifactHistory.get(historyKey);
 
-    // Atomic update of the routing manifest to target version prefix
-    this.manifestStore.setRoute(
-      hostname,
-      siteId,
-      targetVersion,
-      effectiveFingerprint,
-      `https://${hostname}`
-    );
+      const effectiveFingerprint =
+        fingerprint || historicArtifact?.fingerprint || `fp_v${targetVersion}_rollback`;
 
-    return {
-      success: true,
-      message: `Başarıyla Sürüm ${targetVersion}'e geri dönüldü. Mevcut statik artefakt doğrudan yeniden bağlandı.`,
-    };
+      const files = historicArtifact?.files || [];
+      const prefix = historicArtifact?.namespacePrefix || RoutingManifestStore.sanitizeNamespace(siteId, targetVersion);
+
+      const candidateState: ActiveSiteDeploymentState = {
+        siteId,
+        version: targetVersion,
+        fingerprint: effectiveFingerprint,
+        hostname,
+        artifactPrefix: prefix,
+        files,
+        canonicalUrl: `https://${hostname}`,
+        publishedAt: new Date().toISOString(),
+      };
+
+      const desiredState = this.desiredStatePlanner.buildDesiredState(candidateState);
+      this.desiredStatePlanner.commitDesiredState(desiredState);
+
+      this.manifestStore.setRoute(
+        hostname,
+        siteId,
+        targetVersion,
+        effectiveFingerprint,
+        `https://${hostname}`
+      );
+
+      return {
+        success: true,
+        message: `Başarıyla Sürüm ${targetVersion}'e geri dönüldü. Mevcut statik artefakt doğrudan yeniden bağlandı.`,
+      };
+    } finally {
+      releaseLock();
+    }
   }
 
   /**
