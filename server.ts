@@ -10,6 +10,11 @@ import { authRouter, tenantRouter } from "./src/server/auth";
 import { entitlementRouter } from "./src/server/entitlements";
 import { industryRouter } from "./src/server/industries";
 import { onboardingRouter } from "./src/server/onboarding/routes";
+import { lifecycleRouter } from "./src/server/lifecycle/routes";
+import { mediaRouter } from "./src/server/media/routes";
+import { templateGalleryRouter } from "./src/server/templates/routes";
+import { domainRouter } from "./src/server/domains/routes";
+import { publishingRouter } from "./src/server/publishing/routes";
 import { generateFallbackSeoContentOptimizer, calculateGooglePixelWidth } from "./src/utils/seoContentOptimizerEngine";
 import { generateFallbackBlogArticle, auditBlogArticleSeo, generateBlogJsonLdSchema, STOCK_ARTICLE_COVERS } from "./src/utils/aiBlogEngineUtils";
 import { generateFallbackAiImageOptimization } from "./src/utils/imageOptimizer";
@@ -71,6 +76,11 @@ async function startServer() {
   app.use("/api/workspaces", entitlementRouter);
   app.use("/api/industries", industryRouter);
   app.use("/api/onboarding", onboardingRouter);
+  app.use("/api/lifecycle", lifecycleRouter);
+  app.use("/api/media", mediaRouter);
+  app.use("/api/templates", templateGalleryRouter);
+  app.use("/api/domains", domainRouter);
+  app.use("/api/publishing", publishingRouter);
 
   // API Routes
   app.get("/api/health", (_req, res) => {

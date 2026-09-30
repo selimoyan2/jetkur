@@ -12,6 +12,7 @@
 import React from "react";
 import { SiteConfig } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { CustomerDomainSettings } from "./CustomerDomainSettings";
 import {
   CreditCard,
   Check,
@@ -138,6 +139,9 @@ export const CustomerPlanView: React.FC<CustomerPlanViewProps> = ({
           </ul>
         </div>
       </div>
+
+      {/* Domain & Publishing Settings */}
+      <CustomerDomainSettings config={config} readOnly={readOnly} />
     </div>
   );
 };

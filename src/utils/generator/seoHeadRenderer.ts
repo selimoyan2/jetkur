@@ -126,6 +126,11 @@ export function renderSeoHead(
   ${config.securityConfig?.enableReferrerPolicy ? `<meta name="referrer" content="strict-origin-when-cross-origin">` : ""}
   ${config.securityConfig?.enablePermissionsPolicy ? `<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">` : ""}
   
+  <!-- Deployment Verification Markers -->
+  ${config.id ? `<meta name="jetkur-site-id" content="${escapeHtmlAttr(config.id)}">` : ""}
+  ${(config as any).deploymentVersion ? `<meta name="jetkur-deployment-version" content="${escapeHtmlAttr(String((config as any).deploymentVersion))}">` : ""}
+  ${(config as any).publishedFingerprint ? `<meta name="jetkur-published-fingerprint" content="${escapeHtmlAttr(String((config as any).publishedFingerprint))}">` : ""}
+  
   <!-- Global Anycast Edge & High Speed Static Assets -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

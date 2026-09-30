@@ -17,6 +17,7 @@ import { ServiceManager } from "./ServiceManager";
 import { FaqManager } from "./FaqManager";
 import { TestimonialsManager } from "./TestimonialsManager";
 import { GalleryManager } from "./GalleryManager";
+import { CustomerMediaManager } from "./CustomerMediaManager";
 import { SECONDARY_CONTENT_EDITORS } from "../../domain/dashboard/navigation";
 import {
   FileText,
@@ -27,6 +28,7 @@ import {
   Camera,
   Layers,
   Sparkles,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface CustomerContentHubProps {
@@ -43,7 +45,7 @@ export const CustomerContentHub: React.FC<CustomerContentHubProps> = ({
   readOnly = false,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "business-profile" | "services" | "faqs" | "testimonials" | "gallery"
+    "business-profile" | "services" | "faqs" | "testimonials" | "gallery" | "media"
   >("services");
 
   return (
@@ -61,6 +63,19 @@ export const CustomerContentHub: React.FC<CustomerContentHubProps> = ({
         >
           <Wrench className="w-4 h-4 text-indigo-600" />
           <span>Hizmetler ({config.services?.items?.length || 0})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("media")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === "media"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <ImageIcon className="w-4 h-4 text-indigo-600" />
+          <span>Görseller &amp; Medya</span>
         </button>
 
         <button
@@ -120,6 +135,10 @@ export const CustomerContentHub: React.FC<CustomerContentHubProps> = ({
       <div>
         {activeSubTab === "services" && (
           <ServiceManager config={config} onChange={onChange} />
+        )}
+
+        {activeSubTab === "media" && (
+          <CustomerMediaManager config={config} onChange={onChange} readOnly={readOnly} />
         )}
 
         {activeSubTab === "business-profile" && (
