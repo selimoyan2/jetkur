@@ -1313,12 +1313,12 @@ export const SocialPostScheduler: React.FC<SocialPostSchedulerProps> = ({
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 p-[2px]">
                             <div className="w-full h-full rounded-full bg-white flex items-center justify-center font-black text-[10px] text-slate-800">
-                              {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "YO"}
+                              {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "İS"}
                             </div>
                           </div>
                           <div>
                             <div className="text-xs font-bold text-slate-900 leading-tight">
-                              {config.companyName || "Yıldız Oto Kurtarma"}
+                              {config.companyName || "İşletmeniz"}
                             </div>
                             <div className="text-[10px] text-slate-400">Zamanlandı • {formDate} {formTime}</div>
                           </div>
@@ -1377,10 +1377,10 @@ export const SocialPostScheduler: React.FC<SocialPostSchedulerProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-md bg-sky-700 text-white flex items-center justify-center font-bold text-xs">
-                            {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "YO"}
+                            {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "İS"}
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-slate-900">{config.companyName || "Yıldız Oto Kurtarma"}</div>
+                            <div className="text-xs font-bold text-slate-900">{config.companyName || "İşletmeniz"}</div>
                             <div className="text-[10px] text-slate-400">Kurumsal Güncelleme • Zamanlandı: {formDate}</div>
                           </div>
                         </div>
@@ -1424,11 +1424,11 @@ export const SocialPostScheduler: React.FC<SocialPostSchedulerProps> = ({
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                            {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "YO"}
+                            {config.companyName ? config.companyName.substring(0, 2).toUpperCase() : "İS"}
                           </div>
                           <div>
                             <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
-                              <span>{config.companyName || "Yıldız Oto Kurtarma"}</span>
+                              <span>{config.companyName || "İşletmeniz"}</span>
                               <span className="text-[10px] text-slate-400 font-normal">@resmihesap</span>
                             </div>
                             <div className="text-[10px] text-slate-400">Zamanlandı • {formDate} {formTime}</div>

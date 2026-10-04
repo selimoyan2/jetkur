@@ -165,7 +165,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
     const newLog = generateSimulatedExecutionLog(
       tempSub,
       welcomeConfig,
-      config.companyName || "Yıldız Oto Kurtarma"
+      config.companyName || "İşletmeniz"
     );
 
     const updatedLogs = [newLog, ...logs];
@@ -186,7 +186,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
     const newLog = generateSimulatedExecutionLog(
       sub,
       welcomeConfig,
-      config.companyName || "Yıldız Oto Kurtarma"
+      config.companyName || "İşletmeniz"
     );
 
     const updatedSubs = subscribers.map((s) =>
@@ -237,7 +237,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
       const autoLog = generateSimulatedExecutionLog(
         newSub,
         welcomeConfig,
-        config.companyName || "Yıldız Oto Kurtarma"
+        config.companyName || "İşletmeniz"
       );
       updatedLogs = [autoLog, ...logs];
       setLogs(updatedLogs);
@@ -317,7 +317,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
     return interpolateWelcomeEmailTemplate(
       welcomeConfig.subject,
       { name: "Ahmet Yılmaz", email: "ahmet@ornek.com" },
-      config.companyName || "Yıldız Oto Kurtarma",
+      config.companyName || "İşletmeniz",
       welcomeConfig.offerDiscountCode
     );
   }, [welcomeConfig.subject, welcomeConfig.offerDiscountCode, config.companyName]);
@@ -326,7 +326,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
     return interpolateWelcomeEmailTemplate(
       welcomeConfig.bodyText,
       { name: "Ahmet Yılmaz", email: "ahmet@ornek.com" },
-      config.companyName || "Yıldız Oto Kurtarma",
+      config.companyName || "İşletmeniz",
       welcomeConfig.offerDiscountCode
     );
   }, [welcomeConfig.bodyText, welcomeConfig.offerDiscountCode, config.companyName]);
@@ -1271,7 +1271,7 @@ export const MarketingAutomationManager: React.FC<MarketingAutomationManagerProp
                   {/* Brand Header */}
                   <div className="text-center pb-3 border-b border-slate-100">
                     <span className="text-sm font-bold text-indigo-600 tracking-tight block">
-                      {config.companyName || "Yıldız Oto Kurtarma"}
+                      {config.companyName || "İşletmeniz"}
                     </span>
                     <span className="text-[10px] text-slate-400">
                       Resmi E-Bülten ve Hoş Geldin Bildirimi

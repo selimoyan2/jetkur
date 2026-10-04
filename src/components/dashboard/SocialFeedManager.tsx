@@ -52,15 +52,15 @@ export const SocialFeedManager: React.FC<SocialFeedManagerProps> = ({
   const [newPostPlatform, setNewPostPlatform] = useState<"instagram" | "twitter">("instagram");
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostMediaUrl, setNewPostMediaUrl] = useState("");
-  const [newPostAuthorName, setNewPostAuthorName] = useState(config.companyName || "Yıldız Oto Kurtarma");
+  const [newPostAuthorName, setNewPostAuthorName] = useState(config.companyName || "İşletmemiz");
   const [newPostAuthorHandle, setNewPostAuthorHandle] = useState(
-    feed.instagramHandle ? `@${feed.instagramHandle.replace('@', '')}` : "@yildizkurtarma"
+    feed.instagramHandle ? `@${feed.instagramHandle.replace('@', '')}` : `@${(config.companyName || "isletme").toLowerCase().replace(/[^a-z0-9]/g, "") || "isletme"}`
   );
   const [newPostLikes, setNewPostLikes] = useState(150);
   const [newPostComments, setNewPostComments] = useState(12);
   const [newPostRetweets, setNewPostRetweets] = useState(24);
   const [newPostUrl, setNewPostUrl] = useState("");
-  const [newPostHashtags, setNewPostHashtags] = useState("#yolyardım #çekici #hizmet");
+  const [newPostHashtags, setNewPostHashtags] = useState("#hizmet #kalite #profesyonel");
 
   // Account connection verification test states
   const [verifiedAccounts, setVerifiedAccounts] = useState<{ [key: string]: boolean }>({
@@ -100,11 +100,11 @@ export const SocialFeedManager: React.FC<SocialFeedManagerProps> = ({
       const simulatedNewPost: SocialFeedPost = {
         id: `post-synced-${Date.now()}`,
         platform: Math.random() > 0.5 ? "instagram" : "twitter",
-        authorName: config.companyName || "Yıldız Oto Kurtarma",
-        authorHandle: feed.instagramHandle ? `@${feed.instagramHandle.replace('@', '')}` : "@yildizkurtarma",
+        authorName: config.companyName || "İşletmemiz",
+        authorHandle: feed.instagramHandle ? `@${feed.instagramHandle.replace('@', '')}` : `@${(config.companyName || "isletme").toLowerCase().replace(/[^a-z0-9]/g, "") || "isletme"}`,
         authorAvatar: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=150&q=80",
         isVerified: true,
-        content: `Yeni canlı operasyon: Kadıköy ve çevresi nöbetçi kurtarma ekibimiz saat 15:20 itibarıyla aktif görev başında. Güvenli yolculuklar dileriz! 🚀🛠️`,
+        content: `Yeni canlı operasyon: ${config.city || "Bölgemiz"} ve çevresi uzman ekibimiz aktif görev başında. Güvenli ve kaliteli hizmet dileriz! 🚀🛠️`,
         mediaUrl: "https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=800&q=80",
         mediaType: "image",
         timestamp: "Az önce",

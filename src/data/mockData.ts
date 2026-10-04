@@ -1306,8 +1306,140 @@ export const DEFAULT_HEADER_NAV: HeaderNavItem[] = [
   { id: "nav-contact", label: "İletişim", target: "contact", visible: true, order: 7 }
 ];
 
+/**
+ * Creates a clean, neutral, unbranded site configuration when canonical data does not yet exist.
+ * Invariant (Sprint 16.5): A fresh customer must never inherit unrelated demo/fixture data.
+ */
+export function createNeutralSiteConfig(): SiteConfig {
+  const p = COLOR_PALETTES[0]; // Professional Navy/Blue
+  return {
+    id: `site-fresh-${Date.now()}`,
+    templateId: "tmpl-rapid-service",
+    solutionType: "corporate",
+    siteType: "single-page",
+    companyName: "Yeni Web Sitemiz",
+    sector: "Genel Hizmet",
+    slogan: "Kaliteli ve Güvenilir Hizmet",
+    city: "İstanbul",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    address: "",
+    workingHours: "Pazartesi - Cumartesi: 09:00 - 18:00",
+    palette: p,
+    fontFamily: "Plus Jakarta Sans",
+    borderRadius: "16px",
+    header: {
+      logoType: "icon",
+      logoImage: "",
+      showPhoneButton: false,
+      phoneButtonText: "Hemen Ara",
+      showWhatsappButton: false,
+      whatsappButtonText: "WhatsApp",
+      showQuoteButton: true,
+      quoteButtonText: "Teklif Al",
+      navItems: DEFAULT_HEADER_NAV,
+      showSocials: false,
+    },
+    hero: {
+      badge: "Hoş Geldiniz",
+      title: "Kaliteli ve Güvenilir Hizmetler",
+      subtitle: "İşletmemiz profesyonel kadrosu ve müşteri odaklı çözümleriyle her zaman yanınızda.",
+      ctaPrimaryText: "İletişime Geçin",
+      ctaPrimaryLink: "#contact",
+      ctaSecondaryText: "Hizmetlerimiz",
+      ctaSecondaryLink: "#services",
+      bgImage: "",
+      stats: [
+        { label: "Müşteri Memnuniyeti", value: "%100" },
+        { label: "Hizmet Garantisi", value: "Tam Güvence" },
+        { label: "Deneyim", value: "Uzman Kadro" },
+      ],
+    },
+    about: {
+      enabled: true,
+      badge: "Hakkımızda",
+      title: "Hakkımızda",
+      content: "Uzman kadromuz ve kaliteli hizmet anlayışımızla müşterilerimize güvenilir ve kalıcı çözümler sunuyoruz.",
+      yearsExperience: "10+",
+      completedProjects: "1000+",
+      bullets: [
+        "Garantili ve Güvenilir İşçilik",
+        "Hızlı ve Zamanında Teslimat",
+        "Şeffaf ve Uygun Fiyat Politikası",
+      ],
+      image: "",
+    },
+    services: {
+      enabled: true,
+      badge: "Hizmetlerimiz",
+      title: "Hizmetlerimiz",
+      subtitle: "İhtiyaçlarınıza özel kaliteli ve garantili çözümler",
+      items: [],
+    },
+    gallery: {
+      enabled: false,
+      badge: "Galeri",
+      title: "Galeri",
+      subtitle: "İşletmemize ait görsel vitrin",
+      items: [],
+    },
+    testimonials: {
+      enabled: false,
+      badge: "Müşteri Yorumları",
+      title: "Müşteri Yorumları",
+      subtitle: "Memnun müşterilerimizin deneyimleri",
+      items: [],
+    },
+    faqs: {
+      enabled: false,
+      badge: "Sık Sorulan Sorular",
+      title: "Sık Sorulan Sorular",
+      subtitle: "Merak edilen soruların cevapları",
+      items: [],
+    },
+    subscribers: [],
+    socialFeed: {
+      enabled: false,
+      badge: "Sosyal Medya",
+      title: "Bizi Takip Edin",
+      subtitle: "Sosyal medya hesaplarımız üzerinden en güncel duyuru ve çalışmalarımızı takip edebilirsiniz.",
+      activePlatforms: ["instagram"],
+      layout: "grid",
+      postsLimit: 6,
+      showEngagement: false,
+      showCaptions: false,
+      showPlatformBadges: false,
+      instagramHandle: "",
+      twitterHandle: "",
+      instagramProfileUrl: "",
+      twitterProfileUrl: "",
+      instagramFollowers: "",
+      twitterFollowers: "",
+      posts: [],
+      autoSyncInterval: "hourly",
+      lastSyncedAt: "",
+    },
+    footer: {
+      aboutText: "Kaliteli hizmet anlayışımız ve müşteri odaklı çözümlerimizle yanınızdayız.",
+      showSocials: false,
+      copyrightText: `© ${new Date().getFullYear()} Tüm Hakları Saklıdır.`,
+      column1Title: "Hızlı Menü",
+      column2Title: "Hizmetlerimiz",
+    },
+    homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
+    pages: [],
+    products: { enabled: false, items: [] },
+    leads: [],
+  } as SiteConfig;
+}
+
 export function createDefaultSiteConfig(template?: ThemeTemplate, palette?: ColorPalette): SiteConfig {
-  const t = template || TEMPLATES[0];
+  if (!template) {
+    return createNeutralSiteConfig();
+  }
+
+  const t = template;
   const d = t.defaultData;
   const p = palette || t.defaultColors || COLOR_PALETTES[0];
 
@@ -1343,15 +1475,15 @@ export function createDefaultSiteConfig(template?: ThemeTemplate, palette?: Colo
     templateId: t.id,
     solutionType: (t.solutionType || "corporate"),
     siteType: "multi-page",
-    companyName: d.companyName || "Yıldız 7/24 Oto Kurtarma",
-    sector: d.sector || "Otomotiv & Çekici",
-    slogan: d.slogan || "En Yakın Çekici 15 Dakikada Yanınızda",
-    city: d.city || "İstanbul & Çevre İller",
-    phone: d.phone || "0532 000 00 00",
-    whatsapp: d.whatsapp || "905320000000",
-    email: d.email || "info@sirket.com",
-    address: d.address || "Merkez Mah. No:12 Kadıköy / İstanbul",
-    workingHours: d.workingHours || "7/24 Kesintisiz",
+    companyName: d.companyName || "İşletmemiz",
+    sector: d.sector || "Genel Hizmet",
+    slogan: d.slogan || "Kaliteli ve Güvenilir Hizmet",
+    city: d.city || "İstanbul",
+    phone: d.phone || "0500 000 00 00",
+    whatsapp: d.whatsapp || "905000000000",
+    email: d.email || "info@isletmemiz.com",
+    address: d.address || "Merkez, İstanbul",
+    workingHours: d.workingHours || "Pazartesi - Cumartesi: 09:00 - 18:00",
     palette: p,
     fontFamily: "Plus Jakarta Sans",
     borderRadius: "16px",
@@ -1492,30 +1624,15 @@ export function createDefaultSiteConfig(template?: ThemeTemplate, palette?: Colo
 
     // Cloudflare Edge deployment settings
     cloudflare: {
-      subdomain: "yildiz-otokurtarma",
-      customDomain: "yildizotokurtarma.com.tr",
-      status: "deployed",
-      deployedUrl: "https://yildiz-otokurtarma.hizliweb.me",
-      lastDeployedAt: "16 Ağustos 2026 14:30",
-      sslActive: true,
+      subdomain: (d as any).subdomain || "sitem",
+      customDomain: d.customDomain || undefined,
+      status: "idle",
+      deployedUrl: undefined,
+      lastDeployedAt: undefined,
+      sslActive: false,
       edgeRegionsCount: 310,
       pageSpeedScore: 100,
-      dnsRecords: [
-        {
-          type: "CNAME",
-          name: "@",
-          content: "yildiz-otokurtarma.hizliweb.me",
-          proxyStatus: true,
-          status: "verified"
-        },
-        {
-          type: "CNAME",
-          name: "www",
-          content: "yildiz-otokurtarma.hizliweb.me",
-          proxyStatus: true,
-          status: "verified"
-        }
-      ]
+      dnsRecords: []
     },
 
     about: {
@@ -1843,7 +1960,7 @@ export function createDefaultSiteConfig(template?: ThemeTemplate, palette?: Colo
     seo: {
       metaTitle: `${d.companyName || "Firma"} | ${d.slogan || "Hazır Web Sitesi"}`,
       metaDescription: d.slogan || "En kaliteli hizmetler en uygun fiyatlarla.",
-      keywords: `${d.companyName || "Firma"}, ${d.sector || "Oto Kurtarma"}, ${d.city || "İstanbul"}`,
+      keywords: `${d.companyName || "Firma"}, ${d.sector || "Genel Hizmet"}, ${d.city || "İstanbul"}`,
       author: "HızlıWeb Engine",
       schemaType: "LocalBusiness"
     }

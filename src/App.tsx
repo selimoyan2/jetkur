@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ThemeTemplate, ColorPalette, SiteConfig, PlatformView, FormLead, NewsletterSubscriber, CustomerPanelTab } from "./types";
 import { TEMPLATES, COLOR_PALETTES } from "./data/templates";
-import { createDefaultSiteConfig, DEFAULT_SOCIAL_FEED_CONFIG } from "./data/mockData";
+import { createDefaultSiteConfig, createNeutralSiteConfig } from "./data/mockData";
 import { checkAndCreateDailyBackup } from "./utils/backupManager";
 import { Header } from "./components/Header";
 import { MarketingLanding } from "./components/MarketingLanding";
@@ -32,6 +32,8 @@ export default function App() {
     redirectAfterLoginView, 
     setRedirectAfterLoginView,
     isAuthenticated,
+    activeWorkspaceId,
+    user,
     isAdmin,
     isTeamMember,
     openAuthModal
@@ -40,91 +42,24 @@ export default function App() {
   // Single source of truth for the active site
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     try {
-      const saved = localStorage.getItem("jetkur_active_site_config") || localStorage.getItem("hizliweb_active_site_config");
+      const saved = localStorage.getItem("jetkur_active_site_config");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.companyName) {
-          // Ensure testimonials is present with rich defaults
-          if (!parsed.testimonials || !parsed.testimonials.items) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.testimonials = def.testimonials;
+        if (parsed && parsed.companyName && !parsed.companyName.includes("Yıldız")) {
+          if (!parsed.testimonials) {
+            parsed.testimonials = { enabled: false, items: [] };
           }
-          // Ensure newsletter settings and subscribers are present with rich defaults
-          if (!parsed.newsletter) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.newsletter = def.newsletter;
+          if (!parsed.gallery) {
+            parsed.gallery = { enabled: false, items: [] };
+          }
+          if (!parsed.faqs) {
+            parsed.faqs = { enabled: false, items: [] };
           }
           if (!parsed.subscribers) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.subscribers = def.subscribers;
+            parsed.subscribers = [];
           }
-          // Ensure gallery settings and items are present with rich defaults
-          if (!parsed.gallery || !parsed.gallery.items || parsed.gallery.items.length === 0) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.gallery = def.gallery;
-          }
-          // Ensure gallery is present in homepageSections
-          if (parsed.homepageSections && !parsed.homepageSections.some((s: { id: string }) => s.id === "gallery")) {
-            parsed.homepageSections.splice(5, 0, {
-              id: "gallery",
-              name: "Fotoğraf & Proje Vitrini",
-              enabled: parsed.gallery?.enabled ?? true,
-              order: 6
-            });
-            parsed.homepageSections = parsed.homepageSections.map((s: { id: string }, idx: number) => ({ ...s, order: idx + 1 }));
-          }
-          // Ensure gallery is present in header navItems
-          if (parsed.header && parsed.header.navItems && !parsed.header.navItems.some((n: { id: string }) => n.id === "nav-gallery")) {
-            parsed.header.navItems.splice(3, 0, {
-              id: "nav-gallery",
-              label: "Galeri",
-              target: "gallery",
-              enabled: true
-            });
-          }
-          // Ensure testimonials is present in homepageSections
-          if (parsed.homepageSections && !parsed.homepageSections.some((s: { id: string }) => s.id === "testimonials")) {
-            parsed.homepageSections.splice(5, 0, {
-              id: "testimonials",
-              name: "Müşteri Yorumları & Puanlar",
-              enabled: parsed.testimonials.enabled ?? true,
-              order: 6
-            });
-            parsed.homepageSections = parsed.homepageSections.map((s: { id: string }, idx: number) => ({ ...s, order: idx + 1 }));
-          }
-          // Ensure faqs settings and items are present
-          if (!parsed.faqs || !parsed.faqs.items || parsed.faqs.items.length === 0) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.faqs = def.faqs;
-          }
-          // Ensure faqs is present in homepageSections
-          if (parsed.homepageSections && !parsed.homepageSections.some((s: { id: string }) => s.id === "faqs")) {
-            parsed.homepageSections.push({
-              id: "faqs",
-              name: "Sıkça Sorulan Sorular",
-              enabled: parsed.faqs?.enabled ?? true,
-              order: 9
-            });
-            parsed.homepageSections = parsed.homepageSections.map((s: { id: string }, idx: number) => ({ ...s, order: idx + 1 }));
-          }
-          // Ensure abTesting is present
-          if (!parsed.abTesting) {
-            const def = createDefaultSiteConfig(TEMPLATES[0]);
-            parsed.abTesting = def.abTesting;
-          }
-          // Ensure socialFeed is present
           if (!parsed.socialFeed || !parsed.socialFeed.posts) {
-            parsed.socialFeed = DEFAULT_SOCIAL_FEED_CONFIG;
-          }
-          // Ensure socialFeed is present in homepageSections
-          if (parsed.homepageSections && !parsed.homepageSections.some((s: { id: string }) => s.id === "socialFeed")) {
-            parsed.homepageSections.splice(7, 0, {
-              id: "socialFeed",
-              name: "Sosyal Medya Akışı (Instagram & X)",
-              enabled: true,
-              order: 8
-            });
-            parsed.homepageSections = parsed.homepageSections.map((s: { id: string }, idx: number) => ({ ...s, order: idx + 1 }));
+            parsed.socialFeed = createNeutralSiteConfig().socialFeed;
           }
           return parsed;
         }
@@ -132,19 +67,77 @@ export default function App() {
     } catch {
       // ignore
     }
-    return createDefaultSiteConfig(TEMPLATES[0]);
+    return createNeutralSiteConfig();
   });
 
-  // Keep active state saved and check daily automated backup
+  // Server-Authoritative Active Site Loader for Authenticated Customer
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isMounted = true;
+    async function loadActiveSite() {
+      try {
+        const res = await fetch("/api/tenants/active-site", {
+          credentials: "include",
+          headers: {
+            "Accept": "application/json",
+            ...(activeWorkspaceId ? { "x-workspace-id": activeWorkspaceId } : {}),
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success) {
+            if (data.siteConfig) {
+              setSiteConfig(data.siteConfig);
+            } else if (data.requiresOnboarding) {
+              setSiteConfig(createNeutralSiteConfig());
+              setCurrentView("wizard");
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load active site from server:", err);
+      }
+    }
+
+    loadActiveSite();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, activeWorkspaceId]);
+
+  // Keep active state saved locally and sync to server if authenticated with an active site
   useEffect(() => {
     try {
+      const scopedKey = activeWorkspaceId ? `jetkur_active_site_config_${activeWorkspaceId}` : "jetkur_active_site_config";
+      localStorage.setItem(scopedKey, JSON.stringify(siteConfig));
       localStorage.setItem("jetkur_active_site_config", JSON.stringify(siteConfig));
-      localStorage.setItem("hizliweb_active_site_config", JSON.stringify(siteConfig));
       checkAndCreateDailyBackup(siteConfig);
     } catch {
       // ignore
     }
-  }, [siteConfig]);
+
+    const targetSiteId = (siteConfig as any).siteId || siteConfig.id;
+    if (isAuthenticated && targetSiteId && !targetSiteId.startsWith("site-fresh-")) {
+      const handler = setTimeout(async () => {
+        try {
+          await fetch(`/api/tenants/sites/${targetSiteId}/sync`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(activeWorkspaceId ? { "x-workspace-id": activeWorkspaceId } : {}),
+            },
+            body: JSON.stringify({ siteConfig }),
+          });
+        } catch {
+          // ignore background sync errors
+        }
+      }, 1000);
+
+      return () => clearTimeout(handler);
+    }
+  }, [siteConfig, isAuthenticated, activeWorkspaceId]);
 
   // Listen for real leads sent from the embedded static HTML form via window.postMessage
   useEffect(() => {
@@ -326,6 +319,7 @@ export default function App() {
 
   const handleWizardComplete = (newConfig: SiteConfig) => {
     setSiteConfig(newConfig);
+    setCustomerDashboardTab("general");
     setCurrentView("customer-panel");
   };
 
@@ -345,9 +339,8 @@ export default function App() {
         // Superadmin & Team Members are redirected strictly to the distinct Admin Super Panel
         setCurrentView("admin-panel");
       } else {
-        // Regular clients are redirected to their client order and document portal
-        setCustomerDashboardTab("client-portal");
-        setCurrentView("customer-panel");
+        // Regular clients: if newly registered or site not yet established, launch 5-step wizard
+        setCurrentView("wizard");
       }
     }
   };
@@ -418,7 +411,10 @@ export default function App() {
             />
           ) : (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-              <CustomerWizard onComplete={handleWizardComplete} />
+              <CustomerWizard
+                onComplete={handleWizardComplete}
+                onCancelToDashboard={() => setCurrentView("customer-panel")}
+              />
             </div>
           )
         )}

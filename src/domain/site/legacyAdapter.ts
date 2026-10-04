@@ -29,8 +29,8 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       brandName: legacy.companyName,
       sector: legacy.sector || "general",
       industryPackId: undefined,
-      slogan: legacy.slogan || "",
-      shortDescription: legacy.slogan || "",
+      slogan: legacy.slogan || (legacy as any).tagline || "",
+      shortDescription: legacy.slogan || (legacy as any).tagline || "",
       story: legacy.about?.content || "",
       foundingYear: undefined,
       taxId: legacy.schemaConfig?.taxId,
@@ -39,15 +39,19 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       phone: legacy.phone || "",
       whatsapp: legacy.whatsapp || "",
       email: legacy.email || "",
-      supportEmail: undefined,
+      supportEmail: legacy.email || undefined,
     },
     location: {
       address: legacy.address || "",
       city: legacy.city || "",
-      district: "",
+      district: (legacy as any).district || "",
       postalCode: legacy.schemaConfig?.postalCode,
       country: "Türkiye",
-      serviceAreas: legacy.schemaConfig?.areaServed ? [legacy.schemaConfig.areaServed] : [],
+      serviceAreas: Array.isArray((legacy as any).serviceAreas)
+        ? (legacy as any).serviceAreas
+        : legacy.schemaConfig?.areaServed
+        ? [legacy.schemaConfig.areaServed]
+        : [],
       geoCoordinates:
         legacy.schemaConfig?.latitude && legacy.schemaConfig?.longitude
           ? {
@@ -58,7 +62,7 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       googleMapsEmbedUrl: legacy.googleMapsEmbed,
     },
     branding: {
-      logoUrl: legacy.logo,
+      logoUrl: legacy.logo || (legacy as any).logoUrl || legacy.header?.logoImage,
       logoAlt: legacy.hero?.logoAlt,
       faviconUrl: legacy.favicon,
       brandColors: {
@@ -148,15 +152,19 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     socialFeed: "socialFeed",
   };
 
-  const sections: SiteSectionItem[] = (legacy.homepageSections || []).map((sec, idx) => ({
-    id: sec.id,
-    type: validSectionTypes[sec.id] || "customHtml",
-    label: sec.name || sec.id,
-    enabled: sec.enabled ?? true,
-    order: sec.order ?? idx,
-    variant: "default",
-    options: {},
-  }));
+  const sections: SiteSectionItem[] = (legacy.homepageSections || []).map((sec, idx) => {
+    const rawId = sec.id ? sec.id.replace(/^sec-/, "") : "";
+    const resolvedType = validSectionTypes[sec.id] || validSectionTypes[rawId] || "customHtml";
+    return {
+      id: sec.id,
+      type: resolvedType,
+      label: sec.name || sec.id,
+      enabled: sec.enabled ?? true,
+      order: sec.order ?? idx,
+      variant: "default",
+      options: {},
+    };
+  });
 
   const sectionConfiguration: SectionConfiguration = {
     sections,
@@ -388,6 +396,7 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
 
   return {
     id: legacy.id,
+    workspaceId: (legacy as any).workspaceId,
     schemaVersion: "1.0.0",
     status: "active",
     createdAt: new Date().toISOString(),
@@ -409,51 +418,149 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
   const profile = canonical.businessProfile;
   const content = canonical.content;
   const settings = canonical.settings;
-  const tokens = (canonical.brandKit?.palette || {}) as any;
+  const bKit = canonical.brandKit || (profile.branding as any)?.brandKit;
+  const tokens = (bKit?.palette || {}) as any;
+
+  const resolvedLogo =
+    profile.branding.logoUrl ||
+    (profile.branding as any)?.brandKit?.logo?.url ||
+    canonical.brandKit?.logo?.url ||
+    (canonical.brandKit?.logo?.svgContent
+      ? `data:image/svg+xml;utf8,${encodeURIComponent(canonical.brandKit.logo.svgContent)}`
+      : undefined) ||
+    ((profile.branding as any)?.brandKit?.logo?.svgContent
+      ? `data:image/svg+xml;utf8,${encodeURIComponent((profile.branding as any).brandKit.logo.svgContent)}`
+      : undefined);
+
+  const cleanPhone = profile.contact.phone?.trim() || "";
+  const cleanWhatsapp = profile.contact.whatsapp?.trim() || cleanPhone;
+  const telLink = cleanPhone ? `tel:${cleanPhone.replace(/[^0-9+]/g, "")}` : "#contact";
+  const waLink = cleanWhatsapp
+    ? `https://wa.me/${cleanWhatsapp.replace(/[^0-9]/g, "")}`
+    : "#contact";
 
   return {
     id: canonical.id,
+    siteId: canonical.id,
+    workspaceId: (canonical as any).workspaceId,
     templateId: canonical.designTemplate?.templateId || "tmpl-rapid-service",
     companyName: profile.identity.companyName,
     sector: profile.identity.sector || "general",
     slogan: profile.identity.slogan || "",
-    phone: profile.contact.phone || "",
-    whatsapp: profile.contact.whatsapp || "",
+    phone: cleanPhone,
+    whatsapp: cleanWhatsapp,
+    email: profile.contact.email || "",
     address: profile.location.address || "",
     city: profile.location.city || "İstanbul",
+    district: profile.location.district || "",
+    serviceAreas: profile.location.serviceAreas || [],
+    logo: resolvedLogo,
+    logoUrl: resolvedLogo,
+
+    // Header with proper logoType and logoImage
+    header: {
+      logoType: resolvedLogo ? "image" : "icon",
+      logoImage: resolvedLogo || "",
+      logoHeight: 44,
+      showPhoneButton: Boolean(cleanPhone),
+      phoneButtonText: "Hemen Ara",
+      showWhatsappButton: Boolean(cleanWhatsapp),
+      whatsappButtonText: "WhatsApp",
+      showQuoteButton: true,
+      quoteButtonText: "Teklif Al",
+      navItems: [
+        { id: "nav-home", label: "Ana Sayfa", target: "home", enabled: true },
+        { id: "nav-services", label: "Hizmetlerimiz", target: "services", enabled: true },
+        { id: "nav-about", label: "Hakkımızda", target: "about", enabled: true },
+        { id: "nav-contact", label: "İletişim", target: "contact", enabled: true },
+      ],
+      showSocials: false,
+    },
+
+    // Hero section
     hero: {
       badge: content.hero?.badge || "Profesyonel Hizmet",
       title: content.hero?.title || profile.identity.companyName,
       subtitle: content.hero?.subtitle || profile.identity.slogan || "",
-      ctaText: content.hero?.ctaPrimaryText || "Hemen Ara",
-      ctaSecondaryText: content.hero?.ctaSecondaryText || "İletişim",
+      ctaPrimaryText: content.hero?.ctaPrimaryText || "Hemen Ara",
+      ctaPrimaryLink: content.hero?.ctaPrimaryLink || telLink,
+      ctaSecondaryText: content.hero?.ctaSecondaryText || "WhatsApp Bilgi Al",
+      ctaSecondaryLink: content.hero?.ctaSecondaryLink || waLink,
       bgImage: content.hero?.bgImageUrl || "",
+      stats: (content.hero?.stats && content.hero.stats.length > 0)
+        ? content.hero.stats
+        : [
+            { label: "Müşteri Memnuniyeti", value: "%100" },
+            { label: "Hizmet Garantisi", value: "Tam Güvence" },
+            { label: "Deneyim", value: "Uzman Kadro" },
+          ],
     },
+
+    // About section
     about: {
       title: content.about?.title || "Hakkımızda",
-      content: content.about?.contentHtml || profile.identity.shortDescription || "",
+      content:
+        content.about?.contentHtml ||
+        profile.identity.shortDescription ||
+        `${profile.identity.companyName} olarak uzman kadromuz ve kaliteli hizmet anlayışımızla yanınızdayız.`,
       image: content.about?.imageUrl || "",
       experienceYears: Number(content.about?.yearsExperience || 10),
-      completedJobs: Number(content.about?.completedProjects || 1000),
-      happyClients: 99,
+      completedJobs: Number(content.about?.completedProjects || 500),
+      happyClients: 100,
+      bullets: content.about?.bulletPoints || [
+        "Garantili ve Güvenilir İşçilik",
+        "Hızlı ve Zamanında Teslimat",
+        "Şeffaf ve Uygun Fiyat Politikası",
+      ],
     },
-    services: (profile.services || []).map((s, idx) => ({
-      id: s.id || `srv-${idx + 1}`,
-      title: s.title,
-      description: s.shortDescription || "",
-      icon: (s.icon as any) || "CheckCircle2",
-      price: s.priceHint || "",
-      image: "",
-      featured: s.featured ?? (idx < 3),
-    })),
-    testimonials: (content.testimonials || []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      role: t.role || "Müşteri",
-      content: t.comment,
-      rating: t.rating || 5,
-    })),
+
+    // Services
+    services: {
+      title: "Hizmetlerimiz",
+      subtitle: `${profile.identity.companyName} güvencesiyle sunduğumuz profesyonel çözümler`,
+      items: (profile.services || []).map((s, idx) => ({
+        id: s.id || `srv-${idx + 1}`,
+        title: s.title,
+        description: s.shortDescription || "",
+        icon: (s.icon as any) || "CheckCircle2",
+        price: s.priceHint || "",
+        image: s.imageUrl || "",
+        featured: s.featured ?? (idx < 3),
+      })),
+    },
+
+    // Gallery
+    gallery: {
+      enabled: (content.gallery?.length || 0) > 0,
+      title: "Fotoğraf & Proje Vitrini",
+      subtitle: `${profile.identity.companyName} çalışmalarından kareler`,
+      items: (content.gallery || []).map((g, idx) => ({
+        id: g.id || `gal-${idx + 1}`,
+        title: g.title || "Çalışma Görseli",
+        category: g.category || "Hizmetlerimiz",
+        imageUrl: g.imageUrl || "",
+        imageAlt: g.altText || profile.identity.companyName,
+      })),
+    },
+
+    // Testimonials
+    testimonials: {
+      enabled: (content.testimonials?.length || 0) > 0,
+      title: "Müşteri Yorumları & Puanlar",
+      subtitle: "Bizi tercih eden mutlu müşterilerimizin deneyimleri",
+      items: (content.testimonials || []).map((t, idx) => ({
+        id: t.id || `t-${idx + 1}`,
+        name: t.name,
+        role: t.role || "Müşteri",
+        content: t.comment,
+        rating: t.rating || 5,
+      })),
+    },
+
+    // Palette & BrandKit
     palette: {
+      id: bKit?.id || "palette-brand-kit",
+      name: bKit ? "Logodan Çıkarılan Marka Paleti" : "Kurumsal Mavi",
       primary: tokens.primary || "#2563eb",
       primaryDark: tokens.primaryDark || "#1d4ed8",
       secondary: tokens.secondary || "#0f172a",
@@ -463,20 +570,66 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
       navBg: tokens.surface || "#ffffff",
       footerBg: tokens.secondary || "#0f172a",
     },
-    brandKit: canonical.brandKit,
-    logoUrl: profile.branding.logoUrl || canonical.brandKit?.logo?.url,
+    brandKit: bKit,
+
     workingHours: profile.workingHours?.raw || "Pazartesi - Cumartesi: 08:30 - 19:30",
-    faqs: (content.faqs || []).map((f) => ({
-      id: f.id,
-      question: f.question,
-      answer: f.answer,
+
+    // FAQs
+    faqs: {
+      enabled: (content.faqs?.length || 0) > 0,
+      title: "Sıkça Sorulan Sorular",
+      items: (content.faqs || []).map((f, idx) => ({
+        id: f.id || `faq-${idx + 1}`,
+        question: f.question,
+        answer: f.answer,
+      })),
+    },
+
+    // Homepage sections
+    homepageSections: (canonical.sectionConfiguration?.sections || [
+      { id: "hero", name: "Giriş (Hero)", enabled: true, order: 1 },
+      { id: "services", name: "Hizmetlerimiz", enabled: true, order: 2 },
+      { id: "about", name: "Hakkımızda", enabled: true, order: 3 },
+      { id: "whyUs", name: "Neden Biz?", enabled: true, order: 4 },
+      { id: "gallery", name: "Galeri", enabled: (content.gallery?.length || 0) > 0, order: 5 },
+      { id: "testimonials", name: "Yorumlar", enabled: (content.testimonials?.length || 0) > 0, order: 6 },
+      { id: "faqs", name: "Sık Sorulan Sorular", enabled: (content.faqs?.length || 0) > 0, order: 7 },
+      { id: "contact", name: "İletişim", enabled: true, order: 8 },
+    ]).map((sec, idx) => ({
+      id: sec.id || `sec-${idx + 1}`,
+      name: sec.name || sec.type,
+      enabled: sec.enabled ?? true,
+      order: sec.order ?? (idx + 1),
     })),
+
+    // Footer
+    footer: {
+      aboutText:
+        profile.identity.shortDescription ||
+        `${profile.identity.companyName} olarak kaliteli ve güvenilir hizmet sunuyoruz.`,
+      copyrightText: `© ${new Date().getFullYear()} ${profile.identity.companyName}. Tüm Hakları Saklıdır.`,
+      showSocials: false,
+    },
+
+    // SEO
     seo: {
       metaTitle: settings.seo?.metaTitle || profile.identity.companyName,
-      metaDescription: settings.seo?.metaDescription || "",
-      keywords: settings.seo?.keywords || "",
+      metaDescription: settings.seo?.metaDescription || `${profile.identity.companyName} resmi web sitesi.`,
+      keywords: settings.seo?.keywords || `${profile.identity.companyName}, ${profile.identity.sector}`,
       canonicalUrl: settings.seo?.canonicalUrl,
     },
+
+    // Cloudflare / Domain
+    cloudflare: {
+      subdomain: settings.domain?.hostname?.split(".")[0] || canonical.id,
+      customDomain: settings.domain?.isCustom ? settings.domain.hostname : undefined,
+      deployedUrl: settings.deployment?.productionUrl,
+      status: settings.deployment?.status === "deployed" ? "deployed" : (settings.deployment?.status || "idle"),
+      lastDeployedAt: settings.deployment?.lastDeployedAt,
+      sslActive: Boolean(settings.domain?.sslActive),
+    },
+    customDomain: settings.domain?.isCustom ? settings.domain.hostname : undefined,
+    deploymentStatus: settings.deployment?.status === "deployed" ? "DEPLOYED" : "DRAFT",
   } as unknown as SiteConfig;
 }
 

@@ -70,24 +70,24 @@ export const GettingStartedModal: React.FC<GettingStartedModalProps> = ({
   // Task Completion Logic
   const isLogoComplete = Boolean(
     config.logo || 
+    config.header?.logoImage ||
     (config.logoUrl && !config.logoUrl.includes("placeholder.svg") && !config.logoUrl.includes("via.placeholder"))
   );
 
   const isContactComplete = Boolean(
-    (config.phone && config.phone.replace(/[^0-9]/g, "").length >= 7) &&
-    (config.whatsapp && config.whatsapp.replace(/[^0-9]/g, "").length >= 7) &&
-    (config.address && config.address.trim().length > 3)
+    config.phone && config.phone.replace(/[^0-9]/g, "").length >= 7
   );
 
   const isContentComplete = Boolean(
     ((config.services?.items?.length || 0) > 0 || (config.products?.items?.length || 0) > 0) &&
-    config.about?.content &&
-    config.about.content.length > 30
+    (config.about?.content || config.slogan)
   );
 
   const isPublishComplete = Boolean(
     config.cloudflare?.deployedUrl || 
-    config.cloudflare?.customDomain
+    config.cloudflare?.customDomain ||
+    config.cloudflare?.status === "deployed" ||
+    config.deploymentStatus === "DEPLOYED"
   );
 
   const tasks = [

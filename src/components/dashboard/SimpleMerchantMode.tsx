@@ -38,7 +38,8 @@ import {
   BellRing,
   Lock,
   FileText,
-  Activity
+  Activity,
+  Mail
 } from "lucide-react";
 import { getTagColorClass, getLeadTagStyle } from "./LeadTagsManager";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
@@ -101,34 +102,56 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
 
   // Quick state for simple editing
   const [companyName, setCompanyName] = useState(config.companyName || "");
+  const [slogan, setSlogan] = useState(config.slogan || config.tagline || "");
   const [phone, setPhone] = useState(config.phone || "");
   const [whatsapp, setWhatsapp] = useState(config.whatsapp || "");
+  const [email, setEmail] = useState(config.email || "");
   const [address, setAddress] = useState(config.address || "");
   const [workingHours, setWorkingHours] = useState(config.workingHours || "Haftanın 7 Günü: 24 Saat Açık");
 
-  // Checklist items completion state
-  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({
-    published: true,
-    whatsappChecked: true,
-    firstItemAdded: (config.services?.items?.length || 0) > 0,
-    qrDownloaded: false,
-    googleMapsAdded: false
-  });
+  useEffect(() => {
+    setCompanyName(config.companyName || "");
+    setSlogan(config.slogan || config.tagline || "");
+    setPhone(config.phone || "");
+    setWhatsapp(config.whatsapp || "");
+    setEmail(config.email || "");
+    setAddress(config.address || "");
+    setWorkingHours(config.workingHours || "Haftanın 7 Günü: 24 Saat Açık");
+  }, [config.companyName, config.slogan, config.tagline, config.phone, config.whatsapp, config.email, config.address, config.workingHours]);
 
-  const toggleTask = (key: string) => {
-    setCompletedTasks(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  // Canonical derived completion items (Sprint 16.5)
+  const isBusinessInfoComplete = Boolean(config.companyName && config.companyName.trim().length >= 2);
+  const isLogoComplete = Boolean(config.logo || config.header?.logoImage || config.logoUrl);
+  const isContactComplete = Boolean(config.phone && config.phone.replace(/[^0-9]/g, "").length >= 7);
+  const isServicesComplete = Boolean((config.services?.items?.length || 0) > 0);
+  const isPublished = Boolean(
+    config.cloudflare?.deployedUrl || 
+    config.cloudflare?.status === "deployed" || 
+    config.deploymentStatus === "DEPLOYED"
+  );
 
-  const completedCount = Object.values(completedTasks).filter(Boolean).length;
-  const totalTasks = Object.keys(completedTasks).length;
+  const checklistItems = [
+    { id: "business", label: "İşletme Bilgileri", complete: isBusinessInfoComplete, description: config.companyName || "Firma bilgisi girildi", action: () => setActiveCard("contact") },
+    { id: "logo", label: "Logo & Kimlik", complete: isLogoComplete, description: isLogoComplete ? "Logo yüklendi ve uyarlandı" : "Logo eklenmedi (isteğe bağlı)", action: () => { if (onNavigateTab) onNavigateTab("design"); } },
+    { id: "contact", label: "Telefon / WhatsApp", complete: isContactComplete, description: config.phone || "İletişim numarası aktif", action: () => setActiveCard("contact") },
+    { id: "services", label: "Hizmetler & İçerik", complete: isServicesComplete, description: `${config.services?.items?.length || 0} hizmet tanımlandı`, action: () => setActiveCard("items") },
+    { id: "preview", label: "Canlı Önizleme", complete: true, description: "Canlı önizleme hazır", action: onPreview },
+    { id: "publish", label: "Web Sitesini Yayınla", complete: isPublished, description: isPublished ? "Yayında" : "Yayınlanmayı bekliyor", action: onDeploy },
+  ];
+
+  const completedCount = checklistItems.filter(i => i.complete).length;
+  const totalTasks = checklistItems.length;
 
   const handleQuickSaveContact = (e: React.FormEvent) => {
     e.preventDefault();
     onChange({
       ...config,
       companyName,
+      slogan,
+      tagline: slogan,
       phone,
       whatsapp: whatsapp.replace(/[^0-9]/g, ""),
+      email,
       address,
       workingHours,
     });
@@ -405,81 +428,29 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            <div
-              onClick={() => toggleTask("published")}
-              className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-                completedTasks.published ? "bg-emerald-50/70 border-emerald-300 text-emerald-950" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                completedTasks.published ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-              }`}>
-                {completedTasks.published ? "✓" : "1"}
+            {checklistItems.map((item, idx) => (
+              <div
+                key={item.id}
+                onClick={item.action}
+                className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all hover:shadow-xs ${
+                  item.complete
+                    ? "bg-emerald-50/70 border-emerald-300 text-emerald-950"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    item.complete ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
+                  }`}
+                >
+                  {item.complete ? "✓" : (idx + 1)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold truncate">{item.label}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{item.description}</div>
+                </div>
               </div>
-              <div className="text-xs font-semibold">Web Siteniz 0.02s Hızla Yayında</div>
-            </div>
-
-            <div
-              onClick={() => toggleTask("whatsappChecked")}
-              className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-                completedTasks.whatsappChecked ? "bg-emerald-50/70 border-emerald-300 text-emerald-950" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                completedTasks.whatsappChecked ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-              }`}>
-                {completedTasks.whatsappChecked ? "✓" : "2"}
-              </div>
-              <div className="text-xs font-semibold">Telefon & WhatsApp Test Edildi</div>
-            </div>
-
-            <div
-              onClick={() => toggleTask("firstItemAdded")}
-              className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-                completedTasks.firstItemAdded ? "bg-emerald-50/70 border-emerald-300 text-emerald-950" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                completedTasks.firstItemAdded ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-              }`}>
-                {completedTasks.firstItemAdded ? "✓" : "3"}
-              </div>
-              <div className="text-xs font-semibold">Hizmet veya Ürün Fiyatları Girildi</div>
-            </div>
-
-            <div
-              onClick={() => {
-                toggleTask("qrDownloaded");
-                setShowQrModal(true);
-              }}
-              className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-                completedTasks.qrDownloaded ? "bg-emerald-50/70 border-emerald-300 text-emerald-950" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                completedTasks.qrDownloaded ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-              }`}>
-                {completedTasks.qrDownloaded ? "✓" : "4"}
-              </div>
-              <div className="text-xs font-semibold">Dükkan QR Masa Kartviziti İndirildi</div>
-            </div>
-
-            <div
-              onClick={() => {
-                toggleTask("googleMapsAdded");
-                setShowMapsGuideModal(true);
-              }}
-              className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${
-                completedTasks.googleMapsAdded ? "bg-emerald-50/70 border-emerald-300 text-emerald-950" : "bg-slate-50 border-slate-200 text-slate-600"
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                completedTasks.googleMapsAdded ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-              }`}>
-                {completedTasks.googleMapsAdded ? "✓" : "5"}
-              </div>
-              <div className="text-xs font-semibold">Google Haritalar'a Web Sitesi Eklendi</div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -549,7 +520,19 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Örn: JetKur Test Tesisat"
                 className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-slate-900 font-semibold text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Slogan / Kısa Tanıtım</label>
+              <input
+                type="text"
+                value={slogan}
+                onChange={(e) => setSlogan(e.target.value)}
+                placeholder="Örn: 7/24 Profesyonel ve Güvenilir Hizmet"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-amber-500 outline-none"
               />
             </div>
 
@@ -578,6 +561,20 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                     className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">İletişim E-Posta Adresi</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="iletisim@isletmeniz.com"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 text-slate-900 font-semibold text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                />
               </div>
             </div>
 
@@ -1011,7 +1008,6 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                   a.href = merchantQrDataUrl;
                   a.download = `${config.companyName || "site"}_qr_kodu.png`;
                   a.click();
-                  setCompletedTasks(prev => ({ ...prev, qrDownloaded: true }));
                 }}
                 className="w-full sm:flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-2"
               >
@@ -1023,7 +1019,6 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                 type="button"
                 onClick={() => {
                   window.print();
-                  setCompletedTasks(prev => ({ ...prev, qrDownloaded: true }));
                 }}
                 className="w-full sm:flex-1 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md"
               >

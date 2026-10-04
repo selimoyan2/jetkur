@@ -29,6 +29,8 @@ export type CanonicalSiteStatus = "draft" | "trial" | "active" | "suspended" | "
 export interface CanonicalSite {
   /** Unique Site ID */
   id: string;
+  /** Associated Workspace ID */
+  workspaceId?: string;
   /** Schema specification version for future zero-downtime migrations */
   schemaVersion: "1.0.0";
   /** Site lifecycle status */

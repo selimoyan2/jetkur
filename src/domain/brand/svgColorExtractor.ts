@@ -128,14 +128,18 @@ export function extractColorsFromSvg(svgContent: unknown): SvgExtractionResult {
   // Determine dominant
   const dominant = chromaticColors.length > 0 ? chromaticColors[0][0] : ranked[0][0];
 
-  // Determine secondary
+  // Determine secondary - prefer chromatic color over white/black background
   const secondaryCandidate = chromaticColors.find(([hex]) => hex !== dominant);
-  const secondary = secondaryCandidate ? secondaryCandidate[0] : (ranked.find(([hex]) => hex !== dominant)?.[0]);
+  const secondary = secondaryCandidate ? secondaryCandidate[0] : (ranked.find(([hex]) => hex !== dominant && !isNearWhite(hex) && !isNearBlack(hex))?.[0]);
 
-  // Accent candidates
-  const accentCandidates = ranked
+  // Accent candidates - prioritize chromatic colors over near-white/near-black backgrounds
+  const chromaticAccents = chromaticColors
     .map(([hex]) => hex)
     .filter((hex) => hex !== dominant && hex !== secondary);
+  const otherNonNeutralAccents = ranked
+    .map(([hex]) => hex)
+    .filter((hex) => hex !== dominant && hex !== secondary && !isNearWhite(hex) && !isNearBlack(hex));
+  const accentCandidates = [...chromaticAccents, ...otherNonNeutralAccents];
 
   return {
     status: "analyzed",

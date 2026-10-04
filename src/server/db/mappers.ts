@@ -310,6 +310,7 @@ export function toCanonicalSite(dbSite: FullDbSite): CanonicalSite {
 
   return {
     id: dbSite.id,
+    workspaceId: dbSite.workspaceId,
     schemaVersion: (dbSite.schemaVersion as "1.0.0") || "1.0.0",
     status: mapDbSiteStatusToCanonical(dbSite.status),
     createdAt: dbSite.createdAt.toISOString(),
@@ -320,6 +321,7 @@ export function toCanonicalSite(dbSite: FullDbSite): CanonicalSite {
     sectionConfiguration: sectionConfig,
     content: siteContent,
     settings: siteSettings,
+    brandKit: (dbSite.businessProfile?.branding as any)?.brandKit || undefined,
   };
 }
 

@@ -70,8 +70,8 @@ export const ClientAccessPortal: React.FC<ClientAccessPortalProps> = ({
         portalTitle: "Müşteri Erişim Portalı (Client Access Portal)",
         portalWelcomeMessage:
           "Değerli Müşterimiz, sipariş ve operasyon durumlarınızı canlı takip edebilir, projelerinize ait sözleşme, şartname ve faturaları güvenle görüntüleyebilirsiniz.",
-        supportEmail: config.email || "destek@yildizotokurtarma.com.tr",
-        supportPhone: config.phone || "+90 850 300 00 00",
+        supportEmail: config.email || `destek@${(config.cloudflare?.subdomain || (config.companyName || "sirket").toLowerCase().replace(/[^a-z0-9]/g, "") || "jetkur")}.jetkur.app`,
+        supportPhone: config.phone || "",
         allowClientDownloads: true,
         requirePasswordChangeOnFirstLogin: false,
         clients: []
@@ -542,7 +542,7 @@ export const ClientAccessPortal: React.FC<ClientAccessPortalProps> = ({
     }
   };
 
-  const portalDomainUrl = `${config.cloudflare?.deployedUrl || "https://yildiz-otokurtarma.hizliweb.me"}/portal`;
+  const portalDomainUrl = `${config.cloudflare?.deployedUrl || `https://${config.cloudflare?.subdomain || (config.companyName || "sirket").toLowerCase().replace(/[^a-z0-9]/g, "")}.jetkur.app`}/portal`;
 
   // Pre-selected client for live simulator
   const activePreviewClient = useMemo(() => {
@@ -708,11 +708,11 @@ export const ClientAccessPortal: React.FC<ClientAccessPortalProps> = ({
               <div className="bg-slate-900 text-white p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-b border-slate-800">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-lg shadow-lg">
-                    {config.companyName?.charAt(0) || "Y"}
+                    {config.companyName?.charAt(0) || "İ"}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-white">{config.companyName || "Yıldız Oto Kurtarma"}</h2>
+                      <h2 className="text-lg font-black text-white">{config.companyName || "İşletmeniz"}</h2>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
                         Güvenli Portal
                       </span>

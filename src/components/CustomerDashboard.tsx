@@ -466,17 +466,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
     setActiveCompetitiveToast(null);
   };
 
-  // First-login auto-open Getting Started Guide
-  useEffect(() => {
-    try {
-      const hasSeen = localStorage.getItem("hizliweb_first_login_seen");
-      if (!hasSeen) {
-        setIsGettingStartedOpen(true);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  // Getting Started Guide modal remains available manually, but does NOT auto-interrupt onboarding
+  // SPRINT 16.5: Single onboarding authority (5-step wizard), no auto-opening second wizard
 
   // Dedicated Logo Upload & Management State
   const [logoToast, setLogoToast] = useState<LogoToastInfo | null>(null);
@@ -563,14 +554,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
     (config.logoUrl && !config.logoUrl.includes("placeholder.svg") && !config.logoUrl.includes("via.placeholder"))
   );
   const isContactComplete = Boolean(
-    (config.phone && config.phone.replace(/[^0-9]/g, "").length >= 7) &&
-    (config.whatsapp && config.whatsapp.replace(/[^0-9]/g, "").length >= 7) &&
-    (config.address && config.address.trim().length > 3)
+    config.phone && config.phone.replace(/[^0-9]/g, "").length >= 7
   );
   const isContentComplete = Boolean(
     ((config.services?.items?.length || 0) > 0 || (config.products?.items?.length || 0) > 0) &&
-    config.about?.content &&
-    config.about.content.length > 30
+    (config.about?.content || config.slogan)
   );
   const isPublishComplete = Boolean(config.cloudflare?.deployedUrl || config.cloudflare?.customDomain);
   const setupProgressPercent = Math.round(([isLogoComplete, isContactComplete, isContentComplete, isPublishComplete].filter(Boolean).length / 4) * 100);

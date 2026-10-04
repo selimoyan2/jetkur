@@ -1986,7 +1986,7 @@ Sadece ve sadece geçerli JSON döndür, markdown bloğu hariç başka hiçbir m
     try {
       const config = req.body?.config || req.body || {};
       const companyName = config.companyName || req.body?.companyName || "Siteniz";
-      const sector = config.sector || req.body?.sector || "Oto Kurtarma & Çekici";
+      const sector = config.sector || req.body?.sector || "Genel Hizmet";
       const city = config.city || req.body?.city || "İstanbul";
 
       const fallbackData = generateFallbackGlobalSeoHeatmap({
@@ -6153,12 +6153,12 @@ Lütfen bu site için SADECE aşağıdaki JSON şemasında profesyonel, Türkçe
         name: "Ahmet Yılmaz (Test Müşteri)",
         phone: "0532 123 45 67",
         email: targetEmail,
-        serviceOrProduct: "7/24 Şehir İçi Oto Çekici",
+        serviceOrProduct: "Hizmet / Danışmanlık Talebi",
         message: "Test amacıyla gönderilen otomatik karşılama mesajıdır.",
         date: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) + " (Şimdi)"
       };
 
-      const cName = companyName || "Yıldız Oto Kurtarma";
+      const cName = companyName || "İşletmeniz";
       const cPhone = phone || "0532 000 00 00";
 
       const rawSubject = (thankYouConfig && thankYouConfig.subject) || "Talebiniz Alındı! Teşekkür Ederiz - {firma}";

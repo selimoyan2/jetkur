@@ -138,13 +138,14 @@ function renderLogo(config: SiteConfig): string {
     ? `aspect-ratio: ${config.header.logoAspectRatio};` 
     : '';
   const fit = config.header?.logoObjectFit || 'contain';
+  const logoSrc = config.header?.logoImage || config.logo || (config as any).logoUrl;
 
-  if (config.header?.logoType === "image" && config.header?.logoImage) {
-    return `<img src="${config.header.logoImage}" alt="${config.companyName}" style="height: ${height}px; width: ${width}; max-width: 240px; ${aspect} object-fit: ${fit};" class="shrink-0">`;
+  if (logoSrc) {
+    return `<img src="${logoSrc}" alt="${config.companyName}" style="height: ${height}px; width: ${width}; max-width: 240px; ${aspect} object-fit: ${fit};" class="shrink-0" onerror="this.style.display='none';">`;
   }
   return `
     <div class="w-11 h-11 rounded-xl bg-brand text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
-      ${config.companyName.charAt(0)}
+      ${(config.companyName || "J").charAt(0)}
     </div>
   `;
 }

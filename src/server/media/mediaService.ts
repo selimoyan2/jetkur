@@ -64,8 +64,14 @@ export class MediaService {
   private async authorizeSite(siteId: string, workspaceId: string) {
     try {
       const site = await this.siteRepo.getSiteById(siteId);
-      if (site) return site;
-    } catch {
+      if (site) {
+        if (site.workspaceId && site.workspaceId !== workspaceId) {
+          throw new MediaServiceError("Bu siteye erişim yetkiniz yok.", 403, "FORBIDDEN");
+        }
+        return site;
+      }
+    } catch (err) {
+      if (err instanceof MediaServiceError) throw err;
       // In offline / mock dev mode without database, return fallback site
     }
 
@@ -97,6 +103,10 @@ export class MediaService {
    * Lists all media assets for a site.
    */
   async listSiteMedia(siteId: string, workspaceId: string): Promise<MediaAsset[]> {
+    return this.getMediaForSite(siteId, workspaceId);
+  }
+
+  async getMediaForSite(siteId: string, workspaceId: string): Promise<MediaAsset[]> {
     await this.authorizeSite(siteId, workspaceId);
 
     const site = await this.siteRepo.getSiteById(siteId);
@@ -122,6 +132,28 @@ export class MediaService {
         altText: site.content.hero.bgImageAlt || site.businessProfile.identity.companyName,
         title: "Ana Sayfa Başlık Görseli",
         assignedSlots: [{ sectionType: "hero", slotKey: "hero-bg", label: "Ana Sayfa Başlık" }],
+        createdAt: site.createdAt,
+        updatedAt: site.updatedAt,
+      });
+    }
+
+    // Logo
+    const resolvedLogoUrl =
+      site.businessProfile.branding?.logoUrl ||
+      site.businessProfile.branding?.brandKit?.logo?.url ||
+      site.brandKit?.logo?.url;
+
+    if (resolvedLogoUrl) {
+      initialAssets.push({
+        id: `media-logo-${siteId}`,
+        workspaceId,
+        siteId,
+        sourceType: "CUSTOMER_UPLOAD",
+        originalUrl: resolvedLogoUrl,
+        mimeType: resolvedLogoUrl.startsWith("data:image/svg") ? "image/svg+xml" : "image/png",
+        altText: `${site.businessProfile.identity.companyName} Logosu`,
+        title: `${site.businessProfile.identity.companyName} Logosu`,
+        assignedSlots: [{ sectionType: "general", slotKey: "logo", label: "İşletme Logosu" }],
         createdAt: site.createdAt,
         updatedAt: site.updatedAt,
       });
@@ -279,7 +311,27 @@ export class MediaService {
     }
 
     // Update site content according to slot
-    if (slotKey === "hero-bg") {
+    if (slotKey === "logo") {
+      if (!site.businessProfile.branding) {
+        site.businessProfile.branding = {};
+      }
+      site.businessProfile.branding.logoUrl = asset.originalUrl;
+      if (site.businessProfile.branding.brandKit) {
+        site.businessProfile.branding.brandKit.logo = {
+          source: asset.mimeType?.includes("svg") ? "svg" : "upload",
+          mimeType: asset.mimeType,
+          url: asset.originalUrl,
+        };
+      }
+      if (site.brandKit) {
+        site.brandKit.logo = {
+          source: asset.mimeType?.includes("svg") ? "svg" : "upload",
+          mimeType: asset.mimeType,
+          url: asset.originalUrl,
+        };
+      }
+      await this.siteRepo.updateBusinessProfile(siteId, { branding: site.businessProfile.branding });
+    } else if (slotKey === "hero-bg") {
       site.content.hero.bgImageUrl = asset.originalUrl;
       site.content.hero.bgImageAlt = asset.altText;
       await this.siteRepo.updateSiteContent(siteId, { hero: site.content.hero });

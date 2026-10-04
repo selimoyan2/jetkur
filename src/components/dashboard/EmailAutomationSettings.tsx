@@ -190,7 +190,7 @@ export const EmailAutomationSettings: React.FC<EmailAutomationSettingsProps> = (
   };
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [testEmailAddress, setTestEmailAddress] = useState<string>(
-    config.email || "destek@yildizotokurtarma.com.tr"
+    config.email || "test@ornek.com"
   );
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<{
@@ -207,16 +207,16 @@ export const EmailAutomationSettings: React.FC<EmailAutomationSettingsProps> = (
     name: "Ahmet Yılmaz",
     phone: "0532 999 88 77",
     email: "ahmet.yilmaz@musteri.com",
-    service: "7/24 Şehir İçi Oto Çekici",
+    service: config.services?.items?.[0]?.title || "Danışmanlık & Hizmet Talebi",
     date: "Bugün 14:35",
-    message: "Şişli Mecidiyeköy meydanında aracım arızalandı, acil çekici rica ediyorum."
+    message: "Web siteniz üzerinden iletilen örnek müşteri mesajıdır."
   };
 
   // Interpolate helper for live preview
   const interpolate = (text: string) => {
     if (!text) return "";
     return text
-      .replace(/\{firma\}/g, config.companyName || "Yıldız Oto Kurtarma")
+      .replace(/\{firma\}/g, config.companyName || "İşletmeniz")
       .replace(/\{isim\}/g, sampleLead.name)
       .replace(/\{hizmet\}/g, sampleLead.service)
       .replace(/\{telefon\}/g, config.phone || "0532 000 00 00")
@@ -921,7 +921,7 @@ export const EmailAutomationSettings: React.FC<EmailAutomationSettingsProps> = (
                   {/* Email Brand Banner */}
                   <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white">
                     <div className="text-[10px] uppercase font-bold tracking-wider text-sky-400 mb-1">
-                      {config.companyName || "Yıldız Oto Kurtarma"} • Otomatik Bilgilendirme
+                      {config.companyName || "İşletmeniz"} • Otomatik Bilgilendirme
                     </div>
                     <h4 className="text-base font-bold text-white leading-snug">
                       {interpolatedSubject || "Talebiniz Alındı! Teşekkür Ederiz"}
@@ -991,7 +991,7 @@ export const EmailAutomationSettings: React.FC<EmailAutomationSettingsProps> = (
 
                   {/* Email Footer */}
                   <div className="p-4 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 text-center leading-relaxed">
-                    Bu e-posta <strong>{config.companyName || "Yıldız Oto Kurtarma"}</strong> web sitesi üzerinden doldurduğunuz form talebine istinaden otomatik olarak gönderilmiştir.
+                    Bu e-posta <strong>{config.companyName || "İşletmeniz"}</strong> web sitesi üzerinden doldurduğunuz form talebine istinaden otomatik olarak gönderilmiştir.
                   </div>
                 </div>
               </div>

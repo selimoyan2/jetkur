@@ -32,6 +32,7 @@ import { BusinessProfile, BusinessServiceItem } from "../../domain/site/business
 import { SiteRepository } from "../db/siteRepository";
 import { EntitlementService, EntitlementError } from "../entitlements/entitlementService";
 import { prisma } from "../db/client";
+import { mediaService } from "../media/mediaService";
 import { toSiteConfig } from "../../domain/site/legacyAdapter";
 import { generateProductionPreviewHtml } from "../../utils/productionGeneratorBridge";
 
@@ -261,6 +262,7 @@ export class OnboardingService {
 
     const canonicalSite: CanonicalSite = {
       id: siteId,
+      workspaceId: context.workspaceId,
       schemaVersion: "1.0.0",
       status: "active",
       createdAt: nowIso,
@@ -338,6 +340,15 @@ export class OnboardingService {
     } catch (err: any) {
       // If DB error in non-PostgreSQL environment, keep canonicalSite in memory
       console.warn("Database createSite notice:", err?.message || err);
+    }
+
+    // Prime media assets with customer logo if uploaded
+    if (input.logo) {
+      try {
+        await mediaService.getMediaForSite(persistedSite.id, context.workspaceId);
+      } catch {
+        // non-blocking
+      }
     }
 
     // -------------------------------------------------------------

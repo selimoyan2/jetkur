@@ -310,19 +310,19 @@ export function isMonochromaticColor(hex: string): boolean {
 }
 
 /**
- * Tests whether a color is near-white (very high lightness, >= 94%).
+ * Tests whether a color is near-white (very high lightness, >= 94% or RGB all > 240).
  */
-export function isNearWhite(hex: string): boolean {
-  const rgb = hexToRgb(hex);
+export function isNearWhite(color: string | RgbColor): boolean {
+  const rgb = typeof color === "string" ? hexToRgb(color) : color;
   const hsl = rgbToHsl(rgb);
-  return hsl.l >= 94;
+  return hsl.l >= 94 || (rgb.r > 240 && rgb.g > 240 && rgb.b > 240);
 }
 
 /**
- * Tests whether a color is near-black (very low lightness, <= 8%).
+ * Tests whether a color is near-black (very low lightness, <= 8% or RGB all < 20).
  */
-export function isNearBlack(hex: string): boolean {
-  const rgb = hexToRgb(hex);
+export function isNearBlack(color: string | RgbColor): boolean {
+  const rgb = typeof color === "string" ? hexToRgb(color) : color;
   const hsl = rgbToHsl(rgb);
-  return hsl.l <= 8;
+  return hsl.l <= 8 || (rgb.r < 20 && rgb.g < 20 && rgb.b < 20);
 }

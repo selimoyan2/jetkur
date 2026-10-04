@@ -19,6 +19,7 @@ import { SiteConfig } from "../../types";
 import { CANONICAL_TEMPLATE_MANIFESTS, resolveTemplate } from "../../domain/templates/catalog";
 import { fromLegacySiteConfig } from "../../domain/site/legacyAdapter";
 import { generateCandidatePreviewHtml } from "../../domain/templates/preview";
+import { extractLogoColors, ExtractedBrandPalette } from "../../domain/brand";
 import {
   Palette,
   Check,
@@ -31,6 +32,8 @@ import {
   X,
   ShieldCheck,
   CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 interface DesignBrandManagerProps {
@@ -63,6 +66,8 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
   );
   const [activeTab, setActiveTab] = useState<"templates" | "brand">("templates");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [extractedPalette, setExtractedPalette] = useState<ExtractedBrandPalette | null>(null);
+  const [isColorExtracting, setIsColorExtracting] = useState(false);
 
   // Real Content Preview Modal state
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
@@ -150,6 +155,50 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const applyUploadedLogo = (dataUrl: string, mimeType: string, svgContent?: string) => {
+    const updated: SiteConfig = {
+      ...config,
+      logo: dataUrl,
+      logoUrl: dataUrl,
+      header: {
+        ...config.header,
+        logoType: "image",
+        logoImage: dataUrl,
+      },
+      brandKit: {
+        ...config.brandKit,
+        id: config.brandKit?.id || `brand-kit-${Date.now()}`,
+        siteId: (config as any).siteId || (config as any).id || "site-1",
+        version: 1,
+        sourceColors: config.brandKit?.sourceColors || { extractedFrom: "none" },
+        logo: {
+          source: mimeType.includes("svg") ? "svg" : "upload",
+          mimeType,
+          url: dataUrl,
+          svgContent,
+        },
+        palette: config.brandKit?.palette || {
+          primary: selectedColor,
+          secondary: "#1e293b",
+          accent: selectedColor,
+          primaryDark: "#0f172a",
+          primaryLight: "#f8fafc",
+          text: "#0f172a",
+          textMuted: "#64748b",
+          surface: "#f8fafc",
+          background: "#ffffff",
+          border: "#e2e8f0",
+          buttonTextPrimary: "#ffffff",
+          buttonTextAccent: "#ffffff",
+        },
+      },
+    };
+
+    onChange(updated);
+    setToastMessage("Logo başarıyla yüklendi ve kurumsal kimliğinize bağlandı!");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (readOnly) return;
     const file = e.target.files?.[0];
@@ -160,45 +209,57 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
       return;
     }
 
+    const isSvg = file.type === "image/svg+xml" || file.name.endsWith(".svg");
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const updated: SiteConfig = {
-        ...config,
-        logo: dataUrl,
-        brandKit: {
-          ...config.brandKit,
-          id: config.brandKit?.id || "brand-kit-custom",
-          siteId: config.brandKit?.siteId || "site-1",
-          version: 1,
-          sourceColors: config.brandKit?.sourceColors || { extractedFrom: "none" },
-          logo: {
-            source: file.type.includes("svg") ? "svg" : "upload",
-            mimeType: file.type,
-            url: dataUrl,
-          },
-          palette: config.brandKit?.palette || {
-            primary: selectedColor,
-            secondary: "#1e293b",
-            accent: selectedColor,
-            primaryDark: "#0f172a",
-            primaryLight: "#f8fafc",
-            text: "#0f172a",
-            textMuted: "#64748b",
-            surface: "#f8fafc",
-            background: "#ffffff",
-            border: "#e2e8f0",
-            buttonTextPrimary: "#ffffff",
-            buttonTextAccent: "#ffffff",
-          },
-        },
-      };
 
-      onChange(updated);
-      setToastMessage("Logo başarıyla yüklendi ve kurumsal kimliğinize bağlandı!");
-      setTimeout(() => setToastMessage(null), 3000);
-    };
-    reader.readAsDataURL(file);
+    if (isSvg) {
+      reader.onload = async (event) => {
+        const svgText = event.target?.result as string;
+        const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+        applyUploadedLogo(dataUrl, "image/svg+xml", svgText);
+
+        setIsColorExtracting(true);
+        try {
+          const result = await extractLogoColors({
+            svgContent: svgText,
+            mimeType: "image/svg+xml",
+            fileName: file.name,
+          });
+          setExtractedPalette(result);
+          if (result.isExtracted && result.primary) {
+            handleColorChange(result.primary);
+          }
+        } catch {
+          // ignore
+        } finally {
+          setIsColorExtracting(false);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result as string;
+        applyUploadedLogo(dataUrl, file.type);
+
+        setIsColorExtracting(true);
+        try {
+          const result = await extractLogoColors({
+            dataUrl,
+            mimeType: file.type,
+            fileName: file.name,
+          });
+          setExtractedPalette(result);
+          if (result.isExtracted && result.primary) {
+            handleColorChange(result.primary);
+          }
+        } catch {
+          // ignore
+        } finally {
+          setIsColorExtracting(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const QUICK_BRAND_COLORS = [
@@ -380,7 +441,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
             <h3 className="text-base font-black text-slate-900 tracking-tight">İşletme Logosu</h3>
             <p className="text-xs text-slate-500">
-              Web sitenizin üst menüsünde ve alt kısmında görünecek resmi logonuzu yükleyin (PNG, JPG veya WebP).
+              Web sitenizin üst menüsünde ve alt kısmında görünecek resmi logonuzu yükleyin (PNG, JPG, WebP veya SVG).
             </p>
 
             <div className="flex items-center gap-5 pt-2">
@@ -395,18 +456,72 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
               </div>
 
               {!readOnly && (
-                <label className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors">
-                  <Upload className="w-4 h-4 text-slate-600" />
-                  <span>Yeni Logo Yükle</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    className="hidden"
-                    onChange={handleLogoUpload}
-                  />
-                </label>
+                <div className="space-y-2">
+                  <label className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors w-fit">
+                    <Upload className="w-4 h-4 text-slate-600" />
+                    <span>Yeni Logo Yükle</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                    />
+                  </label>
+
+                  {isColorExtracting && (
+                    <div className="text-xs text-blue-600 font-medium flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Logodan marka renkleri taranıyor...</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
+
+            {/* Extracted Palette Banner */}
+            {extractedPalette?.isExtracted && (
+              <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/70 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Logonuzdan marka renklerinizi çıkardık</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-4 h-4 rounded-full border border-black/10 inline-block shadow-xs"
+                      style={{ backgroundColor: extractedPalette.primary }}
+                    />
+                    <span className="text-xs font-semibold text-slate-800">
+                      Ana: <code className="font-mono text-slate-900">{extractedPalette.primary}</code>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-4 h-4 rounded-full border border-black/10 inline-block shadow-xs"
+                      style={{ backgroundColor: extractedPalette.accent }}
+                    />
+                    <span className="text-xs font-semibold text-slate-800">
+                      Yardımcı: <code className="font-mono text-slate-900">{extractedPalette.accent}</code>
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleColorChange(extractedPalette.primary)}
+                  className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition-colors cursor-pointer"
+                >
+                  Otomatik Paleti Kullan
+                </button>
+              </div>
+            )}
+
+            {/* Truthful Fallback Banner */}
+            {extractedPalette && !extractedPalette.isExtracted && !isColorExtracting && (
+              <div className="p-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Logodan güvenilir bir marka rengi çıkaramadık. Ana renginizi yan panelden seçebilirsiniz.</span>
+              </div>
+            )}
           </div>
 
           {/* Brand Color Selection */}

@@ -34,20 +34,20 @@ export function escapeHtmlAttr(str: unknown): string {
     .replace(/\r/g, "&#13;");
 }
 
-const DANGEROUS_PROTOCOLS = /^(javascript|vbscript|data|file):/i;
-
-/**
- * Validates and sanitizes URLs used in href, src, and action attributes.
- * Disallows javascript:, vbscript:, data:, and control characters.
- */
 export function sanitizeUrl(url: unknown, fallback = "#"): string {
   if (typeof url !== "string") return fallback;
   const trimmed = url.trim();
   if (!trimmed) return fallback;
 
-  // Reject dangerous protocols
-  if (DANGEROUS_PROTOCOLS.test(trimmed)) {
+  // Reject dangerous script protocols
+  if (/^(javascript|vbscript|file):/i.test(trimmed)) {
     return fallback;
+  }
+
+  // Allow safe data URIs for images only (PNG, JPEG, WebP, SVG, GIF)
+  if (/^data:/i.test(trimmed)) {
+    const isSafeImageData = /^data:image\/(png|jpeg|jpg|webp|svg\+xml|gif);(base64|utf8),/i.test(trimmed);
+    return isSafeImageData ? trimmed : fallback;
   }
 
   // Reject newlines / control characters in URLs
