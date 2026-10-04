@@ -95,8 +95,11 @@ export function renderHeaderSection(context: SectionRenderContext): string {
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-100 jk-header">
     <div class="jk-container flex items-center justify-between h-16 sm:h-20 gap-4">
       <a href="${isMulti ? 'index.html' : '#hero'}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
-        ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 44px; width: auto; max-width: 200px;" class="shrink-0 object-contain">` : `<div class="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">${companyName.charAt(0)}</div>`}
-        <span class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight truncate">${companyName}</span>
+        ${logoUrl 
+          ? `<img src="${logoUrl}" alt="${companyName}" style="height: 44px; width: auto; max-width: 200px;" class="shrink-0 object-contain">` 
+          : `<div class="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">${companyName.charAt(0)}</div>
+        <span class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight truncate">${companyName}</span>`
+        }
       </a>
 
       <!-- Desktop Nav -->

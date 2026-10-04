@@ -184,6 +184,7 @@ function getHref(config: SiteConfig, target: string): string {
 
 function renderHeader(config: SiteConfig, activeKey: string): string {
   const isMulti = config.siteType === "multi-page";
+  const logoSrc = config.header?.logoImage || config.logo || (config as any).logoUrl;
   const navItems = (config.header?.navItems || [
     { id: "nav-home", label: "Ana Sayfa", target: "home", visible: true, order: 1 },
     { id: "nav-about", label: "Kurumsal", target: "about", visible: true, order: 2 },
@@ -222,7 +223,7 @@ function renderHeader(config: SiteConfig, activeKey: string): string {
       <!-- Brand Logo & Title (Protected against overflow on mobile) -->
       <a href="${homeHref}" class="flex items-center gap-2.5 sm:gap-3 min-w-0 group" aria-label="${config.companyName} Ana Sayfa">
         ${renderLogo(config)}
-        ${(config.header?.logoType === "image" && config.header?.logoImage && !config.header?.showTextAlongsideLogo) ? '' : `
+        ${logoSrc ? '' : `
           <div class="min-w-0 max-w-[160px] xs:max-w-[220px] sm:max-w-none">
             <span class="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight block leading-tight truncate">${config.companyName}</span>
             <span class="text-[10px] sm:text-xs text-slate-500 font-medium block truncate">${config.sector}</span>
@@ -318,10 +319,12 @@ function renderHeader(config: SiteConfig, activeKey: string): string {
     <div class="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/90">
       <div class="flex items-center gap-2.5 min-w-0">
         ${renderLogo(config)}
+        ${logoSrc ? '' : `
         <div class="min-w-0">
           <div class="font-extrabold text-slate-900 text-sm truncate">${config.companyName}</div>
           <div class="text-[10px] text-slate-500 font-medium truncate">${config.sector}</div>
         </div>
+        `}
       </div>
       <button onclick="closeMobileMenu()" class="w-9 h-9 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition-colors shrink-0 cursor-pointer" aria-label="Menüyü Kapat">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
