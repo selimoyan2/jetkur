@@ -27,6 +27,7 @@ import {
 import { recommendTemplateForIndustry } from "../domain/onboarding/templateRecommender";
 import { OnboardingServiceItem, OnboardingLogoInput } from "../domain/onboarding/types";
 import { extractLogoColors, ExtractedBrandPalette } from "../domain/brand";
+import { slugify } from "../utils/slugify";
 import {
   Wrench,
   Stethoscope,
@@ -364,14 +365,22 @@ export const CustomerWizard: React.FC<CustomerWizardProps> = ({
     try {
       setSubmissionProgressText("Sektörel içerikler ve şablon hazırlanıyor...");
 
+      // Ensure HTTP request header contains only ISO-8859-1 / ASCII safe code points
+      const safeCompanySlug = slugify(companyName.trim(), "site");
+      const safePhoneDigits = phone.trim().replace(/[^a-zA-Z0-9]/g, "");
+      const safeIdempotencyKey = `idemp-${effectiveWorkspaceId}-${safeCompanySlug}-${safePhoneDigits}`.replace(/[^\x20-\x7E]/g, "");
+
       const response = await fetch("/api/onboarding/create-site", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-workspace-id": effectiveWorkspaceId,
-          "x-idempotency-key": `idemp-${companyName.trim()}-${phone.trim()}`,
+          "x-idempotency-key": safeIdempotencyKey,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          idempotencyKey: safeIdempotencyKey,
+        }),
       });
 
       const data = await response.json();
