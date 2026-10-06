@@ -33,6 +33,9 @@ export interface ServiceItem {
   robots?: string;
   schemaType?: string;
   specs?: { label: string; value: string }[];
+  active?: boolean;
+  primaryMediaId?: string;
+  galleryMediaIds?: string[];
 }
 
 export interface ProductCategory {

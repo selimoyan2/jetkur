@@ -109,13 +109,13 @@ export class MediaService {
   async getMediaForSite(siteId: string, workspaceId: string): Promise<MediaAsset[]> {
     await this.authorizeSite(siteId, workspaceId);
 
-    const site = await this.siteRepo.getSiteById(siteId);
-    if (!site) return [];
-
     const existing = IN_MEMORY_MEDIA_STORE.get(siteId) || [];
     if (existing.length > 0) {
       return existing;
     }
+
+    const site = await this.siteRepo.getSiteById(siteId);
+    if (!site) return existing;
 
     // Populate initial assets from site content
     const initialAssets: MediaAsset[] = [];
@@ -252,6 +252,55 @@ export class MediaService {
       await this.assignMediaToSlot(siteId, workspaceId, asset.id, slotKey);
     }
 
+    return asset;
+  }
+
+  /**
+   * Registers/imports an externally selected stock image (e.g. from Pexels) into the site's MediaAsset store.
+   */
+  async registerStockAsset(
+    siteId: string,
+    workspaceId: string,
+    assetData: Partial<MediaAsset> & { id: string; originalUrl: string }
+  ): Promise<MediaAsset> {
+    await this.authorizeSite(siteId, workspaceId);
+    const nowIso = new Date().toISOString();
+    const asset: MediaAsset = {
+      id: assetData.id,
+      workspaceId,
+      siteId,
+      sourceType: "STOCK",
+      originalUrl: assetData.originalUrl,
+      mimeType: assetData.mimeType || "image/jpeg",
+      width: assetData.width,
+      height: assetData.height,
+      aspectRatio: assetData.aspectRatio || "16:9",
+      altText: assetData.altText || assetData.title || "Hizmet Görseli",
+      title: assetData.title || "Stok Görsel",
+      sourceProvider: assetData.sourceProvider || "pexels",
+      sourceId: assetData.sourceId,
+      photographerName: assetData.photographerName,
+      sourcePageUrl: assetData.sourcePageUrl,
+      licenseMetadata: assetData.licenseMetadata || {
+        license: "Pexels Free to Use License",
+        attributionRequired: true,
+        photographerName: assetData.photographerName,
+      },
+      assignedSlots: assetData.assignedSlots || [
+        { sectionType: "services", slotKey: "service", label: "Hizmet Görseli" },
+      ],
+      createdAt: assetData.createdAt || nowIso,
+      updatedAt: nowIso,
+    };
+
+    const assets = await this.listSiteMedia(siteId, workspaceId);
+    const existingIndex = assets.findIndex((m) => m.id === asset.id);
+    if (existingIndex >= 0) {
+      assets[existingIndex] = asset;
+    } else {
+      assets.unshift(asset);
+    }
+    IN_MEMORY_MEDIA_STORE.set(siteId, assets);
     return asset;
   }
 

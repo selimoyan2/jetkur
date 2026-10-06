@@ -8,6 +8,8 @@
  * It is completely separated from business profile information and design tokens.
  */
 
+import type { SiteMode } from "./pageContent";
+
 export type SiteStructureMode = "single-page" | "multi-page";
 
 export interface CustomDomainConfig {
@@ -113,6 +115,13 @@ export interface LocaleSettings {
  */
 export interface SiteSettings {
   structureMode: SiteStructureMode;
+  /**
+   * Canonical Presentation Mode (Sprint 17 Foundation):
+   * LANDING: Primary business content presented as sections on homepage.
+   * MULTI_PAGE: Content may also have dedicated pages (About, Services, Products, Contact).
+   * Defaults to "LANDING".
+   */
+  siteMode?: SiteMode;
   domain: CustomDomainConfig;
   deployment: DeploymentConfig;
   seo: TechnicalSeoConfig;

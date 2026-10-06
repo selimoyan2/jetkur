@@ -324,6 +324,7 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
   // 5. Site Settings
   const settings: SiteSettings = {
     structureMode: legacy.siteType === "multi-page" ? "multi-page" : "single-page",
+    siteMode: (legacy as any).siteMode === "MULTI_PAGE" || legacy.siteType === "multi-page" ? "MULTI_PAGE" : "LANDING",
     domain: {
       hostname: legacy.customDomain || `${legacy.id}.jetkur.site`,
       isCustom: Boolean(legacy.customDomain),
@@ -444,6 +445,7 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     siteId: canonical.id,
     workspaceId: (canonical as any).workspaceId,
     templateId: canonical.designTemplate?.templateId || "tmpl-rapid-service",
+    siteType: (canonical.settings.siteMode === "MULTI_PAGE" || canonical.settings.structureMode === "multi-page") ? "multi-page" : "single-page",
     companyName: profile.identity.companyName,
     sector: profile.identity.sector || "general",
     slogan: profile.identity.slogan || "",

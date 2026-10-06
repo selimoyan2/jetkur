@@ -15,6 +15,10 @@
  *    independently of design switches.
  */
 
+import type { PageContent } from "./pageContent";
+import type { ServiceContent } from "./serviceContent";
+import type { ProductContent } from "./productContent";
+
 export interface HeroSlideItem {
   id: string;
   title: string;
@@ -174,4 +178,22 @@ export interface SiteContent {
   customPages: CustomPageContentItem[];
   blogPosts: BlogPostContentItem[];
   catalogProducts: CatalogProductItem[];
+  /**
+   * Canonical Page Content Domain (Sprint 17 Foundation):
+   * Reusable canonical page-level content for ABOUT, SERVICES, PRODUCTS, CONTACT.
+   * Optional for backward compatibility with existing sites.
+   */
+  pages?: PageContent[];
+  /**
+   * Canonical Service Content Domain (Sprint 17 Foundation 02):
+   * Reusable canonical service items for both LANDING and MULTI_PAGE modes.
+   * Optional for backward compatibility with existing sites.
+   */
+  services?: ServiceContent[];
+  /**
+   * Canonical Product Content Domain (Sprint 17 Foundation 03):
+   * Reusable canonical product items for both LANDING and MULTI_PAGE modes.
+   * Optional for backward compatibility with existing sites.
+   */
+  products?: ProductContent[];
 }

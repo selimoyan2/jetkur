@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import QRCode from "qrcode";
 import { SiteConfig, ServiceItem, ProductItem, FormLead } from "../../types";
+import { ServiceContent } from "../../domain/site/serviceContent";
 import { slugifyService } from "../../utils/url";
 import { 
   Phone, 
@@ -23,6 +24,7 @@ import {
   HelpCircle, 
   Share2, 
   Plus, 
+  Pencil,
   Trash2,
   Check,
   Zap,
@@ -39,7 +41,13 @@ import {
   Lock,
   FileText,
   Activity,
-  Mail
+  Mail,
+  Image as ImageIcon,
+  RefreshCw,
+  Search,
+  AlertCircle,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { getTagColorClass, getLeadTagStyle } from "./LeadTagsManager";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
@@ -63,6 +71,72 @@ interface SimpleMerchantModeProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+interface LibraryMediaItem {
+  id: string;
+  url: string;
+  title: string;
+  category: string;
+}
+
+export function extractServiceSearchQuery(title: string, sector?: string): string {
+  if (!title || !title.trim()) return sector || "hizmet";
+  const words = title
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+
+  const stopWords = new Set([
+    "kırmadan", "cihazla", "noktasal", "kameralı", "acil", "hızlı", "yerinde",
+    "garantili", "uygun", "fiyatlı", "fiyat", "profesyonel", "uzman", "ozel",
+    "özel", "tam", "ve", "ile", "için", "hizmeti", "hizmetleri", "servisi"
+  ]);
+
+  const meaningful = words.filter((w) => !stopWords.has(w.toLowerCase()));
+  if (meaningful.length > 0) {
+    return meaningful.slice(0, 3).join(" ");
+  }
+  return words.slice(0, 3).join(" ");
+}
+
+const DEFAULT_LIBRARY_ASSETS: LibraryMediaItem[] = [
+  {
+    id: "media-srv-repair",
+    url: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80",
+    title: "Profesyonel Servis ve Montaj",
+    category: "Servis",
+  },
+  {
+    id: "media-srv-tools",
+    url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80",
+    title: "Uzman Ekip ve Ekipman",
+    category: "Hizmet",
+  },
+  {
+    id: "media-srv-diagnostics",
+    url: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80",
+    title: "Cihaz Arıza Tespiti",
+    category: "Arıza & Onarım",
+  },
+  {
+    id: "media-srv-installation",
+    url: "https://images.unsplash.com/photo-1585338107529-13afc5f02586?auto=format&fit=crop&w=800&q=80",
+    title: "Hızlı Kurulum ve Bakım",
+    category: "Bakım",
+  },
+  {
+    id: "media-srv-clean",
+    url: "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80",
+    title: "Hijyen ve Detaylı Temizlik",
+    category: "Temizlik",
+  },
+  {
+    id: "media-srv-support",
+    url: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=800&q=80",
+    title: "Teknik Servis ve Destek",
+    category: "Teknik",
+  },
+];
+
 export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   config,
   onChange,
@@ -84,6 +158,16 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   const [activeCard, setActiveCard] = useState<"contact" | "items" | "leads" | "share">("contact");
   const [showQrModal, setShowQrModal] = useState(false);
   const [showMapsGuideModal, setShowMapsGuideModal] = useState(false);
+  const [showMediaLibraryModal, setShowMediaLibraryModal] = useState(false);
+  const [showGalleryPickerModal, setShowGalleryPickerModal] = useState(false);
+  const [showPexelsModal, setShowPexelsModal] = useState(false);
+  const [pexelsQuery, setPexelsQuery] = useState("");
+  const [pexelsLoading, setPexelsLoading] = useState(false);
+  const [pexelsResults, setPexelsResults] = useState<any[]>([]);
+  const [pexelsError, setPexelsError] = useState<string | null>(null);
+  const [pexelsSelectingId, setPexelsSelectingId] = useState<string | null>(null);
+  const [customImportedAssets, setCustomImportedAssets] = useState<LibraryMediaItem[]>([]);
+  const [editingService, setEditingService] = useState<ServiceContent | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
   const [merchantQrDataUrl, setMerchantQrDataUrl] = useState<string>("");
@@ -194,6 +278,261 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
 
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
+  };
+
+  const availableMediaAssets: LibraryMediaItem[] = useMemo(() => {
+    const list: LibraryMediaItem[] = [...customImportedAssets, ...DEFAULT_LIBRARY_ASSETS];
+    const seenIds = new Set<string>(list.map((a) => a.id));
+
+    // Gallery items
+    (config.gallery?.items || []).forEach((item, idx) => {
+      const url = item.imageUrl || (item as any).url;
+      const id = item.id || `gallery-${idx + 1}`;
+      if (url && typeof url === "string" && !seenIds.has(id)) {
+        seenIds.add(id);
+        list.push({
+          id,
+          url,
+          title: item.title || `Galeri Görseli ${idx + 1}`,
+          category: "Galeri",
+        });
+      }
+    });
+
+    // Services items
+    (config.services?.items || []).forEach((srv, idx) => {
+      const url = srv.image;
+      const mediaId = srv.primaryMediaId || srv.id;
+      if (url && typeof url === "string" && !seenIds.has(mediaId)) {
+        seenIds.add(mediaId);
+        list.push({
+          id: mediaId,
+          url,
+          title: `${srv.title} Görseli`,
+          category: "Hizmetler",
+        });
+      }
+    });
+
+    // Hero bg
+    if (config.hero?.bgImage && !seenIds.has("hero-bg")) {
+      seenIds.add("hero-bg");
+      list.push({
+        id: "hero-bg",
+        url: config.hero.bgImage,
+        title: "Ana Sayfa Hero Görseli",
+        category: "Ana Sayfa",
+      });
+    }
+
+    // About image
+    if (config.about?.image && !seenIds.has("about-main")) {
+      seenIds.add("about-main");
+      list.push({
+        id: "about-main",
+        url: config.about.image,
+        title: "Hakkımızda Görseli",
+        category: "Hakkımızda",
+      });
+    }
+
+    return list;
+  }, [config, customImportedAssets]);
+
+  const resolveMediaUrl = (mediaIdOrUrl?: string): string => {
+    if (!mediaIdOrUrl) return "";
+    if (
+      mediaIdOrUrl.startsWith("http://") ||
+      mediaIdOrUrl.startsWith("https://") ||
+      mediaIdOrUrl.startsWith("/")
+    ) {
+      return mediaIdOrUrl;
+    }
+    const found = availableMediaAssets.find((a) => a.id === mediaIdOrUrl);
+    return found ? found.url : mediaIdOrUrl;
+  };
+
+  const getMediaTitle = (mediaIdOrUrl?: string): string => {
+    if (!mediaIdOrUrl) return "Seçili Görsel";
+    const found = availableMediaAssets.find((a) => a.id === mediaIdOrUrl);
+    return found ? found.title : "Medya Görseli";
+  };
+
+  const handleOpenPexelsModal = () => {
+    const initialQuery = extractServiceSearchQuery(editingService?.title || "", config.sector);
+    setPexelsQuery(initialQuery);
+    setShowPexelsModal(true);
+    handleSearchPexels(initialQuery);
+  };
+
+  const handleSearchPexels = async (queryToSearch: string) => {
+    const q = queryToSearch.trim();
+    if (!q) return;
+    setPexelsLoading(true);
+    setPexelsError(null);
+    try {
+      const siteId = config.id || "active";
+      const res = await fetch(`/api/media/sites/${siteId}/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Pexels araması gerçekleştirilemedi.");
+      }
+      const assets = data.results?.assets || [];
+      if (assets.length === 0) {
+        setPexelsError(`"${q}" için görsel bulunamadı. Lütfen farklı bir terim deneyin.`);
+      }
+      setPexelsResults(assets);
+    } catch (err: any) {
+      setPexelsError(
+        err?.message || "Pexels servisi geçici olarak yanıt vermiyor. Medya Kütüphanenizi kullanmaya devam edebilirsiniz."
+      );
+    } finally {
+      setPexelsLoading(false);
+    }
+  };
+
+  const handleSelectPexelsAsset = async (asset: any) => {
+    if (!editingService) return;
+    setPexelsSelectingId(asset.id);
+    try {
+      const siteId = config.id || "active";
+      const res = await fetch(`/api/media/sites/${siteId}/import-stock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asset }),
+      });
+      const data = await res.json();
+      const registered = data.success && data.asset ? data.asset : asset;
+
+      setEditingService({
+        ...editingService,
+        primaryMediaId: registered.id,
+      });
+
+      setCustomImportedAssets((prev) => [
+        ...prev.filter((a) => a.id !== registered.id),
+        {
+          id: registered.id,
+          url: registered.originalUrl,
+          title: registered.title || "Pexels Görseli",
+          category: "Pexels Stok",
+        },
+      ]);
+
+      setShowPexelsModal(false);
+    } catch {
+      setEditingService({
+        ...editingService,
+        primaryMediaId: asset.id,
+      });
+      setCustomImportedAssets((prev) => [
+        ...prev.filter((a) => a.id !== asset.id),
+        {
+          id: asset.id,
+          url: asset.originalUrl,
+          title: asset.title || "Pexels Görseli",
+          category: "Pexels Stok",
+        },
+      ]);
+      setShowPexelsModal(false);
+    } finally {
+      setPexelsSelectingId(null);
+    }
+  };
+
+  const handleMoveGalleryItem = (index: number, direction: "up" | "down") => {
+    if (!editingService) return;
+    const currentList = [...(editingService.galleryMediaIds || [])];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+    const temp = currentList[index];
+    currentList[index] = currentList[targetIndex];
+    currentList[targetIndex] = temp;
+    setEditingService({
+      ...editingService,
+      galleryMediaIds: currentList,
+    });
+  };
+
+  const handleRemoveGalleryItem = (index: number) => {
+    if (!editingService) return;
+    const updated = (editingService.galleryMediaIds || []).filter((_, i) => i !== index);
+    setEditingService({
+      ...editingService,
+      galleryMediaIds: updated,
+    });
+  };
+
+  const handleToggleGalleryAsset = (assetId: string) => {
+    if (!editingService) return;
+    const current = editingService.galleryMediaIds || [];
+    if (current.includes(assetId)) {
+      setEditingService({
+        ...editingService,
+        galleryMediaIds: current.filter((id) => id !== assetId),
+      });
+    } else {
+      setEditingService({
+        ...editingService,
+        galleryMediaIds: [...current, assetId],
+      });
+    }
+  };
+
+  const handleStartEditService = (s: ServiceItem) => {
+    const canonical: ServiceContent = {
+      id: s.id,
+      title: s.title,
+      slug: s.slug || s.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      shortDescription: s.desc || "",
+      longContent: s.longContent || s.longDesc || "",
+      priceLabel: s.price || "",
+      active: s.active !== false,
+      primaryMediaId: s.primaryMediaId || s.image || undefined,
+      galleryMediaIds: s.galleryMediaIds ? [...s.galleryMediaIds] : (s.bannerImage ? [s.bannerImage] : []),
+      seoTitle: s.seoTitle,
+      seoDescription: s.seoDescription,
+    };
+    setEditingService(canonical);
+  };
+
+  const handleSaveServiceEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService) return;
+
+    const currentItems = config.services?.items || [];
+    const updatedItems = currentItems.map((item) => {
+      if (item.id === editingService.id) {
+        return {
+          ...item,
+          title: editingService.title,
+          desc: editingService.shortDescription,
+          longContent: editingService.longContent,
+          price: editingService.priceLabel,
+          active: editingService.active,
+          primaryMediaId: editingService.primaryMediaId,
+          image: editingService.primaryMediaId ? resolveMediaUrl(editingService.primaryMediaId) : undefined,
+          galleryMediaIds: editingService.galleryMediaIds ? [...editingService.galleryMediaIds] : [],
+        };
+      }
+      return item;
+    });
+
+    onChange({
+      ...config,
+      services: {
+        ...config.services,
+        items: updatedItems,
+      },
+    });
+
+    setEditingService(null);
+    setSaveToast(true);
+    setTimeout(() => setSaveToast(false), 2500);
+  };
+
+  const handleCancelServiceEdit = () => {
+    setEditingService(null);
   };
 
   const handleRemoveService = (id: string) => {
@@ -644,19 +983,38 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                   key={s.id}
                   className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">{s.title}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                      <span className="truncate">{s.title}</span>
+                      {s.active === false && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-600 font-semibold shrink-0">
+                          Pasif
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-amber-600 font-extrabold">{s.price || "Fiyat Sorun"}</div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveService(s.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
-                    title="Sil"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditService(s)}
+                      className="px-2.5 py-1 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 text-xs font-bold rounded-lg border border-slate-200 transition-colors flex items-center gap-1 shadow-xs"
+                      title="Düzenle"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Düzenle</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveService(s.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                      title="Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -1097,6 +1455,635 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
             >
               Anladım, Teşekkürler
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== EDIT SERVICE MODAL ==================== */}
+      {editingService && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full p-6 sm:p-8 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-black text-slate-900">Hizmeti Düzenle</h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelServiceEdit}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveServiceEdit} className="space-y-4">
+              {/* Hizmet Görseli */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Hizmet Görseli
+                </label>
+
+                {editingService.primaryMediaId ? (
+                  <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-2.5 flex items-center gap-3.5">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0 flex items-center justify-center">
+                      <img
+                        src={resolveMediaUrl(editingService.primaryMediaId)}
+                        alt={editingService.title || "Hizmet Görseli"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        {getMediaTitle(editingService.primaryMediaId)}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate">
+                        ID: {editingService.primaryMediaId}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowMediaLibraryModal(true)}
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3 text-slate-500" />
+                          <span>Görseli Değiştir</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenPexelsModal}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          <span>Pexels'ten Bul</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingService({ ...editingService, primaryMediaId: undefined })
+                          }
+                          className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Görseli Kaldır</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-4 text-center">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-2">
+                      <ImageIcon className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs font-bold text-slate-700">Henüz bir görsel seçilmedi</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 mb-2.5">
+                      Medya kütüphanenizden veya Pexels'ten kaliteli bir fotoğraf seçerek hizmetinizi öne çıkarın
+                    </div>
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowMediaLibraryModal(true)}
+                        className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Medya Kütüphanesinden Seç</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenPexelsModal}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                        <span>Pexels'ten Görsel Bul</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hizmet Galerisi Section */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Hizmet Galerisi
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowGalleryPickerModal(true)}
+                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Galeriden Görsel Ekle</span>
+                  </button>
+                </div>
+
+                {editingService.galleryMediaIds && editingService.galleryMediaIds.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {editingService.galleryMediaIds.map((mediaId, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === (editingService.galleryMediaIds?.length || 0) - 1;
+                        return (
+                          <div
+                            key={`${mediaId}-${idx}`}
+                            className="flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-200 rounded-xl group hover:border-slate-300 transition-colors"
+                          >
+                            <div className="w-14 h-14 rounded-lg overflow-hidden bg-slate-900 shrink-0 relative">
+                              <img
+                                src={resolveMediaUrl(mediaId)}
+                                alt={getMediaTitle(mediaId)}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-1 left-1 bg-slate-900/80 text-white text-[9px] font-mono font-bold px-1 py-0.5 rounded">
+                                #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-slate-800 truncate">
+                                {getMediaTitle(mediaId)}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono truncate">
+                                ID: {mediaId}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Yukarı taşı"
+                                disabled={isFirst}
+                                onClick={() => handleMoveGalleryItem(idx, "up")}
+                                className="p-1.5 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed border border-transparent hover:border-slate-200"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Aşağı taşı"
+                                disabled={isLast}
+                                onClick={() => handleMoveGalleryItem(idx, "down")}
+                                className="p-1.5 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed border border-transparent hover:border-slate-200"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Galeriden kaldır"
+                                onClick={() => handleRemoveGalleryItem(idx)}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 hover:text-rose-700 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1">
+                      <span>Toplam {editingService.galleryMediaIds.length} görsel galeride yer alıyor (sıralamayı butonlarla değiştirebilirsiniz)</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-3.5 text-center">
+                    <p className="text-xs text-slate-500 mb-2">
+                      Bu hizmet için henüz bir galeri görseli seçilmedi.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowGalleryPickerModal(true)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Galeriden Görsel Ekle</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Hizmet Adı
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingService.title}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, title: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  placeholder="Hizmet Adı"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Kısa Açıklama
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingService.shortDescription}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, shortDescription: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                  placeholder="Kısa Açıklama"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Detaylı Açıklama
+                </label>
+                <textarea
+                  rows={4}
+                  value={editingService.longContent || ""}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, longContent: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  placeholder="Detaylı Açıklama"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Fiyat / Fiyat Bilgisi
+                </label>
+                <input
+                  type="text"
+                  value={editingService.priceLabel || ""}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, priceLabel: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  placeholder="Fiyat / Fiyat Bilgisi"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  type="checkbox"
+                  id="service-active-toggle"
+                  checked={editingService.active}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, active: e.target.checked })
+                  }
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                />
+                <label
+                  htmlFor="service-active-toggle"
+                  className="text-xs font-bold text-slate-800 cursor-pointer select-none"
+                >
+                  Aktif
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleCancelServiceEdit}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Kaydet</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MEDIA LIBRARY SELECTION MODAL ==================== */}
+      {showMediaLibraryModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-60 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full p-6 sm:p-7 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Medya Kütüphanesi</h3>
+                  <p className="text-xs text-slate-500">Hizmet için bir görsel seçin</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaLibraryModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {availableMediaAssets.map((asset) => {
+                  const isSelected = editingService?.primaryMediaId === asset.id;
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => {
+                        if (editingService) {
+                          setEditingService({
+                            ...editingService,
+                            primaryMediaId: asset.id,
+                          });
+                        }
+                        setShowMediaLibraryModal(false);
+                      }}
+                      className={`group relative rounded-2xl overflow-hidden border-2 text-left transition-all aspect-4/3 flex flex-col justify-end p-2.5 bg-slate-900 cursor-pointer ${
+                        isSelected
+                          ? "border-emerald-600 ring-2 ring-emerald-500/30"
+                          : "border-slate-200 hover:border-slate-400"
+                      }`}
+                    >
+                      <img
+                        src={asset.url}
+                        alt={asset.title}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                      <div className="relative z-10">
+                        <div className="text-[11px] font-bold text-white truncate drop-shadow">
+                          {asset.title}
+                        </div>
+                        <div className="text-[10px] text-slate-300 truncate">
+                          {asset.category}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center z-10 shadow">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Toplam {availableMediaAssets.length} görsel mevcut</span>
+              <button
+                type="button"
+                onClick={() => setShowMediaLibraryModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== GALLERY MEDIA PICKER MODAL ==================== */}
+      {showGalleryPickerModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-60 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full p-6 sm:p-7 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Hizmet Galerisi Görselleri</h3>
+                  <p className="text-xs text-slate-500">
+                    Galeride yer almasını istediğiniz görsellere tıklayarak ekleyin veya çıkarın
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGalleryPickerModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold cursor-pointer"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {availableMediaAssets.map((asset) => {
+                  const galleryList = editingService?.galleryMediaIds || [];
+                  const isSelected = galleryList.includes(asset.id);
+                  const selectedOrder = isSelected ? galleryList.indexOf(asset.id) + 1 : null;
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => handleToggleGalleryAsset(asset.id)}
+                      className={`group relative rounded-2xl overflow-hidden border-2 text-left transition-all aspect-4/3 flex flex-col justify-end p-2.5 bg-slate-900 cursor-pointer ${
+                        isSelected
+                          ? "border-emerald-600 ring-2 ring-emerald-500/30"
+                          : "border-slate-200 hover:border-slate-400"
+                      }`}
+                    >
+                      <img
+                        src={asset.url}
+                        alt={asset.title}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                      <div className="relative z-10">
+                        <div className="text-[11px] font-bold text-white truncate drop-shadow">
+                          {asset.title}
+                        </div>
+                        <div className="text-[10px] text-slate-300 truncate">
+                          {asset.category}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 z-10 shadow">
+                          <Check className="w-3 h-3" />
+                          <span>#{selectedOrder}</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>
+                Seçili Galeri Görseli: {(editingService?.galleryMediaIds || []).length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowGalleryPickerModal(false)}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors cursor-pointer shadow-xs"
+              >
+                Tamamla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== PEXELS SEARCH MODAL ==================== */}
+      {showPexelsModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-60 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full p-6 sm:p-7 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Pexels'ten Görsel Bul</h3>
+                  <p className="text-xs text-slate-500">Hizmetiniz için yüksek kaliteli stok görsel arayın</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPexelsModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            {/* Search Input Bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSearchPexels(pexelsQuery);
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={pexelsQuery}
+                  onChange={(e) => setPexelsQuery(e.target.value)}
+                  placeholder="Görsel arama terimi (Örn: Su Kaçağı Tespiti, Kombi Tamiri)..."
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={pexelsLoading || !pexelsQuery.trim()}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                {pexelsLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
+                <span>Ara</span>
+              </button>
+            </form>
+
+            {/* Error or Truthful message */}
+            {pexelsError && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <div className="flex-1">
+                  <span>{pexelsError}</span>
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPexelsModal(false);
+                        setShowMediaLibraryModal(true);
+                      }}
+                      className="font-bold underline text-amber-900 hover:text-amber-950"
+                    >
+                      Medya Kütüphanesine Git →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Results Grid */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {pexelsLoading ? (
+                <div className="py-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
+                  <span>Görseller aranıyor...</span>
+                </div>
+              ) : pexelsResults.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {pexelsResults.map((asset) => {
+                    const isSelected = editingService?.primaryMediaId === asset.id;
+                    const isSelectingThis = pexelsSelectingId === asset.id;
+                    const displayUrl = asset.originalUrl || asset.url;
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        disabled={Boolean(pexelsSelectingId)}
+                        onClick={() => handleSelectPexelsAsset(asset)}
+                        className={`group relative rounded-2xl overflow-hidden border-2 text-left transition-all aspect-4/3 flex flex-col justify-end p-2.5 bg-slate-900 cursor-pointer ${
+                          isSelected
+                            ? "border-emerald-600 ring-2 ring-emerald-500/30"
+                            : "border-slate-200 hover:border-emerald-400"
+                        }`}
+                      >
+                        <img
+                          src={displayUrl}
+                          alt={asset.altText || asset.title || "Pexels görseli"}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                        <div className="relative z-10">
+                          <div className="text-[11px] font-bold text-white truncate drop-shadow">
+                            {asset.title || asset.altText || "Pexels Görseli"}
+                          </div>
+                          {asset.photographerName && (
+                            <div className="text-[10px] text-slate-300 truncate">
+                              Fotoğraf: {asset.photographerName}
+                            </div>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center z-10 shadow">
+                            <Check className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                        {isSelectingThis && (
+                          <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20">
+                            <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                !pexelsError && (
+                  <div className="py-10 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                    Yukarıdaki kutucuğa aramak istediğiniz terimi yazın veya varsayılan terimle arayın.
+                  </div>
+                )
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Pexels Ücretsiz Ticari Lisansı ile sunulmaktadır</span>
+              <button
+                type="button"
+                onClick={() => setShowPexelsModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Kapat
+              </button>
+            </div>
           </div>
         </div>
       )}

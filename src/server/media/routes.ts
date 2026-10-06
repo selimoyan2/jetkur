@@ -102,6 +102,28 @@ mediaRouter.get("/sites/:siteId/search", async (req: Request, res: Response) => 
 });
 
 /**
+ * POST /api/media/sites/:siteId/import-stock
+ * Registers a chosen stock MediaAsset to the site's media library
+ */
+mediaRouter.post("/sites/:siteId/import-stock", async (req: Request, res: Response) => {
+  try {
+    const { siteId } = req.params;
+    const { workspaceId } = getWorkspaceContext(req);
+    const { asset } = req.body || {};
+
+    if (!asset || !asset.id || !asset.originalUrl) {
+      res.status(400).json({ success: false, message: "Geçersiz stok görsel verisi." });
+      return;
+    }
+
+    const registered = await mediaService.registerStockAsset(siteId, workspaceId, asset);
+    res.json({ success: true, asset: registered });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || "Görsel kaydedilemedi." });
+  }
+});
+
+/**
  * POST /api/media/sites/:siteId/assign
  * Binds a media asset to a specific section slot
  */
