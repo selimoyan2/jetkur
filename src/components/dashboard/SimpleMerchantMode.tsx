@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import QRCode from "qrcode";
 import { SiteConfig, ServiceItem, ProductItem, FormLead } from "../../types";
 import { ServiceContent } from "../../domain/site/serviceContent";
+import { deriveServiceSearchQuery } from "../../domain/media/intents";
 import { slugifyService } from "../../utils/url";
 import { 
   Phone, 
@@ -79,23 +80,7 @@ interface LibraryMediaItem {
 }
 
 export function extractServiceSearchQuery(title: string, sector?: string): string {
-  if (!title || !title.trim()) return sector || "hizmet";
-  const words = title
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w.length >= 2);
-
-  const stopWords = new Set([
-    "kırmadan", "cihazla", "noktasal", "kameralı", "acil", "hızlı", "yerinde",
-    "garantili", "uygun", "fiyatlı", "fiyat", "profesyonel", "uzman", "ozel",
-    "özel", "tam", "ve", "ile", "için", "hizmeti", "hizmetleri", "servisi"
-  ]);
-
-  const meaningful = words.filter((w) => !stopWords.has(w.toLowerCase()));
-  if (meaningful.length > 0) {
-    return meaningful.slice(0, 3).join(" ");
-  }
-  return words.slice(0, 3).join(" ");
+  return deriveServiceSearchQuery(title, sector);
 }
 
 const DEFAULT_LIBRARY_ASSETS: LibraryMediaItem[] = [
@@ -359,7 +344,10 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   };
 
   const handleOpenPexelsModal = () => {
-    const initialQuery = extractServiceSearchQuery(editingService?.title || "", config.sector);
+    const initialQuery = extractServiceSearchQuery(
+      editingService?.title || "",
+      config.sector || (config as any).industryPackId
+    );
     setPexelsQuery(initialQuery);
     setShowPexelsModal(true);
     handleSearchPexels(initialQuery);
@@ -372,7 +360,17 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
     setPexelsError(null);
     try {
       const siteId = config.id || "active";
-      const res = await fetch(`/api/media/sites/${siteId}/search?q=${encodeURIComponent(q)}`);
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+      };
+      const wsId = (config as any).workspaceId;
+      if (wsId) {
+        headers["x-workspace-id"] = wsId;
+      }
+      const res = await fetch(`/api/media/sites/${siteId}/search?q=${encodeURIComponent(q)}`, {
+        credentials: "include",
+        headers,
+      });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Pexels araması gerçekleştirilemedi.");
@@ -396,9 +394,17 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
     setPexelsSelectingId(asset.id);
     try {
       const siteId = config.id || "active";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const wsId = (config as any).workspaceId;
+      if (wsId) {
+        headers["x-workspace-id"] = wsId;
+      }
       const res = await fetch(`/api/media/sites/${siteId}/import-stock`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers,
         body: JSON.stringify({ asset }),
       });
       const data = await res.json();

@@ -133,3 +133,105 @@ export function buildSiteImageIntents(site: CanonicalSite, pack?: IndustryPack):
 
   return intents;
 }
+
+/**
+ * Derives a concise, context-aware image search query for a service
+ * based on industry pack/sector and service title.
+ * Used for server-side search and Pexels modal suggestion.
+ */
+export function deriveServiceSearchQuery(
+  serviceTitle: string,
+  sectorOrIndustrySlug?: string,
+  _context?: string
+): string {
+  const title = (serviceTitle || "").trim();
+  const rawSector = (sectorOrIndustrySlug || "").toLowerCase();
+
+  // Normalize industry category
+  let sectorCategory = "general";
+  if (/tesisat|plumb|su|sihhi/i.test(rawSector)) {
+    sectorCategory = "plumbing";
+  } else if (/kurtarma|oto|cekici|çekiç|tow/i.test(rawSector)) {
+    sectorCategory = "towing";
+  } else if (/di[sş]|hekim|dent/i.test(rawSector)) {
+    sectorCategory = "dental";
+  } else if (/hukuk|avukat|dava|law/i.test(rawSector)) {
+    sectorCategory = "legal";
+  } else if (/hal[ıi]|y[ıi]kama|clean/i.test(rawSector)) {
+    sectorCategory = "cleaning";
+  } else if (/nakliyat|ta[sş][ıi]|mov/i.test(rawSector)) {
+    sectorCategory = "moving";
+  } else if (/kombi|klima|hvac|isitma|ısıtma/i.test(rawSector)) {
+    sectorCategory = "hvac";
+  }
+
+  // Sector-specific high-yield intent mappings (optimized for stock photo index)
+  if (sectorCategory === "plumbing") {
+    if (/su kaça[gğ]ı|ka[cç]ak|s[ıi]z[ıi]nt[ıi]|leak/i.test(title)) return "water leak detection";
+    if (/t[ıi]kan[ıi]kl[ıi]k|gider|kanalizasyon|lavabo|klozet|drain|pipe/i.test(title)) return "plumber drain cleaning";
+    if (/petek|kombi|radyat[oö]r|heating|boiler/i.test(title)) return "boiler heating repair";
+    if (/musluk|batarya|rezervuar|faucet|tap/i.test(title)) return "faucet plumbing installation";
+    if (/k[ıi]rmadan|termal|kamera|cihaz|tespit/i.test(title)) return "plumbing inspection";
+    return "plumber service repair";
+  }
+
+  if (sectorCategory === "towing") {
+    if (/[cç]ekici|kurtarma|kurtar[ıi]c[ıi]|tow/i.test(title)) return "flatbed tow truck";
+    if (/ak[uü]|yol yard[ıi]m|battery|jump/i.test(title)) return "roadside assistance car";
+    if (/kaza|ar[ıi]za|hasar/i.test(title)) return "car breakdown towing";
+    return "tow truck service";
+  }
+
+  if (sectorCategory === "dental") {
+    if (/beyazlatma|bleaching|whitening/i.test(title)) return "teeth whitening dental";
+    if (/implant|protez/i.test(title)) return "dental implant clinic";
+    if (/tel|ortodonti|braces/i.test(title)) return "orthodontics braces dentist";
+    if (/dolgu|kanal|root canal/i.test(title)) return "dentist teeth treatment";
+    return "dentist clinic care";
+  }
+
+  if (sectorCategory === "legal") {
+    if (/ceza|dava|court|trial/i.test(title)) return "lawyer courtroom legal";
+    if (/bo[sş]anma|aile|family/i.test(title)) return "family lawyer consultation";
+    if (/s[oö]zle[sş]me|ticaret|corporate/i.test(title)) return "business contract law";
+    return "lawyer legal consultation";
+  }
+
+  if (sectorCategory === "cleaning") {
+    if (/koltuk|kanepe|sofa|upholstery/i.test(title)) return "sofa upholstery cleaning";
+    if (/hal[ıi]|carpet|rug/i.test(title)) return "professional carpet wash";
+    if (/perde|stor|zebra/i.test(title)) return "curtain dry cleaning";
+    return "carpet cleaning service";
+  }
+
+  if (sectorCategory === "moving") {
+    if (/asans[oö]rl[uü]|lift/i.test(title)) return "moving furniture lift";
+    if (/paketleme|ambalaj|packing|box/i.test(title)) return "moving boxes packing";
+    if (/[sş]ehirleraras[ıi]|[sş]ehir i[cç]i/i.test(title)) return "moving truck transport";
+    return "moving truck logistics";
+  }
+
+  if (sectorCategory === "hvac") {
+    if (/klima|air condition/i.test(title)) return "air conditioner service";
+    if (/kombi|kazan|boiler/i.test(title)) return "hvac boiler repair";
+    return "hvac technician service";
+  }
+
+  // Generic fallback: strip fluff/stop words
+  const stopWords = new Set([
+    "kırmadan", "cihazla", "noktasal", "kameralı", "acil", "hızlı", "yerinde",
+    "garantili", "uygun", "fiyatlı", "fiyat", "profesyonel", "uzman", "özel",
+    "ozel", "tam", "ve", "ile", "için", "hizmeti", "hizmetleri", "servisi",
+    "işleri", "islemleri", "işlemleri"
+  ]);
+
+  const cleanWords = title
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && !stopWords.has(w.toLowerCase()));
+
+  if (cleanWords.length > 0) {
+    return cleanWords.slice(0, 3).join(" ");
+  }
+
+  return title || "business service";
+}

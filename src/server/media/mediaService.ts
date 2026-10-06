@@ -63,6 +63,15 @@ export class MediaService {
    */
   private async authorizeSite(siteId: string, workspaceId: string) {
     try {
+      // 1. If siteId is "active", resolve to the canonical site in this workspace
+      if (siteId === "active") {
+        const sites = await this.siteRepo.listSitesByWorkspace(workspaceId);
+        if (sites && sites.length > 0) {
+          return sites[0];
+        }
+      }
+
+      // 2. Fetch site by specific ID
       const site = await this.siteRepo.getSiteById(siteId);
       if (site) {
         if (site.workspaceId && site.workspaceId !== workspaceId) {
@@ -263,12 +272,14 @@ export class MediaService {
     workspaceId: string,
     assetData: Partial<MediaAsset> & { id: string; originalUrl: string }
   ): Promise<MediaAsset> {
-    await this.authorizeSite(siteId, workspaceId);
+    const site = await this.authorizeSite(siteId, workspaceId);
+    const resolvedSiteId = site?.id || siteId;
     const nowIso = new Date().toISOString();
+    const assetId = assetData.id.startsWith("media-") ? assetData.id : `media-stock-${assetData.id}`;
     const asset: MediaAsset = {
-      id: assetData.id,
+      id: assetId,
       workspaceId,
-      siteId,
+      siteId: resolvedSiteId,
       sourceType: "STOCK",
       originalUrl: assetData.originalUrl,
       mimeType: assetData.mimeType || "image/jpeg",
@@ -293,14 +304,14 @@ export class MediaService {
       updatedAt: nowIso,
     };
 
-    const assets = await this.listSiteMedia(siteId, workspaceId);
+    const assets = await this.listSiteMedia(resolvedSiteId, workspaceId);
     const existingIndex = assets.findIndex((m) => m.id === asset.id);
     if (existingIndex >= 0) {
       assets[existingIndex] = asset;
     } else {
       assets.unshift(asset);
     }
-    IN_MEMORY_MEDIA_STORE.set(siteId, assets);
+    IN_MEMORY_MEDIA_STORE.set(resolvedSiteId, assets);
     return asset;
   }
 
@@ -313,12 +324,13 @@ export class MediaService {
     query: string,
     orientation: ImageOrientation = "landscape"
   ): Promise<ProviderSearchResult> {
-    await this.authorizeSite(siteId, workspaceId);
+    const site = await this.authorizeSite(siteId, workspaceId);
+    const resolvedSiteId = site?.id || siteId;
 
     const intent: ImageIntent = {
       category: "GALLERY",
-      industrySlug: "custom",
-      industryName: "Özel Arama",
+      industrySlug: site?.industryPackId || "custom",
+      industryName: site?.businessProfile?.identity?.sector || "Özel Arama",
       subject: query,
       orientation,
       preferredAspectRatio: "16:9",
@@ -333,7 +345,7 @@ export class MediaService {
       ? this.pexelsProvider
       : this.fallbackProvider;
 
-    return provider.searchImages(intent, { siteId, workspaceId, perPage: 12 });
+    return provider.searchImages(intent, { siteId: resolvedSiteId, workspaceId, perPage: 12 });
   }
 
   /**
