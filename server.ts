@@ -42,6 +42,21 @@ import { generateFallbackSeoContentRevision } from "./src/utils/aiSeoContentRevi
 
 dotenv.config();
 
+// Load optional environment variables from /app/.dev.env.json if present
+if (fs.existsSync("/app/.dev.env.json")) {
+  try {
+    const rawDevEnv = fs.readFileSync("/app/.dev.env.json", "utf-8");
+    const parsedDevEnv = JSON.parse(rawDevEnv);
+    for (const [key, val] of Object.entries(parsedDevEnv)) {
+      if (!process.env[key] && typeof val === "string") {
+        process.env[key] = val;
+      }
+    }
+  } catch {
+    // Ignore JSON parse errors
+  }
+}
+
 let aiClient: GoogleGenAI | null = null;
 function getAIClient(): GoogleGenAI | null {
   if (!aiClient && process.env.GEMINI_API_KEY) {

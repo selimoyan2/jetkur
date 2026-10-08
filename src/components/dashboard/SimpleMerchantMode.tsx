@@ -151,6 +151,8 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   const [pexelsResults, setPexelsResults] = useState<any[]>([]);
   const [pexelsError, setPexelsError] = useState<string | null>(null);
   const [pexelsSelectingId, setPexelsSelectingId] = useState<string | null>(null);
+  const [pexelsFallbackUsed, setPexelsFallbackUsed] = useState(false);
+  const [pexelsSourceProvider, setPexelsSourceProvider] = useState<string>("pexels");
   const [customImportedAssets, setCustomImportedAssets] = useState<LibraryMediaItem[]>([]);
   const [editingService, setEditingService] = useState<ServiceContent | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -375,6 +377,9 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Pexels araması gerçekleştirilemedi.");
       }
+      const isFallback = Boolean(data.results?.fallbackUsed || data.results?.provider === "internal");
+      setPexelsFallbackUsed(isFallback);
+      setPexelsSourceProvider(data.results?.provider || (isFallback ? "internal" : "pexels"));
       const assets = data.results?.assets || [];
       if (assets.length === 0) {
         setPexelsError(`"${q}" için görsel bulunamadı. Lütfen farklı bir terim deneyin.`);
@@ -1994,6 +1999,28 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
               </button>
             </form>
 
+            {/* Provider Source Status Indicator */}
+            {!pexelsLoading && pexelsResults.length > 0 && (
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                  pexelsFallbackUsed
+                    ? "bg-amber-50 border border-amber-200 text-amber-900"
+                    : "bg-emerald-50 border border-emerald-200 text-emerald-900"
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    pexelsFallbackUsed ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+                  }`}
+                />
+                <span>
+                  {pexelsFallbackUsed
+                    ? `Sonuçlar JetKur Yedek Medya Kütüphanesinden sağlandı (${pexelsResults.length} görsel).`
+                    : `Pexels Resmi Stok API (${pexelsResults.length} adet görsel listelendi).`}
+                </span>
+              </div>
+            )}
+
             {/* Error or Truthful message */}
             {pexelsError && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2">
@@ -2028,7 +2055,8 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                   {pexelsResults.map((asset) => {
                     const isSelected = editingService?.primaryMediaId === asset.id;
                     const isSelectingThis = pexelsSelectingId === asset.id;
-                    const displayUrl = asset.originalUrl || asset.url;
+                    const displayUrl = asset.thumbnailUrl || asset.originalUrl || asset.url;
+                    const isAssetFallback = asset.sourceProvider === "internal" || pexelsFallbackUsed;
                     return (
                       <button
                         key={asset.id}
@@ -2043,19 +2071,21 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                       >
                         <img
                           src={displayUrl}
-                          alt={asset.altText || asset.title || "Pexels görseli"}
+                          alt={asset.altText || asset.title || "Görsel"}
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                         <div className="relative z-10">
                           <div className="text-[11px] font-bold text-white truncate drop-shadow">
-                            {asset.title || asset.altText || "Pexels Görseli"}
+                            {asset.title || asset.altText || (isAssetFallback ? "Yedek Görsel" : "Pexels Görseli")}
                           </div>
-                          {asset.photographerName && (
-                            <div className="text-[10px] text-slate-300 truncate">
-                              Fotoğraf: {asset.photographerName}
-                            </div>
-                          )}
+                          <div className="text-[10px] text-slate-300 truncate">
+                            {isAssetFallback
+                              ? "JetKur Küratörlü Medya"
+                              : asset.photographerName || asset.photographer
+                              ? `Fotoğraf: ${asset.photographerName || asset.photographer}`
+                              : "Pexels"}
+                          </div>
                         </div>
                         {isSelected && (
                           <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center z-10 shadow">
@@ -2081,7 +2111,11 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Pexels Ücretsiz Ticari Lisansı ile sunulmaktadır</span>
+              <span>
+                {pexelsFallbackUsed
+                  ? "JetKur Küratörlü Medya Kütüphanesi"
+                  : "Pexels Ücretsiz Ticari Lisansı ile sunulmaktadır"}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowPexelsModal(false)}
@@ -2090,6 +2124,7 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
                 Kapat
               </button>
             </div>
+
           </div>
         </div>
       )}

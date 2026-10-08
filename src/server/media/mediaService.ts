@@ -341,11 +341,36 @@ export class MediaService {
       slotKey: "custom-search",
     };
 
-    const provider: ImageProvider = this.pexelsProvider.isAvailable()
-      ? this.pexelsProvider
-      : this.fallbackProvider;
+    // 1. Try PexelsProvider first if available
+    if (this.pexelsProvider.isAvailable()) {
+      try {
+        const pexelsResult = await this.pexelsProvider.searchImages(intent, {
+          siteId: resolvedSiteId,
+          workspaceId,
+          perPage: 15,
+        });
 
-    return provider.searchImages(intent, { siteId: resolvedSiteId, workspaceId, perPage: 12 });
+        // If Pexels succeeded with real stock results and didn't fall back
+        if (pexelsResult.success && !pexelsResult.fallbackUsed && pexelsResult.assets.length > 0) {
+          return pexelsResult;
+        }
+      } catch {
+        // Pexels request failed, gracefully fall through to internal fallback
+      }
+    }
+
+    // 2. Fallback to InternalFallbackProvider only if Pexels is missing, failed, or returned zero usable results
+    const fallbackResult = await this.fallbackProvider.searchImages(intent, {
+      siteId: resolvedSiteId,
+      workspaceId,
+      perPage: 12,
+    });
+
+    return {
+      ...fallbackResult,
+      fallbackUsed: true,
+      provider: "internal",
+    };
   }
 
   /**

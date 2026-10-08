@@ -59,6 +59,12 @@ export interface MediaAsset {
   title?: string;
   sourceProvider?: MediaSourceProvider;
   sourceId?: string; // unique ID from provider for duplicate avoidance
+  provider?: MediaSourceProvider;
+  providerAssetId?: string;
+  photographer?: string;
+  photographerUrl?: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
   photographerName?: string;
   sourcePageUrl?: string;
   licenseMetadata?: MediaLicenseMetadata;
