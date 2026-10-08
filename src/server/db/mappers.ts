@@ -228,6 +228,9 @@ export function toCanonicalSite(dbSite: FullDbSite): CanonicalSite {
     blogPosts: (content?.blogPosts as unknown as SiteContent["blogPosts"]) || [],
     catalogProducts: (content?.catalogProducts as unknown as SiteContent["catalogProducts"]) || [],
     customPages: (content?.customPages as unknown as SiteContent["customPages"]) || [],
+    pages: (content?.announcement as any)?.pages || (content as any)?.pages || undefined,
+    services: (content?.announcement as any)?.services || (content as any)?.services || undefined,
+    products: (content?.announcement as any)?.products || (content as any)?.products || undefined,
   };
 
   // Reconstitute SiteSettings
@@ -383,6 +386,13 @@ export function toPrismaSiteCreateInput(
         blogPosts: (content.blogPosts || []) as unknown as Prisma.InputJsonValue,
         catalogProducts: (content.catalogProducts || []) as unknown as Prisma.InputJsonValue,
         customPages: (content.customPages || []) as unknown as Prisma.InputJsonValue,
+        announcement: ((content.pages || content.services || content.products)
+          ? {
+              pages: content.pages || [],
+              services: content.services || [],
+              products: content.products || [],
+            }
+          : null) as unknown as Prisma.InputJsonValue,
       },
     },
 

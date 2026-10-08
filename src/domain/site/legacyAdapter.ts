@@ -319,6 +319,9 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       badge: p.badge,
       specs: p.specs,
     })),
+    pages: (legacy.canonicalPages && legacy.canonicalPages.length > 0)
+      ? legacy.canonicalPages
+      : (legacy as any).content?.pages || undefined,
   };
 
   // 5. Site Settings
@@ -632,6 +635,7 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     },
     customDomain: settings.domain?.isCustom ? settings.domain.hostname : undefined,
     deploymentStatus: settings.deployment?.status === "deployed" ? "DEPLOYED" : "DRAFT",
+    canonicalPages: canonical.content.pages || undefined,
   } as unknown as SiteConfig;
 }
 

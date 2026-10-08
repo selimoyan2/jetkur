@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import QRCode from "qrcode";
 import { SiteConfig, ServiceItem, ProductItem, FormLead } from "../../types";
 import { ServiceContent } from "../../domain/site/serviceContent";
+import { PageContent, CanonicalPageType, initializeDefaultPages } from "../../domain/site/pageContent";
 import { deriveServiceSearchQuery } from "../../domain/media/intents";
 import { slugifyService } from "../../utils/url";
 import { 
@@ -48,7 +49,11 @@ import {
   Search,
   AlertCircle,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal
 } from "lucide-react";
 import { getTagColorClass, getLeadTagStyle } from "./LeadTagsManager";
 import { PerformanceScoreGaugeWidget } from "./PerformanceScoreGaugeWidget";
@@ -81,6 +86,38 @@ interface LibraryMediaItem {
 
 export function extractServiceSearchQuery(title: string, sector?: string): string {
   return deriveServiceSearchQuery(title, sector);
+}
+
+export function derivePageSearchQuery(
+  page: PageContent | null,
+  sector?: string,
+  companyName?: string
+): string {
+  if (!page) return "business office professional";
+  const s = (sector || "").toLowerCase();
+  if (page.pageType === "ABOUT") {
+    if (s.includes("tesisat") || s.includes("plumb")) return "plumbing workshop team";
+    if (s.includes("temiz") || s.includes("clean")) return "cleaning service team";
+    if (s.includes("dis") || s.includes("dent")) return "dentist clinic team";
+    if (s.includes("nakliyat") || s.includes("mov")) return "moving transport team";
+    return `${page.title || "about us"} office team professional`;
+  }
+  if (page.pageType === "SERVICES") {
+    if (s.includes("tesisat") || s.includes("plumb")) return "plumber tools maintenance";
+    if (s.includes("temiz") || s.includes("clean")) return "cleaning equipment maintenance";
+    if (s.includes("dis") || s.includes("dent")) return "dental clinic care";
+    if (s.includes("nakliyat") || s.includes("mov")) return "moving logistics workers";
+    return `${page.title || "services"} professional work`;
+  }
+  if (page.pageType === "PRODUCTS") {
+    if (s.includes("tesisat") || s.includes("plumb")) return "plumbing parts equipment";
+    if (s.includes("temiz") || s.includes("clean")) return "cleaning supplies products";
+    return `${page.title || "products"} warehouse showroom`;
+  }
+  if (page.pageType === "CONTACT") {
+    return "customer service support phone";
+  }
+  return page.title || "business";
 }
 
 const DEFAULT_LIBRARY_ASSETS: LibraryMediaItem[] = [
@@ -155,6 +192,58 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   const [pexelsSourceProvider, setPexelsSourceProvider] = useState<string>("pexels");
   const [customImportedAssets, setCustomImportedAssets] = useState<LibraryMediaItem[]>([]);
   const [editingService, setEditingService] = useState<ServiceContent | null>(null);
+  const [editingPage, setEditingPage] = useState<PageContent | null>(null);
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<
+    "service-primary" | "service-gallery" | "page-hero-single" | "page-hero-slider" | null
+  >(null);
+  const [sliderPreviewIndex, setSliderPreviewIndex] = useState(0);
+
+  // Canonical derived PageContent records (Sprint 17 Foundation 04)
+  const canonicalPages = useMemo(() => {
+    return initializeDefaultPages(
+      {
+        companyName: config.companyName,
+        sector: config.sector,
+        city: config.city,
+        phone: config.phone,
+        about: {
+          content: config.about?.content,
+          image: config.about?.image,
+          enabled: config.about?.enabled,
+        },
+        services: {
+          subtitle: config.services?.subtitle,
+          enabled: config.services?.enabled,
+        },
+        products: {
+          subtitle: config.products?.subtitle,
+          enabled: config.products?.enabled,
+        },
+        industryPackId: (config as any).industryPackId,
+      },
+      config.canonicalPages
+    );
+  }, [
+    config.companyName,
+    config.sector,
+    config.city,
+    config.phone,
+    config.about,
+    config.services,
+    config.products,
+    config.canonicalPages,
+  ]);
+
+  // Keep canonicalPages synced into config if missing
+  useEffect(() => {
+    if (!config.canonicalPages || config.canonicalPages.length === 0) {
+      onChange({
+        ...config,
+        canonicalPages,
+      });
+    }
+  }, [config.canonicalPages, canonicalPages, config, onChange]);
+
   const [copiedLink, setCopiedLink] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
   const [merchantQrDataUrl, setMerchantQrDataUrl] = useState<string>("");
@@ -206,6 +295,7 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
     { id: "logo", label: "Logo & Kimlik", complete: isLogoComplete, description: isLogoComplete ? "Logo yüklendi ve uyarlandı" : "Logo eklenmedi (isteğe bağlı)", action: () => { if (onNavigateTab) onNavigateTab("design"); } },
     { id: "contact", label: "Telefon / WhatsApp", complete: isContactComplete, description: config.phone || "İletişim numarası aktif", action: () => setActiveCard("contact") },
     { id: "services", label: "Hizmetler & İçerik", complete: isServicesComplete, description: `${config.services?.items?.length || 0} hizmet tanımlandı`, action: () => setActiveCard("items") },
+    { id: "pages", label: "Sayfalarım", complete: true, description: `${canonicalPages.filter(p => p.active).length} / ${canonicalPages.length} sayfa yayında`, action: () => document.getElementById("section-pages")?.scrollIntoView({ behavior: "smooth" }) },
     { id: "preview", label: "Canlı Önizleme", complete: true, description: "Canlı önizleme hazır", action: onPreview },
     { id: "publish", label: "Web Sitesini Yayınla", complete: isPublished, description: isPublished ? "Yayında" : "Yayınlanmayı bekliyor", action: onDeploy },
   ];
@@ -323,6 +413,21 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
       });
     }
 
+    // Canonical pages hero media
+    (config.canonicalPages || []).forEach((pg) => {
+      (pg.heroMediaIds || []).forEach((mediaId, idx) => {
+        if (mediaId && !seenIds.has(mediaId)) {
+          seenIds.add(mediaId);
+          list.push({
+            id: mediaId,
+            url: mediaId.startsWith("http") ? mediaId : "",
+            title: `${pg.title} Hero #${idx + 1}`,
+            category: "Sayfalarım",
+          });
+        }
+      });
+    });
+
     return list;
   }, [config, customImportedAssets]);
 
@@ -346,6 +451,7 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   };
 
   const handleOpenPexelsModal = () => {
+    setMediaPickerTarget("service-primary");
     const initialQuery = extractServiceSearchQuery(
       editingService?.title || "",
       config.sector || (config as any).industryPackId
@@ -353,6 +459,23 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
     setPexelsQuery(initialQuery);
     setShowPexelsModal(true);
     handleSearchPexels(initialQuery);
+  };
+
+  const handleOpenPexelsModalForPage = (mode: "page-hero-single" | "page-hero-slider") => {
+    setMediaPickerTarget(mode);
+    const initialQuery = derivePageSearchQuery(
+      editingPage,
+      config.sector || (config as any).industryPackId,
+      config.companyName
+    );
+    setPexelsQuery(initialQuery);
+    setShowPexelsModal(true);
+    handleSearchPexels(initialQuery);
+  };
+
+  const handleOpenMediaLibraryForPage = (mode: "page-hero-single" | "page-hero-slider") => {
+    setMediaPickerTarget(mode);
+    setShowMediaLibraryModal(true);
   };
 
   const handleSearchPexels = async (queryToSearch: string) => {
@@ -395,7 +518,7 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   };
 
   const handleSelectPexelsAsset = async (asset: any) => {
-    if (!editingService) return;
+    if (!editingService && !editingPage) return;
     setPexelsSelectingId(asset.id);
     try {
       const siteId = config.id || "active";
@@ -414,11 +537,24 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
       });
       const data = await res.json();
       const registered = data.success && data.asset ? data.asset : asset;
+      const registeredId = registered.id;
 
-      setEditingService({
-        ...editingService,
-        primaryMediaId: registered.id,
-      });
+      if (mediaPickerTarget === "page-hero-single" && editingPage) {
+        setEditingPage({
+          ...editingPage,
+          heroMediaIds: [registeredId, ...(editingPage.heroMediaIds || []).slice(1)],
+        });
+      } else if (mediaPickerTarget === "page-hero-slider" && editingPage) {
+        setEditingPage({
+          ...editingPage,
+          heroMediaIds: [...(editingPage.heroMediaIds || []), registeredId],
+        });
+      } else if (editingService) {
+        setEditingService({
+          ...editingService,
+          primaryMediaId: registeredId,
+        });
+      }
 
       setCustomImportedAssets((prev) => [
         ...prev.filter((a) => a.id !== registered.id),
@@ -432,10 +568,23 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
 
       setShowPexelsModal(false);
     } catch {
-      setEditingService({
-        ...editingService,
-        primaryMediaId: asset.id,
-      });
+      const fallbackId = asset.id;
+      if (mediaPickerTarget === "page-hero-single" && editingPage) {
+        setEditingPage({
+          ...editingPage,
+          heroMediaIds: [fallbackId, ...(editingPage.heroMediaIds || []).slice(1)],
+        });
+      } else if (mediaPickerTarget === "page-hero-slider" && editingPage) {
+        setEditingPage({
+          ...editingPage,
+          heroMediaIds: [...(editingPage.heroMediaIds || []), fallbackId],
+        });
+      } else if (editingService) {
+        setEditingService({
+          ...editingService,
+          primaryMediaId: fallbackId,
+        });
+      }
       setCustomImportedAssets((prev) => [
         ...prev.filter((a) => a.id !== asset.id),
         {
@@ -449,6 +598,194 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
     } finally {
       setPexelsSelectingId(null);
     }
+  };
+
+  const handleStartEditPage = (page: PageContent) => {
+    setEditingPage({
+      id: page.id,
+      pageType: page.pageType,
+      title: page.title,
+      slug: page.slug,
+      shortDescription: page.shortDescription || "",
+      longContent: page.longContent || "",
+      active: page.active !== false,
+      heroMediaMode: page.heroMediaMode || "SINGLE",
+      heroMediaIds: page.heroMediaIds ? [...page.heroMediaIds] : [],
+      heroTitle: page.heroTitle || "",
+      heroSubtitle: page.heroSubtitle || "",
+      seoTitle: page.seoTitle || "",
+      seoDescription: page.seoDescription || "",
+    });
+    setSliderPreviewIndex(0);
+  };
+
+  const handleMovePageSliderItem = (index: number, direction: "up" | "down") => {
+    if (!editingPage) return;
+    const currentList = [...(editingPage.heroMediaIds || [])];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+    const temp = currentList[index];
+    currentList[index] = currentList[targetIndex];
+    currentList[targetIndex] = temp;
+    setEditingPage({
+      ...editingPage,
+      heroMediaIds: currentList,
+    });
+  };
+
+  const handleRemovePageSliderItem = (index: number) => {
+    if (!editingPage) return;
+    const updated = (editingPage.heroMediaIds || []).filter((_, i) => i !== index);
+    setEditingPage({
+      ...editingPage,
+      heroMediaIds: updated,
+    });
+  };
+
+  const handleSwitchHeroMediaMode = (mode: "SINGLE" | "SLIDER") => {
+    if (!editingPage) return;
+    setEditingPage({
+      ...editingPage,
+      heroMediaMode: mode,
+    });
+  };
+
+  const handleSavePageEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPage) return;
+
+    const currentPages = canonicalPages;
+    const updatedPages = currentPages.map((p) => {
+      if (p.pageType === editingPage.pageType || p.id === editingPage.id) {
+        return {
+          ...p,
+          title: editingPage.title,
+          shortDescription: editingPage.shortDescription,
+          longContent: editingPage.longContent,
+          active: editingPage.active,
+          heroTitle: editingPage.heroTitle,
+          heroSubtitle: editingPage.heroSubtitle,
+          heroMediaMode: editingPage.heroMediaMode,
+          heroMediaIds: editingPage.heroMediaIds ? [...editingPage.heroMediaIds] : [],
+          seoTitle: editingPage.seoTitle,
+          seoDescription: editingPage.seoDescription,
+        };
+      }
+      return p;
+    });
+
+    const updatedConfig: SiteConfig = {
+      ...config,
+      canonicalPages: updatedPages,
+    };
+
+    if (editingPage.pageType === "ABOUT") {
+      updatedConfig.about = {
+        ...config.about,
+        content: editingPage.shortDescription,
+        enabled: editingPage.active,
+        image: editingPage.heroMediaIds?.[0] || config.about?.image || "",
+      };
+    } else if (editingPage.pageType === "SERVICES") {
+      updatedConfig.services = {
+        ...config.services,
+        subtitle: editingPage.shortDescription,
+        enabled: editingPage.active,
+      };
+    } else if (editingPage.pageType === "PRODUCTS") {
+      updatedConfig.products = {
+        ...config.products,
+        subtitle: editingPage.shortDescription,
+        enabled: editingPage.active,
+      };
+    } else if (editingPage.pageType === "CONTACT") {
+      updatedConfig.contact = {
+        ...config.contact,
+        subtitle: editingPage.shortDescription,
+        enabled: editingPage.active,
+      };
+    }
+
+    onChange(updatedConfig);
+
+    const siteId = config.id || "active";
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const wsId = (config as any).workspaceId;
+    if (wsId) {
+      headers["x-workspace-id"] = wsId;
+    }
+
+    fetch(`/api/tenants/sites/${siteId}/content`, {
+      method: "PUT",
+      credentials: "include",
+      headers,
+      body: JSON.stringify({
+        content: {
+          pages: updatedPages,
+        },
+      }),
+    }).catch(() => {});
+
+    setEditingPage(null);
+    setSaveToast(true);
+    setTimeout(() => setSaveToast(false), 2500);
+  };
+
+  const handleCancelPageEdit = () => {
+    setEditingPage(null);
+  };
+
+  const handleTogglePageActive = (pageType: CanonicalPageType) => {
+    const currentPages = canonicalPages;
+    const updatedPages = currentPages.map((p) => {
+      if (p.pageType === pageType) {
+        return {
+          ...p,
+          active: !p.active,
+        };
+      }
+      return p;
+    });
+
+    const targetPage = updatedPages.find((p) => p.pageType === pageType);
+    const updatedConfig: SiteConfig = {
+      ...config,
+      canonicalPages: updatedPages,
+    };
+
+    if (pageType === "ABOUT" && targetPage) {
+      updatedConfig.about = { ...config.about, enabled: targetPage.active };
+    } else if (pageType === "SERVICES" && targetPage) {
+      updatedConfig.services = { ...config.services, enabled: targetPage.active };
+    } else if (pageType === "PRODUCTS" && targetPage) {
+      updatedConfig.products = { ...config.products, enabled: targetPage.active };
+    } else if (pageType === "CONTACT" && targetPage) {
+      updatedConfig.contact = { ...config.contact, enabled: targetPage.active };
+    }
+
+    onChange(updatedConfig);
+
+    const siteId = config.id || "active";
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const wsId = (config as any).workspaceId;
+    if (wsId) {
+      headers["x-workspace-id"] = wsId;
+    }
+
+    fetch(`/api/tenants/sites/${siteId}/content`, {
+      method: "PUT",
+      credentials: "include",
+      headers,
+      body: JSON.stringify({
+        content: {
+          pages: updatedPages,
+        },
+      }),
+    }).catch(() => {});
   };
 
   const handleMoveGalleryItem = (index: number, direction: "up" | "down") => {
@@ -670,6 +1007,18 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
           >
             <Eye className="w-4 h-4 text-slate-700" />
             <span>Sitemi Önizle</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const el = document.getElementById("section-pages");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="px-3.5 py-3 rounded-2xl bg-white/90 hover:bg-white text-slate-950 font-bold text-xs shadow-md flex items-center gap-1.5 transition-transform hover:scale-105 cursor-pointer"
+            title="Kurumsal sayfalarınızı (Hakkımızda, Hizmetlerimiz, Ürünlerimiz, İletişim) düzenleyin"
+          >
+            <Layers className="w-4 h-4 text-indigo-600" />
+            <span>Sayfalarım</span>
           </button>
 
           {onOpenBackups && (
@@ -1045,6 +1394,151 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
             >
               Fotoğraflı Katalog Yönetimi →
             </button>
+          </div>
+        </div>
+
+        {/* SECTION: SAYFALARIM (KURUMSAL SAYFA İÇERİKLERİ & SLIDER YÖNETİMİ) */}
+        <div
+          id="section-pages"
+          className="col-span-1 md:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-black text-slate-900">Sayfalarım</h2>
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold">
+                    {canonicalPages.filter((p) => p.active).length} / {canonicalPages.length} Sayfa Yayında
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Hakkımızda, Hizmetlerimiz, Ürünlerimiz ve İletişim kurumsal sayfalarınızın metinlerini, hero banner görsellerini ve çoklu slaytlarını yönetin.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-400 font-medium hidden sm:block">
+              Bağımsız sayfa & hero slider mimarisi
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {canonicalPages.map((page) => {
+              const pageTypeBadge =
+                page.pageType === "ABOUT"
+                  ? { label: "Hakkımızda", icon: Building2, color: "text-blue-600 bg-blue-50 border-blue-200" }
+                  : page.pageType === "SERVICES"
+                  ? { label: "Hizmetlerimiz", icon: Wrench, color: "text-emerald-600 bg-emerald-50 border-emerald-200" }
+                  : page.pageType === "PRODUCTS"
+                  ? { label: "Ürünlerimiz", icon: ShoppingBag, color: "text-purple-600 bg-purple-50 border-purple-200" }
+                  : { label: "İletişim", icon: Phone, color: "text-amber-600 bg-amber-50 border-amber-200" };
+
+              const IconComponent = pageTypeBadge.icon;
+              const heroImageId = page.heroMediaIds?.[0];
+              const heroImageUrl = resolveMediaUrl(heroImageId);
+              const sliderCount = page.heroMediaIds?.length || 0;
+
+              return (
+                <div
+                  key={page.id}
+                  className={`rounded-2xl border transition-all flex flex-col justify-between overflow-hidden ${
+                    page.active
+                      ? "bg-slate-50/70 border-slate-200 hover:border-indigo-300 hover:shadow-xs"
+                      : "bg-slate-100/60 border-slate-200 opacity-75"
+                  }`}
+                >
+                  <div className="p-4 space-y-3">
+                    {/* Top Type Tag & Active Toggle */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold border ${pageTypeBadge.color}`}
+                      >
+                        <IconComponent className="w-3 h-3" />
+                        <span>{pageTypeBadge.label}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePageActive(page.pageType)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                          page.active
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                            : "bg-slate-200 text-slate-600 border border-slate-300 hover:bg-slate-300"
+                        }`}
+                        title={page.active ? "Sayfayı pasife almak için tıklayın" : "Sayfayı yayına almak için tıklayın"}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${page.active ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                        <span>{page.active ? "Yayında" : "Pasif"}</span>
+                      </button>
+                    </div>
+
+                    {/* Hero Media Preview Thumbnail */}
+                    <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-16/9 border border-slate-200 flex items-center justify-center">
+                      {heroImageUrl ? (
+                        <img
+                          src={heroImageUrl}
+                          alt={page.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-center p-3 text-slate-400 text-[11px] flex flex-col items-center gap-1">
+                          <ImageIcon className="w-5 h-5 text-slate-500" />
+                          <span>Görsel seçilmedi</span>
+                        </div>
+                      )}
+
+                      {/* Mode Badge */}
+                      <span className="absolute bottom-1.5 left-1.5 bg-slate-950/80 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                        {page.heroMediaMode === "SLIDER" ? (
+                          <>
+                            <SlidersHorizontal className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Slider ({sliderCount})</span>
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-2.5 h-2.5 text-indigo-300" />
+                            <span>Tek Görsel</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Page Title & Short Description */}
+                    <div>
+                      <div className="text-xs font-black text-slate-900 truncate">
+                        {page.title}
+                      </div>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 min-h-[2rem] leading-relaxed">
+                        {page.shortDescription || "Özet açıklama henüz girilmedi."}
+                      </p>
+                    </div>
+
+                    {/* Details status indicator */}
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                      <span className="truncate">
+                        {page.longContent ? "Detaylı sayfa metni tanımlı" : "Özet modunda"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Edit Button */}
+                  <div className="p-3 bg-white border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditPage(page)}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Sayfayı Düzenle</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -1775,6 +2269,538 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
         </div>
       )}
 
+      {/* ==================== PAGE CONTENT EDIT MODAL ==================== */}
+      {editingPage && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
+                      Sayfa Düzenleyici: {editingPage.title}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-mono font-bold">
+                      {editingPage.pageType}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Kurumsal sayfa metinlerini, hero görselini ve slider ayarlarını yapılandırın
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelPageEdit}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 rounded-lg cursor-pointer"
+              >
+                ✕ Kapat
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePageEdit} className="space-y-6">
+              {/* Sayfa Başlığı ve Aktif/Pasif Durumu */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Sayfa Başlığı <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingPage.title}
+                    onChange={(e) =>
+                      setEditingPage({ ...editingPage, title: e.target.value })
+                    }
+                    placeholder="Örn: Hakkımızda, Hizmetlerimiz..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm text-slate-900 font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Sayfa Durumu:</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            editingPage.active
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {editingPage.active ? "Aktif (Yayında)" : "Pasif (Gizli)"}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Pasife alındığında silinmez, gizlenir.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingPage({ ...editingPage, active: !editingPage.active })
+                      }
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        editingPage.active ? "bg-emerald-600" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          editingPage.active ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* HERO MEDYA VE SLIDER YÖNETİMİ */}
+              <div className="p-4 sm:p-5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-indigo-600" />
+                      <span>Hero Görseli & Slider Yönetimi</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Tek görsel veya çoklu geçişli görsel kaydırıcı (slider) belirleyin
+                    </p>
+                  </div>
+
+                  {/* Mode segmented control */}
+                  <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchHeroMediaMode("SINGLE")}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        editingPage.heroMediaMode === "SINGLE"
+                          ? "bg-slate-950 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-950"
+                      }`}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Tek Görsel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchHeroMediaMode("SLIDER")}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        editingPage.heroMediaMode === "SLIDER"
+                          ? "bg-slate-950 text-amber-400 shadow-xs"
+                          : "text-slate-600 hover:text-slate-950"
+                      }`}
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <span>Çoklu Slider</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* SINGLE MODE DISPLAY */}
+                {editingPage.heroMediaMode === "SINGLE" && (
+                  <div className="space-y-3">
+                    {editingPage.heroMediaIds && editingPage.heroMediaIds.length > 0 && editingPage.heroMediaIds[0] ? (
+                      <div className="relative rounded-2xl border border-slate-200 bg-white p-3 flex items-center gap-3.5 shadow-xs">
+                        <div className="w-20 h-16 rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shrink-0 relative flex items-center justify-center">
+                          <img
+                            src={resolveMediaUrl(editingPage.heroMediaIds[0])}
+                            alt="Hero Görseli"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-slate-900 truncate">
+                            {getMediaTitle(editingPage.heroMediaIds[0])}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono truncate">
+                            ID: {editingPage.heroMediaIds[0]}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenMediaLibraryForPage("page-hero-single")}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <RefreshCw className="w-3 h-3 text-slate-500" />
+                              <span>Değiştir</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPexelsModalForPage("page-hero-single")}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Sparkles className="w-3 h-3 text-emerald-600" />
+                              <span>Pexels'ten Bul</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingPage({
+                                  ...editingPage,
+                                  heroMediaIds: (editingPage.heroMediaIds || []).slice(1),
+                                })
+                              }
+                              className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Kaldır</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center space-y-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                        <div className="text-xs font-bold text-slate-700">Hero görseli seçilmedi</div>
+                        <div className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                          Bu sayfanın üst başlığında gösterilmek üzere kaliteli bir kapak görseli seçin
+                        </div>
+                        <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaLibraryForPage("page-hero-single")}
+                            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-slate-600" />
+                            <span>Medya Kütüphanesinden Seç</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPexelsModalForPage("page-hero-single")}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                            <span>Pexels'ten Görsel Bul</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SLIDER MODE DISPLAY */}
+                {editingPage.heroMediaMode === "SLIDER" && (
+                  <div className="space-y-4">
+                    {/* Live Slider Preview Frame */}
+                    {editingPage.heroMediaIds && editingPage.heroMediaIds.length > 0 && (
+                      <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-16/7 sm:aspect-21/9 border border-slate-300 shadow-inner group">
+                        <img
+                          src={resolveMediaUrl(
+                            editingPage.heroMediaIds[sliderPreviewIndex % editingPage.heroMediaIds.length]
+                          )}
+                          alt="Slider Önizleme"
+                          className="w-full h-full object-cover opacity-90 transition-all duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-end p-4 text-white">
+                          <div className="text-xs sm:text-sm font-black text-white truncate drop-shadow">
+                            {editingPage.heroTitle || editingPage.title}
+                          </div>
+                          <div className="text-[11px] text-slate-200 line-clamp-1 drop-shadow">
+                            {editingPage.heroSubtitle || editingPage.shortDescription}
+                          </div>
+                        </div>
+
+                        {editingPage.heroMediaIds.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSliderPreviewIndex((prev) =>
+                                  prev > 0 ? prev - 1 : (editingPage.heroMediaIds?.length || 1) - 1
+                                )
+                              }
+                              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-950/70 hover:bg-slate-950 text-white flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-95"
+                              title="Önceki Slayt"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSliderPreviewIndex(
+                                  (prev) => (prev + 1) % (editingPage.heroMediaIds?.length || 1)
+                                )
+                              }
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-950/70 hover:bg-slate-950 text-white flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-95"
+                              title="Sonraki Slayt"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                            <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-slate-950/80 text-white text-[10px] font-mono font-bold">
+                              {(sliderPreviewIndex % editingPage.heroMediaIds.length) + 1} / {editingPage.heroMediaIds.length} Slayt
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Ordered Slider Items List */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">
+                          Slayt Sıralaması ({editingPage.heroMediaIds?.length || 0} Görsel)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaLibraryForPage("page-hero-slider")}
+                            className="text-xs font-bold text-slate-700 hover:text-slate-950 inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                            <span>+ Kütüphaneden Ekle</span>
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPexelsModalForPage("page-hero-slider")}
+                            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>+ Pexels'ten Ekle</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {editingPage.heroMediaIds && editingPage.heroMediaIds.length > 0 ? (
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                          {editingPage.heroMediaIds.map((mediaId, idx) => {
+                            const isFirst = idx === 0;
+                            const isLast = idx === (editingPage.heroMediaIds?.length || 0) - 1;
+                            const isActiveSlide = idx === sliderPreviewIndex % (editingPage.heroMediaIds?.length || 1);
+
+                            return (
+                              <div
+                                key={`${mediaId}-${idx}`}
+                                className={`flex items-center gap-3 p-2 rounded-xl border transition-all ${
+                                  isActiveSlide
+                                    ? "bg-indigo-50/70 border-indigo-300"
+                                    : "bg-white border-slate-200 hover:border-slate-300"
+                                }`}
+                              >
+                                <div
+                                  onClick={() => setSliderPreviewIndex(idx)}
+                                  className="w-16 h-12 rounded-lg overflow-hidden bg-slate-900 shrink-0 relative cursor-pointer"
+                                  title="Önizlemek için tıklayın"
+                                >
+                                  <img
+                                    src={resolveMediaUrl(mediaId)}
+                                    alt={getMediaTitle(mediaId)}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <span className="absolute top-1 left-1 bg-slate-950/80 text-white text-[9px] font-mono font-bold px-1 py-0.5 rounded">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 truncate">
+                                    {getMediaTitle(mediaId)}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono truncate">
+                                    ID: {mediaId}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    title="Yukarı Taşı"
+                                    disabled={isFirst}
+                                    onClick={() => handleMovePageSliderItem(idx, "up")}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                                  >
+                                    <ChevronUp className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Aşağı Taşı"
+                                    disabled={isLast}
+                                    onClick={() => handleMovePageSliderItem(idx, "down")}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Slider'dan Kaldır"
+                                    onClick={() => handleRemovePageSliderItem(idx)}
+                                    className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center space-y-2">
+                          <SlidersHorizontal className="w-6 h-6 text-slate-400 mx-auto" />
+                          <div className="text-xs font-bold text-slate-700">Slider için henüz görsel eklenmedi</div>
+                          <div className="text-[11px] text-slate-500">
+                            Yukarıdaki butonlardan Medya Kütüphanenizden veya Pexels'ten slayt görselleri ekleyebilirsiniz
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional Hero Title & Subtitle overrides */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Hero Başlığı (İsteğe Bağlı)
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPage.heroTitle || ""}
+                      onChange={(e) =>
+                        setEditingPage({ ...editingPage, heroTitle: e.target.value })
+                      }
+                      placeholder={editingPage.title}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Hero Alt Başlığı (İsteğe Bağlı)
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPage.heroSubtitle || ""}
+                      onChange={(e) =>
+                        setEditingPage({ ...editingPage, heroSubtitle: e.target.value })
+                      }
+                      placeholder="Hero alanı için slogan veya kısa alt metin..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* İÇERİK METİNLERİ: KISA AÇIKLAMA VS DETAYLI İÇERİK */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Kısa Tanıtım / Ana Sayfa Özeti <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Ana sayfadaki bölümde görünür
+                    </span>
+                  </div>
+                  <textarea
+                    required
+                    rows={3}
+                    value={editingPage.shortDescription}
+                    onChange={(e) =>
+                      setEditingPage({ ...editingPage, shortDescription: e.target.value })
+                    }
+                    placeholder="Ana sayfa bölümünde gösterilecek özet kurumsal açıklama metni..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Bu özet metin ana sayfadaki ilgili blokta kart veya açıklama olarak gösterilir.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Detaylı Sayfa İçeriği
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Ayrı sayfada tam metin olarak görünür
+                    </span>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={editingPage.longContent}
+                    onChange={(e) =>
+                      setEditingPage({ ...editingPage, longContent: e.target.value })
+                    }
+                    placeholder="Müşteriler sayfayı açtığında görecekleri kapsamlı kurumsal detay metni..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Bu alan tam sayfa görünümü içindir. Kısa açıklamayla birbirini ezmez.
+                  </p>
+                </div>
+              </div>
+
+              {/* ARAMA MOTORU (SEO) BİLGİLERİ */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Arama Motoru (SEO) Ayarları</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      SEO Sayfa Başlığı (Meta Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPage.seoTitle || ""}
+                      onChange={(e) =>
+                        setEditingPage({ ...editingPage, seoTitle: e.target.value })
+                      }
+                      placeholder={`${editingPage.title} | ${config.companyName}`}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      SEO Meta Açıklaması (Meta Description)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editingPage.seoDescription || ""}
+                      onChange={(e) =>
+                        setEditingPage({ ...editingPage, seoDescription: e.target.value })
+                      }
+                      placeholder="Google arama sonuçlarında çıkacak sayfa özeti..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white leading-relaxed"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleCancelPageEdit}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Sayfa Değişikliklerini Kaydet</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ==================== MEDIA LIBRARY SELECTION MODAL ==================== */}
       {showMediaLibraryModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-60 flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1801,13 +2827,29 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {availableMediaAssets.map((asset) => {
-                  const isSelected = editingService?.primaryMediaId === asset.id;
+                  const isSelected =
+                    mediaPickerTarget === "page-hero-single"
+                      ? editingPage?.heroMediaIds?.[0] === asset.id
+                      : mediaPickerTarget === "page-hero-slider"
+                      ? Boolean(editingPage?.heroMediaIds?.includes(asset.id))
+                      : editingService?.primaryMediaId === asset.id;
+
                   return (
                     <button
                       key={asset.id}
                       type="button"
                       onClick={() => {
-                        if (editingService) {
+                        if (mediaPickerTarget === "page-hero-single" && editingPage) {
+                          setEditingPage({
+                            ...editingPage,
+                            heroMediaIds: [asset.id, ...(editingPage.heroMediaIds || []).slice(1)],
+                          });
+                        } else if (mediaPickerTarget === "page-hero-slider" && editingPage) {
+                          setEditingPage({
+                            ...editingPage,
+                            heroMediaIds: [...(editingPage.heroMediaIds || []), asset.id],
+                          });
+                        } else if (editingService) {
                           setEditingService({
                             ...editingService,
                             primaryMediaId: asset.id,

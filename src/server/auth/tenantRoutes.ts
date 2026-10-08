@@ -150,7 +150,13 @@ tenantRouter.put(
       }
 
       await siteRepository.updateSiteContent(siteId, contentPatch);
-      res.status(200).json({ success: true, message: "Site içeriği başarıyla güncellendi." });
+      const updatedSite = await siteRepository.getSiteById(siteId);
+      res.status(200).json({
+        success: true,
+        message: "Site içeriği başarıyla güncellendi.",
+        site: updatedSite,
+        siteConfig: updatedSite ? toSiteConfig(updatedSite) : null,
+      });
     } catch (error) {
       console.error("[Tenant] Error updating site content:", error);
       res.status(500).json({ error: "Site içeriği güncellenemedi." });

@@ -1,3 +1,5 @@
+import type { PageContent } from "./domain/site/pageContent";
+
 export interface ColorPalette {
   id: string;
   name: string;
@@ -903,6 +905,7 @@ export interface SiteConfig {
 
   // Multi-Page & Content Modules
   pages: CustomPageItem[];
+  canonicalPages?: PageContent[];
   
   products: {
     enabled: boolean;
