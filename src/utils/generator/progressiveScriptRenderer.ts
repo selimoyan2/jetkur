@@ -195,6 +195,92 @@ export function renderProgressiveScripts(
     }`);
   }
 
+  // 3b. Dedicated Page Hero Slider Controller (MULTI_PAGE mode, emitted ONLY when 2+ valid slides exist)
+  if (reqs.pageHeroSlider && (reqs.pageHeroSlideCount || 0) > 1) {
+    const pageSlideCount = reqs.pageHeroSlideCount || 2;
+    scripts.push(`
+    // Page Hero Slider Controller (Vanilla JS, Keyboard Accessible, Reduced-Motion Safe)
+    var currentPageHeroSlide = 0;
+    var totalPageHeroSlides = ${pageSlideCount};
+    var prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var pageHeroInterval = null;
+
+    function showPageHeroSlide(index) {
+      if (totalPageHeroSlides <= 1) return;
+      var normalized = ((index % totalPageHeroSlides) + totalPageHeroSlides) % totalPageHeroSlides;
+      for (var i = 0; i < totalPageHeroSlides; i++) {
+        var slide = document.getElementById('pageHeroSlide' + i);
+        var dot = document.getElementById('pageHeroDot' + i);
+        var isActive = i === normalized;
+        if (slide) {
+          if (prefersReducedMotion) {
+            slide.style.transition = 'none';
+          }
+          slide.style.opacity = isActive ? '1' : '0';
+          slide.style.pointerEvents = isActive ? 'auto' : 'none';
+          slide.style.zIndex = isActive ? '1' : '0';
+          slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        }
+        if (dot) {
+          dot.className = isActive
+            ? 'w-8 h-2.5 rounded-full bg-white transition-all duration-300 cursor-pointer'
+            : 'w-2.5 h-2.5 rounded-full bg-white/50 hover:bg-white/75 transition-all duration-300 cursor-pointer';
+          dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+      }
+      currentPageHeroSlide = normalized;
+    }
+
+    function nextPageHeroSlide() {
+      showPageHeroSlide(currentPageHeroSlide + 1);
+    }
+
+    function prevPageHeroSlide() {
+      showPageHeroSlide(currentPageHeroSlide - 1);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.showPageHeroSlide = showPageHeroSlide;
+      window.nextPageHeroSlide = nextPageHeroSlide;
+      window.prevPageHeroSlide = prevPageHeroSlide;
+    }
+
+    var pageSliderEl = document.getElementById('jkPageHeroSlider');
+    if (pageSliderEl) {
+      pageSliderEl.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          prevPageHeroSlide();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          nextPageHeroSlide();
+        }
+      });
+    }
+
+    if (totalPageHeroSlides > 1 && !prefersReducedMotion) {
+      pageHeroInterval = setInterval(nextPageHeroSlide, 5000);
+      if (pageSliderEl) {
+        pageSliderEl.addEventListener('mouseenter', function() {
+          if (pageHeroInterval) { clearInterval(pageHeroInterval); pageHeroInterval = null; }
+        });
+        pageSliderEl.addEventListener('mouseleave', function() {
+          if (!pageHeroInterval && !prefersReducedMotion) {
+            pageHeroInterval = setInterval(nextPageHeroSlide, 5000);
+          }
+        });
+        pageSliderEl.addEventListener('focusin', function() {
+          if (pageHeroInterval) { clearInterval(pageHeroInterval); pageHeroInterval = null; }
+        });
+        pageSliderEl.addEventListener('focusout', function() {
+          if (!pageHeroInterval && !prefersReducedMotion) {
+            pageHeroInterval = setInterval(nextPageHeroSlide, 5000);
+          }
+        });
+      }
+    }`);
+  }
+
   // 4. WhatsApp Interactive Floating Widget
   const waEnabled = (config.whatsappWidget?.enabled !== false) && ((config as any).floatingWhatsApp?.enabled !== false);
   if (waEnabled && config.whatsapp) {

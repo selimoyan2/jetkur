@@ -403,14 +403,16 @@ export class SiteRepository {
       if (content.blogPosts) updateData.blogPosts = content.blogPosts as unknown as Prisma.InputJsonValue;
       if (content.catalogProducts) updateData.catalogProducts = content.catalogProducts as unknown as Prisma.InputJsonValue;
       if (content.customPages) updateData.customPages = content.customPages as unknown as Prisma.InputJsonValue;
-      if (content.pages !== undefined || content.services !== undefined || content.products !== undefined) {
+      if (content.pages !== undefined || content.services !== undefined || content.products !== undefined || content.mediaAssets !== undefined) {
         const existingPages = content.pages !== undefined ? content.pages : (entry?.site.content.pages || []);
         const existingServices = content.services !== undefined ? content.services : (entry?.site.content.services || []);
         const existingProducts = content.products !== undefined ? content.products : (entry?.site.content.products || []);
+        const existingMediaAssets = content.mediaAssets !== undefined ? content.mediaAssets : (entry?.site.content.mediaAssets || []);
         updateData.announcement = {
           pages: existingPages,
           services: existingServices,
           products: existingProducts,
+          mediaAssets: existingMediaAssets,
         } as unknown as Prisma.InputJsonValue;
       }
 

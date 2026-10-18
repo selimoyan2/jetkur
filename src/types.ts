@@ -1,4 +1,5 @@
 import type { PageContent } from "./domain/site/pageContent";
+import type { MediaAsset } from "./domain/media/types";
 
 export interface ColorPalette {
   id: string;
@@ -906,6 +907,7 @@ export interface SiteConfig {
   // Multi-Page & Content Modules
   pages: CustomPageItem[];
   canonicalPages?: PageContent[];
+  canonicalMediaAssets?: MediaAsset[];
   
   products: {
     enabled: boolean;

@@ -1,18 +1,36 @@
 /**
- * JetKur Canonical Static Site Generator (Sprint 09)
+ * JetKur Canonical Static Site Generator (Sprint 09 & Sprint 17 Foundation 05A.1)
  *
  * Modular orchestration layer transforming CanonicalSite domain model into static web output:
  * CanonicalSite + TemplateManifest + SectionRegistry + StaticCss => Static HTML + Static CSS + Assets.
+ *
+ * Integrates:
+ * - LANDING mode (Single-page index.html with preserved section anchors)
+ * - MULTI_PAGE mode (index.html + /hakkimizda/index.html, /hizmetler/index.html, /urunler/index.html, /iletisim/index.html)
+ * - Active / Passive PageContent filtering
+ * - Backward-compatible legacy alias HTML files (kurumsal.html, hizmetler.html, urunler.html, iletisim.html)
  */
 
 import { CanonicalSite } from "../../domain/site/site";
 import { TemplateManifest } from "../../domain/templates/types";
 import { CANONICAL_TEMPLATE_MANIFESTS } from "../../domain/templates/catalog";
 import { GeneratedPageFile, SiteConfig } from "../../types";
-import { renderHomePage, renderKurumsalPage, renderServicesPage, renderContactPage } from "./pageRenderer";
+import {
+  renderHomePage,
+  renderKurumsalPage,
+  renderServicesPage,
+  renderProductsPage,
+  renderContactPage,
+  renderDedicatedPage,
+} from "./pageRenderer";
 import { assembleStaticAssets } from "./assetAssembler";
-import { RenderContext } from "./types";
+import { RenderContext, PageType } from "./types";
 import { resolveDesignTokens } from "../../domain/brand";
+import {
+  getEffectiveSiteMode,
+  resolveMultiPageRoutes,
+  ResolvedPageRoute,
+} from "./routeResolver";
 
 // Re-export all modular components
 export * from "./types";
@@ -23,6 +41,8 @@ export * from "./sectionRenderer";
 export * from "./progressiveScriptRenderer";
 export * from "./assetAssembler";
 export * from "./pageRenderer";
+export * from "./routeResolver";
+export * from "./heroMediaResolver";
 
 /**
  * Canonical Site Static Generation Entrypoint.
@@ -52,11 +72,13 @@ export function generateStaticSite(
     legacyConfig,
     activePageSlug: "index",
     currentPageType: "home",
+    assetPrefix: "",
+    depth: 0,
   };
 
   const files: GeneratedPageFile[] = [];
 
-  // 1. Render Homepage (index.html)
+  // 1. Always Render Homepage (index.html)
   const homeHtml = renderHomePage(context);
   files.push({
     filename: "index.html",
@@ -69,49 +91,94 @@ export function generateStaticSite(
     description: "Ana giriş sayfası ve öne çıkan kurumsal vitrin",
   });
 
-  // Multi-page subpages if structureMode === "multi-page"
-  if (site.settings.structureMode === "multi-page") {
-    // 2. kurumsal.html
-    const aboutHtml = renderKurumsalPage({ ...context, activePageSlug: "about", currentPageType: "about" });
-    files.push({
-      filename: "kurumsal.html",
-      fileName: "kurumsal.html",
-      title: "Kurumsal & Hakkımızda",
-      type: "page",
-      html: aboutHtml,
-      content: aboutHtml,
-      slug: "about",
-      description: "Şirket profili, değerleri ve kurumsal tarihçesi",
-    });
+  // 2. Multi-page subpages if mode === "MULTI_PAGE"
+  const siteMode = getEffectiveSiteMode(site);
 
-    // 3. hizmetler.html
-    const servicesHtml = renderServicesPage({ ...context, activePageSlug: "services", currentPageType: "services" });
-    files.push({
-      filename: "hizmetler.html",
-      fileName: "hizmetler.html",
-      title: "Hizmetlerimiz",
-      type: "service-list",
-      html: servicesHtml,
-      content: servicesHtml,
-      slug: "services",
-      description: "Tüm hizmetlerin listelendiği ana hizmetler dizini",
-    });
+  if (siteMode === "MULTI_PAGE") {
+    const multiRoutes = resolveMultiPageRoutes(site);
 
-    // 4. iletisim.html
-    const contactHtml = renderContactPage({ ...context, activePageSlug: "contact", currentPageType: "contact" });
-    files.push({
-      filename: "iletisim.html",
-      fileName: "iletisim.html",
-      title: "İletişim & Konum",
-      type: "contact",
-      html: contactHtml,
-      content: contactHtml,
-      slug: "contact",
-      description: "Adres krokisi, telefon ve mesaj formu",
-    });
+    for (const route of multiRoutes) {
+      const nestedContext: RenderContext = {
+        ...context,
+        activePageSlug: route.slug,
+        assetPrefix: "../",
+        depth: 1,
+      };
+
+      let pageHtml = "";
+      let pageType: GeneratedPageFile["type"] = "page";
+
+      if (route.pageType === "ABOUT") {
+        pageType = "page";
+        pageHtml = renderKurumsalPage(nestedContext, route.content);
+      } else if (route.pageType === "SERVICES") {
+        pageType = "service-list";
+        pageHtml = renderServicesPage(nestedContext, route.content);
+      } else if (route.pageType === "PRODUCTS") {
+        pageType = "catalog";
+        pageHtml = renderProductsPage(nestedContext, route.content);
+      } else if (route.pageType === "CONTACT") {
+        pageType = "contact";
+        pageHtml = renderContactPage(nestedContext, route.content);
+      } else if (route.content) {
+        pageType = "page";
+        pageHtml = renderDedicatedPage(nestedContext, route.content, "custom");
+      }
+
+      if (pageHtml) {
+        // A. Primary directory output: <slug>/index.html
+        files.push({
+          filename: route.primaryPath,
+          fileName: route.primaryPath,
+          title: route.title,
+          type: pageType,
+          html: pageHtml,
+          content: pageHtml,
+          slug: route.slug,
+          description: route.content?.shortDescription || `${route.title} sayfası`,
+        });
+
+        // B. Root-level legacy alias output for backwards compatibility & tests
+        // (e.g. kurumsal.html, hizmetler.html, urunler.html, iletisim.html)
+        if (route.legacyAliasPath) {
+          const rootContext: RenderContext = {
+            ...context,
+            activePageSlug: route.slug,
+            assetPrefix: "",
+            depth: 0,
+          };
+
+          let rootAliasHtml = "";
+          if (route.pageType === "ABOUT") {
+            rootAliasHtml = renderKurumsalPage(rootContext, route.content);
+          } else if (route.pageType === "SERVICES") {
+            rootAliasHtml = renderServicesPage(rootContext, route.content);
+          } else if (route.pageType === "PRODUCTS") {
+            rootAliasHtml = renderProductsPage(rootContext, route.content);
+          } else if (route.pageType === "CONTACT") {
+            rootAliasHtml = renderContactPage(rootContext, route.content);
+          } else if (route.content) {
+            rootAliasHtml = renderDedicatedPage(rootContext, route.content, "custom");
+          }
+
+          if (rootAliasHtml) {
+            files.push({
+              filename: route.legacyAliasPath,
+              fileName: route.legacyAliasPath,
+              title: route.title,
+              type: pageType,
+              html: rootAliasHtml,
+              content: rootAliasHtml,
+              slug: route.slug,
+              description: `Geriye dönük uyumluluk takma adı: ${route.legacyAliasPath}`,
+            });
+          }
+        }
+      }
+    }
   }
 
-  // Assemble Static Assets (CSS, _headers, _redirects, robots, sitemap)
+  // 3. Assemble Static Assets (CSS, _headers, _redirects, robots, sitemap)
   const syntheticConfig: SiteConfig = {
     ...(legacyConfig || {}),
     id: site.id,
@@ -135,7 +202,6 @@ export function generateStaticSite(
     resolvedTokens: resolvedDesignTokens,
     pages: files.map((f) => ({ filename: f.filename, slug: f.slug })),
   });
-
   files.push(...assetFiles);
 
   return files;

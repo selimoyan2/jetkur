@@ -358,7 +358,19 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
   };
 
   const availableMediaAssets: LibraryMediaItem[] = useMemo(() => {
-    const list: LibraryMediaItem[] = [...customImportedAssets, ...DEFAULT_LIBRARY_ASSETS];
+    const persistedCanonicalItems: LibraryMediaItem[] = (config.canonicalMediaAssets || [])
+      .filter((a) => a && a.id && a.originalUrl)
+      .map((a) => ({
+        id: a.id,
+        url: a.originalUrl,
+        title: a.title || a.altText || "Kayıtlı Görsel",
+        category: "Kütüphane",
+      }));
+    const list: LibraryMediaItem[] = [
+      ...customImportedAssets,
+      ...persistedCanonicalItems,
+      ...DEFAULT_LIBRARY_ASSETS,
+    ];
     const seenIds = new Set<string>(list.map((a) => a.id));
 
     // Gallery items
@@ -674,17 +686,49 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
       return p;
     });
 
+    // Merge any newly imported stock/library assets into canonicalMediaAssets for preview/publish parity
+    const existingCanonicalAssets = Array.isArray(config.canonicalMediaAssets)
+      ? [...config.canonicalMediaAssets]
+      : [];
+    const existingAssetIds = new Set(existingCanonicalAssets.map((a) => a.id));
+    const nowIso = new Date().toISOString();
+
+    for (const imported of customImportedAssets) {
+      if (imported.id && imported.url && !existingAssetIds.has(imported.id)) {
+        existingAssetIds.add(imported.id);
+        existingCanonicalAssets.push({
+          id: imported.id,
+          siteId: config.id || "active",
+          workspaceId: (config as any).workspaceId || "default-workspace",
+          sourceType: "STOCK",
+          originalUrl: imported.url,
+          mimeType: "image/jpeg",
+          width: 1920,
+          height: 1080,
+          aspectRatio: "16:9",
+          altText: imported.title || editingPage.title || config.companyName || "Sayfa Görseli",
+          title: imported.title || "Sayfa Görseli",
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+      }
+    }
+
     const updatedConfig: SiteConfig = {
       ...config,
       canonicalPages: updatedPages,
+      canonicalMediaAssets: existingCanonicalAssets,
     };
 
     if (editingPage.pageType === "ABOUT") {
+      const resolvedFirstUrl = editingPage.heroMediaIds?.[0]
+        ? resolveMediaUrl(editingPage.heroMediaIds[0])
+        : "";
       updatedConfig.about = {
         ...config.about,
         content: editingPage.shortDescription,
         enabled: editingPage.active,
-        image: editingPage.heroMediaIds?.[0] || config.about?.image || "",
+        image: resolvedFirstUrl || config.about?.image || "",
       };
     } else if (editingPage.pageType === "SERVICES") {
       updatedConfig.services = {
@@ -724,6 +768,7 @@ export const SimpleMerchantMode: React.FC<SimpleMerchantModeProps> = ({
       body: JSON.stringify({
         content: {
           pages: updatedPages,
+          mediaAssets: existingCanonicalAssets,
         },
       }),
     }).catch(() => {});

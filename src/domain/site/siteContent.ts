@@ -18,6 +18,7 @@
 import type { PageContent } from "./pageContent";
 import type { ServiceContent } from "./serviceContent";
 import type { ProductContent } from "./productContent";
+import type { MediaAsset } from "../media/types";
 
 export interface HeroSlideItem {
   id: string;
@@ -196,4 +197,9 @@ export interface SiteContent {
    * Optional for backward compatibility with existing sites.
    */
   products?: ProductContent[];
+  /**
+   * Tenant-scoped Canonical MediaAsset Registry (Sprint 17 Foundation 05A.2):
+   * Stores registered MediaAsset items referenced by PageContent.heroMediaIds and service/product media IDs.
+   */
+  mediaAssets?: MediaAsset[];
 }

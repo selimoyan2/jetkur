@@ -181,7 +181,14 @@ export function initializeDefaultPages(
           heroTitle: "Hakkımızda",
           heroSubtitle: `${companyName} kalitesi ve kurumsal güvencesiyle tanışın.`,
           heroMediaMode: "SINGLE",
-          heroMediaIds: config.about?.image ? [config.about.image] : [],
+          heroMediaIds:
+            config.about?.image &&
+            !config.about.image.startsWith("http://") &&
+            !config.about.image.startsWith("https://") &&
+            !config.about.image.startsWith("//") &&
+            !config.about.image.startsWith("data:")
+              ? [config.about.image]
+              : [],
           active: config.about?.enabled !== false,
           seoTitle: `Hakkımızda | ${companyName}`,
           seoDescription: `${companyName} kurumsal bilgileri, vizyonu ve kaliteli hizmet anlayışı.`,

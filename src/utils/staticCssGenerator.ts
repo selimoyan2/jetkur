@@ -812,6 +812,19 @@ ul, ol {
 .slide-item {
   transition: opacity 0.6s ease-in-out;
 }
+.jk-page-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-item,
+  .jk-page-hero-slide {
+    transition: none !important;
+    animation: none !important;
+  }
+}
 .prose-rendered {
   line-height: 1.75;
 }

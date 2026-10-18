@@ -63,6 +63,10 @@ export function computeSiteFingerprint(site: CanonicalSite): string {
       blogPosts: site.content.blogPosts,
       catalogProducts: site.content.catalogProducts,
       customPages: site.content.customPages,
+      pages: site.content.pages,
+      services: site.content.services,
+      products: site.content.products,
+      mediaAssets: site.content.mediaAssets,
     },
     brandKit: site.brandKit
       ? {
@@ -81,6 +85,7 @@ export function computeSiteFingerprint(site: CanonicalSite): string {
     },
     settings: {
       structureMode: site.settings.structureMode,
+      siteMode: site.settings.siteMode,
       seo: site.settings.seo,
       whatsappWidget: site.settings.whatsappWidget,
       locale: site.settings.locale,

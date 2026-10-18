@@ -20,6 +20,7 @@ import { evaluateSectionReadiness } from "../../domain/sections/readiness";
 import { CANONICAL_SECTION_DEFINITIONS } from "../../domain/sections/registry";
 import { escapeHtml, escapeHtmlAttr, sanitizeUrl } from "./security";
 import { RenderContext, SectionRenderContext } from "./types";
+import { resolveNavigationLinks, getEffectiveSiteMode } from "./routeResolver";
 
 // =========================================================================
 // 1. VARIANT RESOLUTION ENGINE (Section 20)
@@ -68,33 +69,24 @@ export function resolveSectionVariant(
  * 1. HEADER (Structural Navigation)
  */
 export function renderHeaderSection(context: SectionRenderContext): string {
-  const { site, variant } = context;
+  const { site, variant, depth = 0 } = context;
   const bp = site.businessProfile;
   const companyName = escapeHtml(bp.identity.companyName || "JetKur İşletme");
   const phone = bp.contact.phone ? escapeHtml(bp.contact.phone) : "";
   const phoneClean = bp.contact.phone ? bp.contact.phone.replace(/[^0-9+]/g, "") : "";
   const logoUrl = bp.branding.logoUrl ? sanitizeUrl(bp.branding.logoUrl) : "";
-  const isMulti = site.settings.structureMode === "multi-page";
+  const mode = getEffectiveSiteMode(site);
+  const isMulti = mode === "MULTI_PAGE";
+  const homeHref = depth > 0 ? "../index.html" : isMulti ? "index.html" : "#hero";
 
-  const navLinks = isMulti
-    ? [
-        { label: "Ana Sayfa", href: "index.html" },
-        { label: "Kurumsal", href: "kurumsal.html" },
-        { label: "Hizmetlerimiz", href: "hizmetler.html" },
-        { label: "İletişim", href: "iletisim.html" },
-      ]
-    : [
-        { label: "Ana Sayfa", href: "#hero" },
-        { label: "Hizmetlerimiz", href: "#services" },
-        { label: "Hakkımızda", href: "#about" },
-        { label: "İletişim", href: "#contact" },
-      ];
+  // Shared route resolver for desktop and mobile navigation
+  const navLinks = resolveNavigationLinks(site, depth);
 
   return `
   <!-- Structural Header: ${variant} -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-100 jk-header">
     <div class="jk-container flex items-center justify-between h-16 sm:h-20 gap-4">
-      <a href="${isMulti ? 'index.html' : '#hero'}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
+      <a href="${homeHref}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
         ${logoUrl 
           ? `<img src="${logoUrl}" alt="${companyName}" style="height: 44px; width: auto; max-width: 200px;" class="shrink-0 object-contain">` 
           : `<div class="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">${companyName.charAt(0)}</div>
@@ -110,10 +102,27 @@ export function renderHeaderSection(context: SectionRenderContext): string {
       <!-- Action Buttons -->
       <div class="flex items-center gap-3">
         ${phoneClean ? `<a href="tel:${phoneClean}" class="hidden sm:inline-flex jk-button jk-button-primary text-xs sm:text-sm py-2 px-4" aria-label="Telefon: ${phone}">Hemen Ara</a>` : ""}
-        <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200" aria-label="Menüyü Aç/Kapat">
+        <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200" aria-label="Menüyü Aç/Kapat" aria-expanded="false" aria-controls="mobileDrawer">
           <span id="mobileMenuOpenIcon">☰</span>
           <span id="mobileMenuCloseIcon" class="hidden">✕</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Navigation (Progressive Enhancement) -->
+    <div id="mobileMenuBackdrop" onclick="closeMobileMenu()" class="hidden fixed inset-0 bg-slate-900/60 z-40 backdrop-blur-xs opacity-0 transition-opacity duration-300 md:hidden" aria-hidden="true" style="display: none;"></div>
+    <div id="mobileDrawer" class="fixed top-0 right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100" role="dialog" aria-modal="true" aria-label="Mobil Menü">
+      <div>
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <span class="text-base font-extrabold text-slate-900 truncate">${companyName}</span>
+          <button type="button" onclick="closeMobileMenu()" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200" aria-label="Kapat">✕</button>
+        </div>
+        <nav class="flex flex-col gap-3" aria-label="Mobil Gezinme">
+          ${navLinks.map((l) => `<a href="${l.href}" onclick="closeMobileMenu()" class="py-2 px-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-brand transition-colors">${escapeHtml(l.label)}</a>`).join("\n          ")}
+        </nav>
+      </div>
+      <div class="pt-6 border-t border-slate-100 space-y-3">
+        ${phoneClean ? `<a href="tel:${phoneClean}" class="w-full jk-button jk-button-primary text-center text-xs py-2.5 px-4 block">📞 ${phone}</a>` : ""}
       </div>
     </div>
   </header>`;
@@ -586,20 +595,26 @@ export function renderSocialFeedSection(context: SectionRenderContext): string {
  * 15. FOOTER (Structural Footer)
  */
 export function renderFooterSection(context: SectionRenderContext): string {
-  const { site, variant } = context;
+  const { site, variant, depth = 0 } = context;
   const bp = site.businessProfile;
   const companyName = escapeHtml(bp.identity.companyName);
   const currentYear = new Date().getFullYear();
+  const navLinks = resolveNavigationLinks(site, depth);
 
   return `
   <!-- Structural Footer: ${variant} -->
   <footer class="bg-slate-950 text-slate-400 text-xs py-12 border-t border-slate-800 jk-footer">
     <div class="jk-container">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
         <div>
           <span class="text-sm font-bold text-white block mb-1">${companyName}</span>
           <p class="text-slate-500">© ${currentYear} ${companyName}. Tüm hakları saklıdır.</p>
         </div>
+
+        <nav class="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-400 font-medium" aria-label="Alt Menü">
+          ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-white transition-colors">${escapeHtml(l.label)}</a>`).join("\n          ")}
+        </nav>
+
         <div class="flex items-center gap-6">
           <a href="#hero" class="hover:text-white transition-colors">Yukarı Çık ↑</a>
         </div>

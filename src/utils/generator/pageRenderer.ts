@@ -1,8 +1,8 @@
 /**
- * JetKur Page Renderer (Sprint 09)
+ * JetKur Page Renderer (Sprint 09 & Sprint 17 Foundation 05A.1)
  *
  * Assembles full static pages by coordinating DocumentShell, SEOHeadRenderer,
- * SectionRendererRegistry, and ProgressiveScriptRenderer.
+ * SectionRendererRegistry, ProgressiveScriptRenderer, and PageContent longContent rendering.
  */
 
 import { CanonicalSite } from "../../domain/site/site";
@@ -11,8 +11,10 @@ import { SiteConfig } from "../../types";
 import { renderDocumentShell } from "./documentShell";
 import { renderCanonicalSection } from "./sectionRenderer";
 import { renderProgressiveScripts } from "./progressiveScriptRenderer";
-import { RenderContext } from "./types";
+import { RenderContext, PageType } from "./types";
 import { escapeHtml, sanitizeUrl } from "./security";
+import { PageContent } from "../../domain/site/pageContent";
+import { renderCanonicalPageHero } from "./heroMediaResolver";
 
 /**
  * Renders the primary homepage (index.html).
@@ -87,7 +89,6 @@ export function renderHomePage(context: RenderContext): string {
     },
   } as unknown as SiteConfig;
 
-  // Check if sections are present in configured sections and enabled
   const isSectionActive = (type: string) => {
     const sec = site.sectionConfiguration?.sections?.find(
       (s) => s.type === type || (s.id && s.id.toLowerCase() === type.toLowerCase())
@@ -98,15 +99,12 @@ export function renderHomePage(context: RenderContext): string {
   const hasFaqs = isSectionActive("faqs") && Boolean(
     site.content.faqs && site.content.faqs.length > 0
   );
-
   const hasSlider = Boolean(
     site.content.hero?.slides && site.content.hero.slides.length > 1
   );
-
   const hasGallery = isSectionActive("gallery") && Boolean(
     site.content.gallery && site.content.gallery.length > 0
   );
-
   const hasCatalog = isSectionActive("products") && Boolean(
     site.content.catalogProducts && site.content.catalogProducts.length > 0
   );
@@ -128,25 +126,149 @@ export function renderHomePage(context: RenderContext): string {
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
     resolvedTokens: tokens,
+    assetPrefix: "",
   });
 }
 
 /**
- * Renders the Kurumsal & Hakkımızda page (kurumsal.html).
+ * Formats multi-paragraph longContent safely into clean HTML paragraphs.
+ * If content already contains HTML tags (<p>, <div>, <br>), renders sanitized HTML.
  */
-export function renderKurumsalPage(context: RenderContext): string {
-  const { site, legacyConfig, manifest } = context;
+function renderSafeLongContentHtml(rawContent: string): string {
+  if (!rawContent || !rawContent.trim()) {
+    return "";
+  }
+  const trimmed = rawContent.trim();
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+    // Basic sanitization: strip script tags
+    return trimmed.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  }
+  // Convert double newlines to paragraphs
+  const paragraphs = trimmed.split(/\n\s*\n/);
+  return paragraphs
+    .map((p) => `<p class="mb-4 leading-relaxed">${escapeHtml(p.trim())}</p>`)
+    .join("\n");
+}
+
+/**
+ * Generic Dedicated Page Shell Renderer for canonical MULTI_PAGE routes.
+ * Renders canonical page hero (SINGLE, SLIDER, or TEXT_ONLY), longContent body, custom sections, header and footer.
+ */
+export function renderDedicatedPage(
+  context: RenderContext,
+  page: PageContent,
+  pageType: PageType,
+  subSectionsHtml = ""
+): string {
+  const { site, legacyConfig, manifest, depth = 1 } = context;
   const bp = site.businessProfile;
   const companyName = bp.identity.companyName;
+  const assetPrefix = context.assetPrefix ?? (depth > 0 ? "../" : "");
+
+  const headerHtml = renderCanonicalSection("header", context, 0);
+  const footerHtml = renderCanonicalSection("footer", context, 99);
+
+  const { html: heroBannerHtml, resolved: resolvedHero } = renderCanonicalPageHero(
+    context,
+    page,
+    page.title || companyName
+  );
+  const formattedContent = renderSafeLongContentHtml(page.longContent || page.shortDescription || "");
+
+  const fullBody = `
+  ${headerHtml}
+  <main id="main-content">
+    ${heroBannerHtml}
+
+    <!-- Main Long Content Area -->
+    ${formattedContent ? `
+    <section class="jk-section bg-white py-12 sm:py-16">
+      <div class="jk-container max-w-4xl">
+        <article class="prose prose-slate max-w-none text-slate-700 text-base sm:text-lg leading-relaxed">
+          ${formattedContent}
+        </article>
+      </div>
+    </section>` : ""}
+
+    ${subSectionsHtml}
+  </main>
+  ${footerHtml}
+  `;
+
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
+  const effectiveConfig = legacyConfig || ({
+    id: site.id,
+    companyName: bp.identity.companyName,
+    palette: {
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
+    },
+  } as unknown as SiteConfig);
+
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    pageHeroSlider: resolvedHero.requiresSliderJs,
+    pageHeroSlideCount: resolvedHero.assets.length,
+  });
+
+  return renderDocumentShell({
+    config: effectiveConfig,
+    seo: {
+      pageTitle: page.seoTitle || `${page.title} | ${companyName}`,
+      pageDesc: page.seoDescription || page.shortDescription || `${companyName} ${page.title} sayfası.`,
+      pageType: "page",
+    },
+    bodyContent: fullBody,
+    scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
+    assetPrefix,
+  });
+}
+
+/**
+ * Renders the Kurumsal & Hakkımızda page (hakkimizda/index.html & kurumsal.html).
+ */
+export function renderKurumsalPage(
+  context: RenderContext,
+  canonicalPage?: PageContent
+): string {
+  const { site, legacyConfig, manifest, depth = 1 } = context;
+  const bp = site.businessProfile;
+  const companyName = bp.identity.companyName;
+  const assetPrefix = context.assetPrefix ?? (depth > 0 ? "../" : "");
+
+  const effectivePage = canonicalPage || site.content.pages?.find((p) => p.pageType === "ABOUT");
 
   const headerHtml = renderCanonicalSection("header", context, 0);
   const aboutHtml = renderCanonicalSection("about", context, 1);
   const whyUsHtml = renderCanonicalSection("whyUs", context, 2);
   const footerHtml = renderCanonicalSection("footer", context, 99);
 
+  const { html: heroBannerHtml, resolved: resolvedHero } = renderCanonicalPageHero(
+    context,
+    effectivePage,
+    "Hakkımızda"
+  );
+  const longContentHtml = effectivePage?.longContent
+    ? renderSafeLongContentHtml(effectivePage.longContent)
+    : "";
+
   const fullBody = `
   ${headerHtml}
   <main id="main-content">
+    ${effectivePage ? heroBannerHtml : ""}
+    ${longContentHtml ? `
+    <section class="jk-section bg-white py-10 sm:py-12 border-b border-slate-100">
+      <div class="jk-container max-w-4xl">
+        <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base sm:text-lg">
+          ${longContentHtml}
+        </div>
+      </div>
+    </section>
+    ` : ""}
     ${aboutHtml}
     ${whyUsHtml}
   </main>
@@ -167,37 +289,66 @@ export function renderKurumsalPage(context: RenderContext): string {
     },
   } as unknown as SiteConfig);
 
-  const scriptsHtml = renderProgressiveScripts(effectiveConfig);
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    pageHeroSlider: resolvedHero.requiresSliderJs,
+    pageHeroSlideCount: resolvedHero.assets.length,
+  });
 
   return renderDocumentShell({
     config: effectiveConfig,
     seo: {
-      pageTitle: `Kurumsal & Hakkımızda | ${companyName}`,
-      pageDesc: `${companyName} kurumsal profili, değerleri ve şirket tarihçesi.`,
+      pageTitle: effectivePage?.seoTitle || `Kurumsal & Hakkımızda | ${companyName}`,
+      pageDesc: effectivePage?.seoDescription || `${companyName} kurumsal profili, değerleri ve şirket tarihçesi.`,
       pageType: "about",
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
     resolvedTokens: tokens,
+    assetPrefix,
   });
 }
 
 /**
- * Renders the Services page (hizmetler.html).
+ * Renders the Services page (hizmetler/index.html & hizmetler.html).
  */
-export function renderServicesPage(context: RenderContext): string {
-  const { site, legacyConfig, manifest } = context;
+export function renderServicesPage(
+  context: RenderContext,
+  canonicalPage?: PageContent
+): string {
+  const { site, legacyConfig, manifest, depth = 1 } = context;
   const bp = site.businessProfile;
   const companyName = bp.identity.companyName;
+  const assetPrefix = context.assetPrefix ?? (depth > 0 ? "../" : "");
+
+  const effectivePage = canonicalPage || site.content.pages?.find((p) => p.pageType === "SERVICES");
 
   const headerHtml = renderCanonicalSection("header", context, 0);
   const servicesHtml = renderCanonicalSection("services", context, 1);
   const faqsHtml = renderCanonicalSection("faqs", context, 2);
   const footerHtml = renderCanonicalSection("footer", context, 99);
 
+  const { html: heroBannerHtml, resolved: resolvedHero } = renderCanonicalPageHero(
+    context,
+    effectivePage,
+    "Hizmetlerimiz"
+  );
+  const longContentHtml = effectivePage?.longContent
+    ? renderSafeLongContentHtml(effectivePage.longContent)
+    : "";
+
   const fullBody = `
   ${headerHtml}
   <main id="main-content">
+    ${effectivePage ? heroBannerHtml : ""}
+    ${longContentHtml ? `
+    <section class="jk-section bg-white py-10 sm:py-12 border-b border-slate-100">
+      <div class="jk-container max-w-4xl">
+        <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base sm:text-lg">
+          ${longContentHtml}
+        </div>
+      </div>
+    </section>
+    ` : ""}
     ${servicesHtml}
     ${faqsHtml}
   </main>
@@ -218,36 +369,143 @@ export function renderServicesPage(context: RenderContext): string {
     },
   } as unknown as SiteConfig);
 
-  const scriptsHtml = renderProgressiveScripts(effectiveConfig);
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    pageHeroSlider: resolvedHero.requiresSliderJs,
+    pageHeroSlideCount: resolvedHero.assets.length,
+  });
 
   return renderDocumentShell({
     config: effectiveConfig,
     seo: {
-      pageTitle: `Hizmetlerimiz | ${companyName}`,
-      pageDesc: `${companyName} uzmanlık alanları ve kaliteli hizmet çözümleri.`,
+      pageTitle: effectivePage?.seoTitle || `Hizmetlerimiz | ${companyName}`,
+      pageDesc: effectivePage?.seoDescription || `${companyName} uzmanlık alanları ve kaliteli hizmet çözümleri.`,
       pageType: "service",
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
     resolvedTokens: tokens,
+    assetPrefix,
   });
 }
 
 /**
- * Renders the Contact page (iletisim.html).
+ * Renders the Products page (urunler/index.html & urunler.html).
  */
-export function renderContactPage(context: RenderContext): string {
-  const { site, legacyConfig, manifest } = context;
+export function renderProductsPage(
+  context: RenderContext,
+  canonicalPage?: PageContent
+): string {
+  const { site, legacyConfig, manifest, depth = 1 } = context;
   const bp = site.businessProfile;
   const companyName = bp.identity.companyName;
+  const assetPrefix = context.assetPrefix ?? (depth > 0 ? "../" : "");
+
+  const effectivePage = canonicalPage || site.content.pages?.find((p) => p.pageType === "PRODUCTS");
+
+  const headerHtml = renderCanonicalSection("header", context, 0);
+  const productsHtml = renderCanonicalSection("products", context, 1);
+  const footerHtml = renderCanonicalSection("footer", context, 99);
+
+  const { html: heroBannerHtml, resolved: resolvedHero } = renderCanonicalPageHero(
+    context,
+    effectivePage,
+    "Ürünlerimiz"
+  );
+  const longContentHtml = effectivePage?.longContent
+    ? renderSafeLongContentHtml(effectivePage.longContent)
+    : "";
+
+  const fullBody = `
+  ${headerHtml}
+  <main id="main-content">
+    ${heroBannerHtml}
+    ${longContentHtml ? `
+    <section class="jk-section bg-white py-10 sm:py-12 border-b border-slate-100">
+      <div class="jk-container max-w-4xl">
+        <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base sm:text-lg">
+          ${longContentHtml}
+        </div>
+      </div>
+    </section>
+    ` : ""}
+    ${productsHtml}
+  </main>
+  ${footerHtml}
+  `;
+
+  const tokens = context.resolvedDesignTokens || manifest.designTokens;
+  const effectiveConfig = legacyConfig || ({
+    id: site.id,
+    companyName: bp.identity.companyName,
+    palette: {
+      primary: tokens.palette.primary,
+      primaryDark: tokens.palette.primaryDark,
+      secondary: tokens.palette.secondary,
+      accent: tokens.palette.accent,
+      text: tokens.palette.text,
+      bg: tokens.palette.background,
+    },
+  } as unknown as SiteConfig);
+
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    pageHeroSlider: resolvedHero.requiresSliderJs,
+    pageHeroSlideCount: resolvedHero.assets.length,
+  });
+
+  return renderDocumentShell({
+    config: effectiveConfig,
+    seo: {
+      pageTitle: effectivePage?.seoTitle || `Ürünlerimiz | ${companyName}`,
+      pageDesc: effectivePage?.seoDescription || `${companyName} ürün kataloğu ve seçenekleri.`,
+      pageType: "catalog",
+    },
+    bodyContent: fullBody,
+    scriptsContent: scriptsHtml,
+    resolvedTokens: tokens,
+    assetPrefix,
+  });
+}
+
+/**
+ * Renders the Contact page (iletisim/index.html & iletisim.html).
+ */
+export function renderContactPage(
+  context: RenderContext,
+  canonicalPage?: PageContent
+): string {
+  const { site, legacyConfig, manifest, depth = 1 } = context;
+  const bp = site.businessProfile;
+  const companyName = bp.identity.companyName;
+  const assetPrefix = context.assetPrefix ?? (depth > 0 ? "../" : "");
+
+  const effectivePage = canonicalPage || site.content.pages?.find((p) => p.pageType === "CONTACT");
 
   const headerHtml = renderCanonicalSection("header", context, 0);
   const contactHtml = renderCanonicalSection("contact", context, 1);
   const footerHtml = renderCanonicalSection("footer", context, 99);
 
+  const { html: heroBannerHtml, resolved: resolvedHero } = renderCanonicalPageHero(
+    context,
+    effectivePage,
+    "İletişim & Konum"
+  );
+  const longContentHtml = effectivePage?.longContent
+    ? renderSafeLongContentHtml(effectivePage.longContent)
+    : "";
+
   const fullBody = `
   ${headerHtml}
   <main id="main-content">
+    ${effectivePage ? heroBannerHtml : ""}
+    ${longContentHtml ? `
+    <section class="jk-section bg-white py-10 sm:py-12 border-b border-slate-100">
+      <div class="jk-container max-w-4xl">
+        <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base sm:text-lg">
+          ${longContentHtml}
+        </div>
+      </div>
+    </section>
+    ` : ""}
     ${contactHtml}
   </main>
   ${footerHtml}
@@ -267,18 +525,21 @@ export function renderContactPage(context: RenderContext): string {
     },
   } as unknown as SiteConfig);
 
-  const scriptsHtml = renderProgressiveScripts(effectiveConfig);
+  const scriptsHtml = renderProgressiveScripts(effectiveConfig, {
+    pageHeroSlider: resolvedHero.requiresSliderJs,
+    pageHeroSlideCount: resolvedHero.assets.length,
+  });
 
   return renderDocumentShell({
     config: effectiveConfig,
     seo: {
-      pageTitle: `İletişim & Konum | ${companyName}`,
-      pageDesc: `${companyName} iletişim numaraları, adres krokisi ve mesaj formu.`,
+      pageTitle: effectivePage?.seoTitle || `İletişim & Konum | ${companyName}`,
+      pageDesc: effectivePage?.seoDescription || `${companyName} iletişim numaraları, adres krokisi ve mesaj formu.`,
       pageType: "contact",
     },
     bodyContent: fullBody,
     scriptsContent: scriptsHtml,
     resolvedTokens: tokens,
+    assetPrefix,
   });
 }
-

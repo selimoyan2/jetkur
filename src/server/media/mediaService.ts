@@ -129,6 +129,15 @@ export class MediaService {
     // Populate initial assets from site content
     const initialAssets: MediaAsset[] = [];
 
+    // 0. Persisted canonical MediaAssets
+    if (Array.isArray(site.content.mediaAssets)) {
+      for (const persisted of site.content.mediaAssets) {
+        if (persisted && persisted.id && persisted.originalUrl) {
+          initialAssets.push(persisted);
+        }
+      }
+    }
+
     // Hero
     if (site.content.hero?.bgImageUrl) {
       initialAssets.push({
@@ -256,6 +265,14 @@ export class MediaService {
     assets.unshift(asset);
     IN_MEMORY_MEDIA_STORE.set(siteId, assets);
 
+    // Sync into canonical site.content.mediaAssets
+    const site = await this.authorizeSite(siteId, workspaceId);
+    if (site && site.content) {
+      const existingMedia = Array.isArray(site.content.mediaAssets) ? [...site.content.mediaAssets] : [];
+      site.content.mediaAssets = [asset, ...existingMedia.filter((m) => m.id !== asset.id)];
+      await this.siteRepo.updateSiteContent(site.id || siteId, { mediaAssets: site.content.mediaAssets }).catch(() => {});
+    }
+
     // If slotKey provided, bind to site content immediately
     if (slotKey) {
       await this.assignMediaToSlot(siteId, workspaceId, asset.id, slotKey);
@@ -312,6 +329,14 @@ export class MediaService {
       assets.unshift(asset);
     }
     IN_MEMORY_MEDIA_STORE.set(resolvedSiteId, assets);
+
+    // Sync into canonical site.content.mediaAssets
+    if (site && site.content) {
+      const existingMedia = Array.isArray(site.content.mediaAssets) ? [...site.content.mediaAssets] : [];
+      site.content.mediaAssets = [asset, ...existingMedia.filter((m) => m.id !== asset.id)];
+      await this.siteRepo.updateSiteContent(resolvedSiteId, { mediaAssets: site.content.mediaAssets }).catch(() => {});
+    }
+
     return asset;
   }
 

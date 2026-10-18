@@ -322,6 +322,9 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     pages: (legacy.canonicalPages && legacy.canonicalPages.length > 0)
       ? legacy.canonicalPages
       : (legacy as any).content?.pages || undefined,
+    mediaAssets: (legacy.canonicalMediaAssets && legacy.canonicalMediaAssets.length > 0)
+      ? legacy.canonicalMediaAssets
+      : (legacy as any).content?.mediaAssets || undefined,
   };
 
   // 5. Site Settings
@@ -449,6 +452,7 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     workspaceId: (canonical as any).workspaceId,
     templateId: canonical.designTemplate?.templateId || "tmpl-rapid-service",
     siteType: (canonical.settings.siteMode === "MULTI_PAGE" || canonical.settings.structureMode === "multi-page") ? "multi-page" : "single-page",
+    siteMode: (canonical.settings.siteMode === "MULTI_PAGE" || canonical.settings.structureMode === "multi-page") ? "MULTI_PAGE" : "LANDING",
     companyName: profile.identity.companyName,
     sector: profile.identity.sector || "general",
     slogan: profile.identity.slogan || "",
@@ -636,6 +640,7 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     customDomain: settings.domain?.isCustom ? settings.domain.hostname : undefined,
     deploymentStatus: settings.deployment?.status === "deployed" ? "DEPLOYED" : "DRAFT",
     canonicalPages: canonical.content.pages || undefined,
+    canonicalMediaAssets: canonical.content.mediaAssets || undefined,
   } as unknown as SiteConfig;
 }
 
