@@ -9,3 +9,5 @@ export * from "./middleware";
 export * from "./rateLimiter";
 export * from "./routes";
 export * from "./tenantRoutes";
+export * from "./adminCustomerService";
+export * from "./adminCustomerRoutes";

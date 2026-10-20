@@ -7,6 +7,8 @@
 import { hashPassword, verifyPassword, validatePasswordStrength } from "./password";
 import { hashToken, getSessionCookieOptions, SESSION_COOKIE_NAME } from "./sessionService";
 import { normalizeEmail, validateEmailFormat, SafeUser, CurrentUserPayload } from "./authService";
+import { sanitizeCustomerAccountPayload } from "./adminCustomerService";
+import { requireSuperAdmin } from "./middleware";
 import { WorkspaceRole, PlatformRole } from "@prisma/client";
 
 const ROLE_PRIORITY: Record<WorkspaceRole, number> = {
@@ -250,6 +252,92 @@ async function runAuthVerification() {
   };
   assert(!("sessionToken" in sampleCurrentMe), "NO_SESSION_TOKEN_RETURNED: sessionToken does not exist on CurrentUserPayload");
   assert(!("tokenHash" in sampleCurrentMe), "tokenHash does not exist on CurrentUserPayload");
+
+  // 9. SUPER ADMIN CUSTOMER ACCOUNT DETAILS RBAC & SANITIZATION
+  console.log("\n9. Super Admin Customer Account Details & Sanitization Tests:");
+  const rawAccountWithSecrets = {
+    userId: "usr_customer_1",
+    customerName: "Ahmet Yıldız",
+    registrationEmail: "ahmet@yildizotokurtarma.com.tr",
+    phone: "+90 532 555 12 34",
+    passwordHash: "scrypt$secretSalt$secretHash",
+    password: "plaintextPassword",
+    tokenHash: "sha256_token_hash",
+    sessionToken: "raw_session_token",
+    platformRole: "NORMAL",
+    accountStatus: "ACTIVE",
+    accountCreatedAt: "2026-08-16T00:00:00.000Z",
+    lastLoginAt: "2026-10-18T08:00:00.000Z",
+    subscriptionStatus: "ACTIVE",
+    planName: "İşletme",
+    planCode: "BUSINESS",
+    trialEndsAt: "2026-08-30T00:00:00.000Z",
+    workspaces: [
+      {
+        id: "ws_1",
+        name: "Yıldız İşletmesi",
+        type: "BUSINESS",
+        memberRole: "OWNER",
+      },
+    ],
+    sites: [
+      {
+        id: "site-1",
+        companyName: "Yıldız 7/24 Oto Kurtarma",
+        primaryDomain: "yildizotokurtarma.com.tr",
+      },
+    ],
+  };
+
+  const sanitizedAccount = sanitizeCustomerAccountPayload(rawAccountWithSecrets);
+  assert(!("passwordHash" in sanitizedAccount), "CUSTOMER_DETAILS_NO_PASSWORD_HASH: passwordHash stripped from customer account payload");
+  assert(!("password" in sanitizedAccount), "CUSTOMER_DETAILS_NO_PASSWORD: password stripped from customer account payload");
+  assert(!("tokenHash" in sanitizedAccount), "CUSTOMER_DETAILS_NO_TOKEN_HASH: tokenHash stripped from customer account payload");
+  assert(!("sessionToken" in sanitizedAccount), "CUSTOMER_DETAILS_NO_SESSION_TOKEN: sessionToken stripped from customer account payload");
+  assert(sanitizedAccount.customerName === "Ahmet Yıldız", "Canonical customerName preserved");
+  assert(sanitizedAccount.registrationEmail === "ahmet@yildizotokurtarma.com.tr", "Canonical registrationEmail preserved");
+
+  // Verify requireSuperAdmin blocks NORMAL user with 403
+  let blockedStatus = 0;
+  let blockedCode = "";
+  let nextCalledForNormal = false as boolean;
+  requireSuperAdmin(
+    { user: { id: "usr_normal", platformRole: "NORMAL" } } as any,
+    {
+      status(code: number) {
+        blockedStatus = code;
+        return this;
+      },
+      json(body: any) {
+        blockedCode = body?.code || "";
+        return this;
+      },
+    } as any,
+    () => {
+      nextCalledForNormal = true;
+    }
+  );
+  assert(
+    blockedStatus === 403 && blockedCode === "FORBIDDEN_SUPER_ADMIN_REQUIRED" && !nextCalledForNormal,
+    "SUPER_ADMIN_RBAC: requireSuperAdmin blocks NORMAL user with 403 FORBIDDEN_SUPER_ADMIN_REQUIRED"
+  );
+
+  let nextCalledForSuperAdmin = false as boolean;
+  requireSuperAdmin(
+    { user: { id: "usr_admin", platformRole: "SUPER_ADMIN" } } as any,
+    {
+      status() {
+        return this;
+      },
+      json() {
+        return this;
+      },
+    } as any,
+    () => {
+      nextCalledForSuperAdmin = true;
+    }
+  );
+  assert(nextCalledForSuperAdmin === true, "SUPER_ADMIN_RBAC: requireSuperAdmin allows SUPER_ADMIN user");
 
   console.log(`\nVerification Complete: ${passed} / ${total} tests passed.`);
   if (passed !== total) {

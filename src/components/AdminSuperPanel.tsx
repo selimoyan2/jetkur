@@ -29,7 +29,12 @@ import {
   Home,
   Check,
   X,
-  ArrowUpRight
+  ArrowUpRight,
+  Mail,
+  Phone,
+  ShieldCheck,
+  Building2,
+  UserCheck
 } from "lucide-react";
 import { 
   getJetkurHomepageSettings, 
@@ -43,7 +48,47 @@ import {
   JetkurClientSite,
   calculateDaysRemaining
 } from "../utils/platformSettingsStorage";
+import { getRegisteredUsers } from "../utils/authStorage";
 import { SeoContentReviserTool } from "./dashboard/SeoContentReviserTool";
+
+export interface CustomerAccountDetailsViewModel {
+  userId: string;
+  customerName: string;
+  registrationEmail: string;
+  phone: string | null;
+  platformRole: "NORMAL" | "SUPER_ADMIN";
+  accountStatus: "ACTIVE" | "INVITED" | "SUSPENDED";
+  accountCreatedAt: string;
+  lastLoginAt: string | null;
+  subscriptionStatus: string;
+  paymentStatus: "paid" | "pending" | "overdue";
+  planName: string;
+  planCode: string;
+  trialEndsAt: string | null;
+  renewalDate: string;
+  daysRemaining: number;
+  isTrial: boolean;
+  isExpired: boolean;
+  siteLimit: number;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    type: "BUSINESS" | "AGENCY" | "PLATFORM";
+    memberRole: "OWNER" | "ADMIN" | "MEMBER";
+    siteLimit: number;
+    activeSitesCount: number;
+  }>;
+  sites: Array<{
+    id: string;
+    companyName: string;
+    domain: string;
+    subdomain: string;
+    sector: string;
+    siteType: string;
+    status: string;
+    pageSpeedScore?: number;
+  }>;
+}
 
 interface AdminSuperPanelProps {
   currentConfig: SiteConfig;
@@ -70,6 +115,10 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
   const [clientSites, setClientSites] = useState<JetkurClientSite[]>(getJetkurClientSites());
   const [packages, setPackages] = useState<JetkurPricingPackage[]>(getJetkurPackages());
   const [homepageSettings, setHomepageSettings] = useState<JetkurHomepageSettings>(getJetkurHomepageSettings());
+
+  // Canonical Server Customer Accounts & Selected Customer Account Modal State
+  const [serverCustomerAccounts, setServerCustomerAccounts] = useState<Record<string, any>>({});
+  const [inspectingCustomerAccount, setInspectingCustomerAccount] = useState<CustomerAccountDetailsViewModel | null>(null);
 
   // Search & Filter for Customer Sites
   const [siteSearchQuery, setSiteSearchQuery] = useState("");
@@ -99,6 +148,192 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
   // Package Edit State
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [newFeatureText, setNewFeatureText] = useState("");
+
+  // Load canonical customer accounts from server when Super Admin opens panel
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/admin/customers", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data?.customers || !Array.isArray(data.customers)) return;
+        const map: Record<string, any> = {};
+        for (const acc of data.customers) {
+          if (acc.registrationEmail) {
+            map[acc.registrationEmail.toLowerCase()] = acc;
+          }
+          if (acc.userId) {
+            map[acc.userId] = acc;
+          }
+          if (Array.isArray(acc.sites)) {
+            for (const s of acc.sites) {
+              if (s.id) map[s.id] = acc;
+              if (s.primaryDomain) map[s.primaryDomain.toLowerCase()] = acc;
+            }
+          }
+        }
+        setServerCustomerAccounts(map);
+      })
+      .catch(() => {
+        // Offline or non-DB preview fallback handled via canonical local resolution
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  /**
+   * Resolves canonical customer account details for a given customer site without creating duplicate records.
+   * Combines server-authoritative Prisma data (if present) with registered AuthUser and owned sites.
+   */
+  const resolveCustomerAccountDetails = (site: JetkurClientSite): CustomerAccountDetailsViewModel => {
+    const emailKey = (site.email || "").trim().toLowerCase();
+    const serverAcc =
+      (emailKey && serverCustomerAccounts[emailKey]) ||
+      serverCustomerAccounts[site.id] ||
+      (site.domain && serverCustomerAccounts[site.domain.toLowerCase()]) ||
+      null;
+
+    const registeredUsers = getRegisteredUsers();
+    const matchedAuthUser = registeredUsers.find(
+      (u) =>
+        (emailKey && u.email.toLowerCase() === emailKey) ||
+        u.name.toLowerCase() === site.clientName.toLowerCase()
+    );
+
+    // Group all owned sites belonging to the same customer (by email or clientName)
+    const ownedClientSites = clientSites.filter(
+      (s) =>
+        (emailKey && s.email && s.email.toLowerCase() === emailKey) ||
+        s.clientName.toLowerCase() === site.clientName.toLowerCase()
+    );
+
+    const matchedPkg = packages.find((p) => p.name === site.planName);
+    const inferredPlanCode =
+      serverAcc?.planCode ||
+      (site.planName.toLowerCase().includes("ajans")
+        ? "AGENCY"
+        : site.planName.toLowerCase().includes("3")
+        ? "BUSINESS"
+        : "ENTRY");
+    const siteLimit =
+      serverAcc?.workspaces?.[0]?.subscription?.siteLimit ||
+      matchedPkg?.siteLimit ||
+      (inferredPlanCode === "AGENCY" ? 10 : inferredPlanCode === "BUSINESS" ? 3 : 1);
+
+    const daysRemaining = calculateDaysRemaining(site.renewalDate);
+    const isExpired = serverAcc ? Boolean(serverAcc.isExpired) : daysRemaining < 0 || site.status === "expired";
+    const isTrial = serverAcc ? Boolean(serverAcc.isTrial) : site.paymentStatus === "pending" && daysRemaining > 0 && daysRemaining <= 14;
+
+    const subscriptionStatus =
+      serverAcc?.subscriptionStatus ||
+      (isExpired
+        ? "EXPIRED"
+        : site.status === "suspended"
+        ? "CANCELED"
+        : isTrial
+        ? "TRIALING"
+        : site.paymentStatus === "overdue"
+        ? "PAST_DUE"
+        : "ACTIVE");
+
+    const mergedSites =
+      serverAcc?.sites && serverAcc.sites.length > 0
+        ? serverAcc.sites.map((s: any) => ({
+            id: s.id,
+            companyName: s.companyName || s.name,
+            domain: s.primaryDomain,
+            subdomain: `${s.slug || s.id}.jetkur.app`,
+            sector: s.sector || site.sector,
+            siteType: s.structureMode || site.siteType,
+            status: s.status || site.status,
+            pageSpeedScore: site.pageSpeedScore,
+          }))
+        : ownedClientSites.map((s) => ({
+            id: s.id,
+            companyName: s.companyName,
+            domain: s.domain,
+            subdomain: s.subdomain,
+            sector: s.sector,
+            siteType: s.siteType,
+            status: s.status.toUpperCase(),
+            pageSpeedScore: s.pageSpeedScore,
+          }));
+
+    const workspaces =
+      serverAcc?.workspaces && serverAcc.workspaces.length > 0
+        ? serverAcc.workspaces.map((ws: any) => ({
+            id: ws.id,
+            name: ws.name,
+            type: ws.type,
+            memberRole: ws.memberRole || "OWNER",
+            siteLimit: ws.subscription?.siteLimit || siteLimit,
+            activeSitesCount: ws.subscription?.activeSitesCount ?? mergedSites.length,
+          }))
+        : [
+            {
+              id: `ws-${site.id}`,
+              name: `${site.companyName} Çalışma Alanı`,
+              type: (inferredPlanCode === "AGENCY" ? "AGENCY" : "BUSINESS") as "BUSINESS" | "AGENCY",
+              memberRole: "OWNER" as const,
+              siteLimit,
+              activeSitesCount: mergedSites.length,
+            },
+          ];
+
+    return {
+      userId: serverAcc?.userId || matchedAuthUser?.id || `usr-${site.id}`,
+      customerName: serverAcc?.customerName || matchedAuthUser?.name || site.clientName,
+      registrationEmail:
+        serverAcc?.registrationEmail || matchedAuthUser?.email || site.email || "Belirtilmemiş",
+      phone: serverAcc?.phone || site.phone || matchedAuthUser?.phone || null,
+      platformRole: serverAcc?.platformRole || "NORMAL",
+      accountStatus:
+        serverAcc?.accountStatus ||
+        (site.status === "suspended" ? "SUSPENDED" : "ACTIVE"),
+      accountCreatedAt:
+        serverAcc?.accountCreatedAt || matchedAuthUser?.createdAt || site.startDate,
+      lastLoginAt: serverAcc?.lastLoginAt || matchedAuthUser?.lastLoginAt || null,
+      subscriptionStatus,
+      paymentStatus: site.paymentStatus,
+      planName: serverAcc?.planName || site.planName,
+      planCode: inferredPlanCode,
+      trialEndsAt: serverAcc?.trialEndsAt || (isTrial ? site.renewalDate : null),
+      renewalDate: site.renewalDate,
+      daysRemaining: serverAcc?.trialDaysRemaining ?? daysRemaining,
+      isTrial,
+      isExpired,
+      siteLimit,
+      workspaces,
+      sites: mergedSites,
+    };
+  };
+
+  const handleOpenCustomerAccountDetails = async (site: JetkurClientSite) => {
+    const initialViewModel = resolveCustomerAccountDetails(site);
+    setInspectingCustomerAccount(initialViewModel);
+
+    // Attempt live canonical refresh from Super Admin endpoint if authenticated
+    const identifier = site.email || site.id;
+    if (identifier) {
+      try {
+        const res = await fetch(`/api/admin/customers/${encodeURIComponent(identifier)}`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.customer) {
+            setServerCustomerAccounts((prev) => ({
+              ...prev,
+              [(site.email || "").toLowerCase()]: data.customer,
+              [site.id]: data.customer,
+            }));
+          }
+        }
+      } catch {
+        // Keep resolved canonical view model
+      }
+    }
+  };
 
   const triggerNotification = (msg: string) => {
     setSaveSuccessMsg(msg);
@@ -263,11 +498,13 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
 
   // Filtered Sites
   const filteredSites = clientSites.filter(site => {
+    const q = siteSearchQuery.toLowerCase();
     const matchesQuery = 
-      site.companyName.toLowerCase().includes(siteSearchQuery.toLowerCase()) ||
-      site.clientName.toLowerCase().includes(siteSearchQuery.toLowerCase()) ||
-      site.domain.toLowerCase().includes(siteSearchQuery.toLowerCase()) ||
-      site.sector.toLowerCase().includes(siteSearchQuery.toLowerCase());
+      site.companyName.toLowerCase().includes(q) ||
+      site.clientName.toLowerCase().includes(q) ||
+      (site.email && site.email.toLowerCase().includes(q)) ||
+      site.domain.toLowerCase().includes(q) ||
+      site.sector.toLowerCase().includes(q);
 
     const days = calculateDaysRemaining(site.renewalDate);
 
@@ -916,12 +1153,222 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
                 </div>
               )}
 
+              {/* Customer Account Details Modal / Panel ("Hesap Bilgileri") */}
+              {inspectingCustomerAccount && (
+                <div className="bg-white rounded-3xl border-2 border-slate-900 shadow-xl p-6 sm:p-7 space-y-5 animate-in fade-in duration-200">
+                  <div className="flex items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm shrink-0">
+                        <UserCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-black text-slate-900 text-base">
+                            Müşteri Hesap Bilgileri: {inspectingCustomerAccount.customerName}
+                          </h3>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              inspectingCustomerAccount.accountStatus === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : inspectingCustomerAccount.accountStatus === "SUSPENDED"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {inspectingCustomerAccount.accountStatus === "ACTIVE"
+                              ? "AKTİF HESAP"
+                              : inspectingCustomerAccount.accountStatus === "SUSPENDED"
+                              ? "ASKIDA"
+                              : "DAVETLİ"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 font-mono">
+                            Rol: {inspectingCustomerAccount.platformRole}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Kanonik kullanıcı kaydı, abonelik durumu, deneme süresi ve sahip olunan çalışma alanları / siteler
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInspectingCustomerAccount(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                      title="Kapat"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Grid: Account Info + Subscription Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 1. Account & Contact Identity */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-slate-700" />
+                        <span>Kimlik &amp; İletişim Bilgileri</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs pt-1">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Müşteri Adı Soyadı</div>
+                          <div className="font-bold text-slate-900 mt-0.5">{inspectingCustomerAccount.customerName}</div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Kayıt E-Posta Adresi</div>
+                          <div className="font-mono font-semibold text-slate-800 mt-0.5 break-all">
+                            {inspectingCustomerAccount.registrationEmail}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Telefon Numarası</div>
+                          <div className="font-semibold text-slate-800 mt-0.5">
+                            {inspectingCustomerAccount.phone || "Belirtilmemiş"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Hesap Oluşturma Tarihi</div>
+                          <div className="font-semibold text-slate-800 mt-0.5">
+                            {inspectingCustomerAccount.accountCreatedAt.split("T")[0]}
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Son Giriş Tarihi</div>
+                          <div className="font-semibold text-slate-800 mt-0.5">
+                            {inspectingCustomerAccount.lastLoginAt
+                              ? inspectingCustomerAccount.lastLoginAt.replace("T", " ").slice(0, 16)
+                              : "Henüz giriş kaydı bulunmuyor"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Subscription & Trial Details */}
+                    <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-2.5">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Abonelik &amp; Deneme Süresi Durumu</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs pt-1">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase">Kanonik Plan / Paket</div>
+                          <div className="font-black text-slate-900 mt-0.5">
+                            {inspectingCustomerAccount.planName}{" "}
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-200/70 text-amber-950">
+                              {inspectingCustomerAccount.planCode}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase">Abonelik Durumu</div>
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                inspectingCustomerAccount.subscriptionStatus === "ACTIVE"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : inspectingCustomerAccount.subscriptionStatus === "TRIALING"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-rose-100 text-rose-800"
+                              }`}
+                            >
+                              {inspectingCustomerAccount.subscriptionStatus === "ACTIVE"
+                                ? "AKTİF ABONELİK"
+                                : inspectingCustomerAccount.subscriptionStatus === "TRIALING"
+                                ? "DENEME SÜRESİNDE (TRIAL)"
+                                : inspectingCustomerAccount.subscriptionStatus === "PAST_DUE"
+                                ? "ÖDEME GECİKMİŞ"
+                                : "SÜRESİ DOLMUŞ / İPTAL"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase">
+                            {inspectingCustomerAccount.isTrial ? "Deneme Bitiş Tarihi" : "Yenileme / Bitiş Tarihi"}
+                          </div>
+                          <div className="font-bold text-slate-900 mt-0.5">
+                            {(inspectingCustomerAccount.trialEndsAt || inspectingCustomerAccount.renewalDate).split("T")[0]}
+                            <span className="ml-1.5 text-[11px] font-semibold text-slate-600">
+                              ({inspectingCustomerAccount.daysRemaining >= 0
+                                ? `${inspectingCustomerAccount.daysRemaining} gün kaldı`
+                                : `${Math.abs(inspectingCustomerAccount.daysRemaining)} gün geçti`})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase">Site Kotası &amp; Kullanım</div>
+                          <div className="font-bold text-slate-900 mt-0.5">
+                            {inspectingCustomerAccount.sites.length} / {inspectingCustomerAccount.siteLimit} Aktif Site
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Owned Workspaces & Sites */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-800" />
+                        <span>
+                          Sahip Olunan Çalışma Alanları ({inspectingCustomerAccount.workspaces.length}) &amp; Web Siteleri ({inspectingCustomerAccount.sites.length})
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {inspectingCustomerAccount.workspaces.map((ws) => (
+                          <span
+                            key={ws.id}
+                            className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-700"
+                          >
+                            🏢 {ws.name} ({ws.type} • {ws.memberRole})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {inspectingCustomerAccount.sites.map((ownedSite) => (
+                        <div
+                          key={ownedSite.id}
+                          className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-slate-900 truncate">{ownedSite.companyName}</div>
+                            <div className="text-[11px] font-mono text-slate-600 truncate">🌐 {ownedSite.domain}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {ownedSite.sector} • {ownedSite.siteType}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0 ${
+                              ownedSite.status.toUpperCase() === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {ownedSite.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Sites Table / List */}
               <div className="space-y-3">
                 {filteredSites.map((site) => {
                   const daysLeft = calculateDaysRemaining(site.renewalDate);
                   const isExpiring = daysLeft >= 0 && daysLeft <= 30;
                   const isExpired = daysLeft < 0;
+                  const accountSnapshot = resolveCustomerAccountDetails(site);
 
                   return (
                     <div 
@@ -940,27 +1387,41 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
                             isExpired ? "bg-rose-500" : isExpiring ? "bg-amber-500 animate-ping" : "bg-emerald-500"
                           }`} />
                           <span className="font-black text-slate-900 text-base">{site.companyName}</span>
-                          <span className="text-xs text-slate-500 font-medium">({site.clientName})</span>
+                          <span className="text-xs text-slate-500 font-medium">({accountSnapshot.customerName})</span>
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                             {site.sector}
                           </span>
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
                             {site.planName}
                           </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                            {accountSnapshot.subscriptionStatus === "TRIALING"
+                              ? "Deneme (Trial)"
+                              : accountSnapshot.subscriptionStatus === "ACTIVE"
+                              ? "Aktif Abonelik"
+                              : "Süresi Doldu"}
+                          </span>
                         </div>
 
                         <div className="text-xs text-slate-600 flex flex-wrap items-center gap-3">
                           <span className="font-mono text-slate-800 font-semibold">🌐 {site.domain}</span>
                           <span>•</span>
-                          <span>📞 {site.phone || "Telefon yok"}</span>
+                          <span>✉️ {accountSnapshot.registrationEmail}</span>
+                          <span>•</span>
+                          <span>📞 {accountSnapshot.phone || "Telefon yok"}</span>
                           <span>•</span>
                           <span className="text-emerald-600 font-bold">⚡ {site.pageSpeedScore}/100 PageSpeed</span>
                           <span>•</span>
                           <span className="font-bold text-slate-900">₺{site.annualRenewalFee}/yıl</span>
                         </div>
 
-                        {/* Renewal Badge */}
-                        <div className="flex items-center gap-2 pt-1">
+                        {/* Renewal & Account Metadata Badge */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="text-[11px] font-semibold text-slate-500">Kayıt:</span>
+                          <span className="text-xs font-semibold text-slate-700">
+                            {accountSnapshot.accountCreatedAt.split("T")[0]}
+                          </span>
+                          <span className="text-slate-300">|</span>
                           <span className="text-[11px] font-semibold text-slate-500">Yenileme Tarihi:</span>
                           <span className="text-xs font-bold text-slate-800">{site.renewalDate}</span>
 
@@ -988,6 +1449,17 @@ export const AdminSuperPanel: React.FC<AdminSuperPanelProps> = ({
 
                       {/* Action buttons */}
                       <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                        {/* Customer Account Details ("Hesap Bilgileri") */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCustomerAccountDetails(site)}
+                          title="Müşteri hesap, abonelik ve çalışma alanı bilgilerini görüntüle"
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Hesap Bilgileri</span>
+                        </button>
+
                         {/* Gemini SEO Content Revise */}
                         <button
                           onClick={() => {

@@ -6,7 +6,7 @@ import fs from "fs";
 import { execSync } from "child_process";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { authRouter, tenantRouter } from "./src/server/auth";
+import { authRouter, tenantRouter, adminCustomerRouter } from "./src/server/auth";
 import { entitlementRouter } from "./src/server/entitlements";
 import { industryRouter } from "./src/server/industries";
 import { onboardingRouter } from "./src/server/onboarding/routes";
@@ -88,6 +88,7 @@ async function startServer() {
   // JetKur Sprint 03, 04 & 05: Core Architecture API Routes
   app.use("/api/auth", authRouter);
   app.use("/api/tenants", tenantRouter);
+  app.use("/api/admin/customers", adminCustomerRouter);
   app.use("/api/workspaces", entitlementRouter);
   app.use("/api/industries", industryRouter);
   app.use("/api/onboarding", onboardingRouter);
