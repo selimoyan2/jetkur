@@ -80,6 +80,14 @@ export interface DesignTemplate {
   tags: string[];
 }
 
+export interface CustomDesignTokens {
+  palette?: Partial<TemplateColorTokens>;
+  typography?: Partial<TemplateTypographyTokens>;
+  geometry?: Partial<TemplateGeometryTokens>;
+  header?: Partial<TemplateHeaderTokens>;
+  footer?: Partial<TemplateFooterTokens>;
+}
+
 /**
  * Active template configuration instance attached to a specific site,
  * allowing user token customizations (e.g. customized primary color or border radius)
@@ -90,5 +98,6 @@ export interface ActiveDesignConfig {
   templateSlug: string;
   templateVersion?: string;
   appliedAt?: string;
-  customTokens?: Partial<DesignTokens>;
+  customTokens?: CustomDesignTokens;
+  sectionVariants?: Record<string, string | undefined>;
 }

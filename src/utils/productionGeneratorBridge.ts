@@ -13,8 +13,11 @@
  */
 
 import { SiteConfig, GeneratedPageFile } from "../types";
-import { fromLegacySiteConfig } from "../domain/site/legacyAdapter";
-import { resolveTemplate, CANONICAL_TEMPLATE_MANIFESTS } from "../domain/templates/catalog";
+import {
+  fromLegacySiteConfig,
+  resolveCanonicalManifestForLegacy,
+} from "../domain/site/legacyAdapter";
+import { resolveTemplate } from "../domain/templates/catalog";
 import { generateStaticSite } from "./generator";
 import { TemplateManifest } from "../domain/templates/types";
 
@@ -26,12 +29,10 @@ export interface CanonicalGenerationResult {
 
 /**
  * Resolves a TemplateManifest for the given SiteConfig.
- * Checks templateId, designSet, sector, or falls back safely to default.
+ * Checks templateId, designTemplate, theme, designSet, sector, or falls back safely to default.
  */
 export function resolveManifestForConfig(config: SiteConfig): TemplateManifest {
-  const candidateKey = config.templateId || (config as any).designSet || config.sector || "";
-  const resolved = resolveTemplate(candidateKey);
-  return resolved || CANONICAL_TEMPLATE_MANIFESTS[0];
+  return resolveCanonicalManifestForLegacy(config);
 }
 
 /**
@@ -44,7 +45,9 @@ export function generateProductionSiteFiles(config: SiteConfig): GeneratedPageFi
   const canonicalSite = fromLegacySiteConfig(config);
 
   // 2. Resolve TemplateManifest authority
-  const manifest = resolveManifestForConfig(config);
+  const manifest =
+    resolveTemplate(canonicalSite.designTemplate?.templateId) ||
+    resolveCanonicalManifestForLegacy(config);
 
   // 3. Delegate to canonical modular generator
   return generateStaticSite(canonicalSite, manifest, config);

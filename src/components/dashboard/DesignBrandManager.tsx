@@ -17,9 +17,19 @@
 import React, { useState, useEffect } from "react";
 import { SiteConfig } from "../../types";
 import { CANONICAL_TEMPLATE_MANIFESTS, resolveTemplate } from "../../domain/templates/catalog";
-import { fromLegacySiteConfig } from "../../domain/site/legacyAdapter";
+import {
+  fromLegacySiteConfig,
+  resolveCanonicalManifestForLegacy,
+} from "../../domain/site/legacyAdapter";
 import { generateCandidatePreviewHtml } from "../../domain/templates/preview";
-import { extractLogoColors, ExtractedBrandPalette } from "../../domain/brand";
+import {
+  extractLogoColors,
+  ExtractedBrandPalette,
+  createBrandKit,
+  resolveDesignTokens,
+  darkenColor,
+  normalizeHexColor,
+} from "../../domain/brand";
 import {
   Palette,
   Check,
@@ -61,9 +71,19 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
   onPreview: _onPreview,
   readOnly = false,
 }) => {
-  const [selectedColor, setSelectedColor] = useState(
-    config.brandKit?.palette?.primary || config.colorTheme?.primary || "#f59e0b"
-  );
+  const activeManifest = resolveCanonicalManifestForLegacy(config);
+  const activeTemplateId = activeManifest.id;
+  const siteSector = config.sector || "hizmet";
+
+  const effectivePrimaryColor =
+    (config as any).designTemplate?.customTokens?.palette?.primary ||
+    config.brandKit?.palette?.primary ||
+    config.colorTheme?.primary ||
+    config.palette?.primary ||
+    activeManifest.designTokens.palette.primary ||
+    "#f59e0b";
+
+  const [selectedColor, setSelectedColor] = useState(effectivePrimaryColor);
   const [activeTab, setActiveTab] = useState<"templates" | "brand">("templates");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [extractedPalette, setExtractedPalette] = useState<ExtractedBrandPalette | null>(null);
@@ -74,8 +94,9 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
   const [previewViewport, setPreviewViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [previewHtml, setPreviewHtml] = useState<string>("");
 
-  const activeTemplateId = config.templateId || "tmpl-rapid-service";
-  const siteSector = config.sector || "hizmet";
+  useEffect(() => {
+    setSelectedColor(effectivePrimaryColor);
+  }, [effectivePrimaryColor]);
 
   // When preview modal opens for a template, generate ephemeral HTML with real customer draft content
   useEffect(() => {
@@ -104,24 +125,83 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
   }, []);
 
   // One-click template switch (DRAFT only, live preserved!)
+  // Preserves BrandKit (Priority 2) and explicit user overrides (Priority 3),
+  // and never modifies business data, services, products, gallery, contact info, or SEO.
   const handleApplyTemplate = (templateId: string) => {
     if (readOnly) return;
 
     const manifest = resolveTemplate(templateId);
     if (!manifest) return;
 
-    const palette = manifest.designTokens?.palette || (manifest as any).defaultTokens?.color;
+    const canonicalCurrent = fromLegacySiteConfig(config);
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens;
+    const brandKit = config.brandKit || canonicalCurrent.brandKit;
+
+    const resolvedTokens = resolveDesignTokens(
+      manifest.designTokens,
+      brandKit,
+      existingCustomTokens
+    );
+    const resolvedPalette = resolvedTokens.palette;
+    const hasExplicitPaletteOverride = Boolean(
+      existingCustomTokens?.palette && Object.keys(existingCustomTokens.palette).length > 0
+    );
+    const resolvedPaletteId = hasExplicitPaletteOverride
+      ? "custom-override"
+      : brandKit
+      ? brandKit.id || "palette-brand-kit"
+      : manifest.id;
+
     const updated: SiteConfig = {
       ...config,
       templateId: manifest.id,
       theme: manifest.slug as any,
+      designTemplate: {
+        ...((config as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        ...(existingCustomTokens ? { customTokens: existingCustomTokens } : {}),
+        sectionVariants: {
+          ...manifest.sectionRecipe,
+        },
+      },
+      palette: {
+        ...(config.palette || { name: manifest.name }),
+        id: resolvedPaletteId,
+        name: hasExplicitPaletteOverride
+          ? "Özel Renk Paleti"
+          : brandKit
+          ? "Logodan Çıkarılan Marka Paleti"
+          : manifest.name,
+        primary: resolvedPalette.primary,
+        primaryDark: resolvedPalette.primaryDark,
+        secondary: resolvedPalette.secondary,
+        accent: resolvedPalette.accent,
+        bg: resolvedPalette.background,
+        text: resolvedPalette.text,
+      },
       colorTheme: {
         ...config.colorTheme,
-        primary: config.brandKit?.palette?.primary || palette?.primary || "#1e3a8a",
-        secondary: palette?.secondary || "#f8fafc",
-        accent: palette?.accent || "#d97706",
+        id: resolvedPaletteId,
+        name: manifest.name,
+        primary: resolvedPalette.primary,
+        secondary: resolvedPalette.secondary,
+        accent: resolvedPalette.accent,
+        fontFamily: resolvedTokens.typography.fontHeading,
+        palette: {
+          ...(config.colorTheme?.palette || {}),
+          primary: resolvedPalette.primary,
+          primaryDark: resolvedPalette.primaryDark,
+          secondary: resolvedPalette.secondary,
+          accent: resolvedPalette.accent,
+          text: resolvedPalette.text,
+          textMuted: resolvedPalette.textMuted,
+          surface: resolvedPalette.surface,
+          border: resolvedPalette.border,
+        },
       },
-    };
+    } as SiteConfig;
 
     onChange(updated);
     setPreviewTemplateId(null);
@@ -129,33 +209,216 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleColorChange = (newColor: string) => {
+  // Explicit user color override (Priority 3: customTokens.palette.primary)
+  const handleColorChange = (newColor: string, baseConfig: SiteConfig = config) => {
     if (readOnly) return;
-    setSelectedColor(newColor);
+    const normalized = normalizeHexColor(newColor) || newColor;
+    const darker = darkenColor(normalized, 15);
+    setSelectedColor(normalized);
+
+    const manifest = resolveCanonicalManifestForLegacy(baseConfig);
+    const canonicalCurrent = fromLegacySiteConfig(baseConfig);
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens || {};
+    const nextCustomTokens = {
+      ...existingCustomTokens,
+      palette: {
+        ...(existingCustomTokens.palette || {}),
+        primary: normalized,
+        primaryDark: darker,
+      },
+    };
+
+    const resolvedTokens = resolveDesignTokens(
+      manifest.designTokens,
+      baseConfig.brandKit,
+      nextCustomTokens
+    );
 
     const updated: SiteConfig = {
-      ...config,
-      colorTheme: {
-        ...config.colorTheme,
-        primary: newColor,
+      ...baseConfig,
+      designTemplate: {
+        ...((baseConfig as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        customTokens: nextCustomTokens,
+        sectionVariants: {
+          ...manifest.sectionRecipe,
+          ...((baseConfig as any).designTemplate?.sectionVariants || {}),
+        },
       },
-      brandKit: config.brandKit
-        ? {
-            ...config.brandKit,
-            palette: {
-              ...config.brandKit.palette,
-              primary: newColor,
-            },
-          }
-        : undefined,
-    };
+      palette: {
+        ...(baseConfig.palette || { name: "Özel Renk Paleti" }),
+        id: "custom-override",
+        name: "Özel Renk Paleti",
+        primary: resolvedTokens.palette.primary,
+        primaryDark: resolvedTokens.palette.primaryDark,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        bg: resolvedTokens.palette.background,
+        text: resolvedTokens.palette.text,
+      },
+      colorTheme: {
+        ...(baseConfig as any).colorTheme,
+        id: "custom-override",
+        primary: resolvedTokens.palette.primary,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        palette: {
+          ...((baseConfig as any).colorTheme?.palette || {}),
+          primary: resolvedTokens.palette.primary,
+          primaryDark: resolvedTokens.palette.primaryDark,
+          secondary: resolvedTokens.palette.secondary,
+          accent: resolvedTokens.palette.accent,
+          text: resolvedTokens.palette.text,
+          textMuted: resolvedTokens.palette.textMuted,
+          surface: resolvedTokens.palette.surface,
+          border: resolvedTokens.palette.border,
+        },
+      },
+    } as SiteConfig;
 
     onChange(updated);
     setToastMessage("Marka rengi güncellendi.");
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const applyUploadedLogo = (dataUrl: string, mimeType: string, svgContent?: string) => {
+  // Applies the logo-extracted BrandKit palette at Priority 2 (clearing any Priority 3 palette override)
+  const handleApplyExtractedBrandPalette = (
+    extracted: ExtractedBrandPalette,
+    baseConfig: SiteConfig = config,
+    logoOverride?: { dataUrl: string; mimeType: string; svgContent?: string }
+  ) => {
+    if (readOnly) return;
+    const manifest = resolveCanonicalManifestForLegacy(baseConfig);
+    const canonicalCurrent = fromLegacySiteConfig(baseConfig);
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens;
+
+    // Remove palette override so BrandKit palette governs at Priority 2
+    const cleanedCustomTokens = existingCustomTokens
+      ? {
+          ...existingCustomTokens,
+          palette: undefined,
+        }
+      : undefined;
+    const hasRemainingCustom =
+      cleanedCustomTokens &&
+      Boolean(
+        cleanedCustomTokens.typography ||
+          cleanedCustomTokens.geometry ||
+          cleanedCustomTokens.header ||
+          cleanedCustomTokens.footer
+      );
+
+    const newBrandKit = createBrandKit({
+      siteId: (baseConfig as any).siteId || baseConfig.id || "site-1",
+      logoInput: logoOverride
+        ? {
+            sourceType: logoOverride.mimeType.includes("svg") ? "svg" : "upload",
+            url: logoOverride.dataUrl,
+            svgContent: logoOverride.svgContent,
+            mimeType: logoOverride.mimeType,
+          }
+        : baseConfig.brandKit?.logo
+        ? {
+            sourceType: baseConfig.brandKit.logo.source,
+            url: baseConfig.brandKit.logo.url,
+            svgContent: baseConfig.brandKit.logo.svgContent,
+            mimeType: baseConfig.brandKit.logo.mimeType,
+          }
+        : undefined,
+      preferredPrimary: extracted.primary,
+      preferredAccent: extracted.accent,
+      fallbackTemplateTokens: manifest.designTokens,
+    });
+
+    const resolvedTokens = resolveDesignTokens(
+      manifest.designTokens,
+      newBrandKit,
+      hasRemainingCustom ? cleanedCustomTokens : undefined
+    );
+
+    setSelectedColor(resolvedTokens.palette.primary);
+
+    const logoDataUrl = logoOverride?.dataUrl || baseConfig.logo || (baseConfig as any).logoUrl;
+
+    const updated: SiteConfig = {
+      ...baseConfig,
+      ...(logoDataUrl
+        ? {
+            logo: logoDataUrl,
+            logoUrl: logoDataUrl,
+            header: {
+              ...baseConfig.header,
+              logoType: "image",
+              logoImage: logoDataUrl,
+            },
+          }
+        : {}),
+      brandKit: newBrandKit,
+      designTemplate: {
+        ...((baseConfig as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        customTokens: hasRemainingCustom ? cleanedCustomTokens : undefined,
+        sectionVariants: {
+          ...manifest.sectionRecipe,
+          ...((baseConfig as any).designTemplate?.sectionVariants || {}),
+        },
+      },
+      palette: {
+        ...(baseConfig.palette || { name: "Logodan Çıkarılan Marka Paleti" }),
+        id: newBrandKit.id || "palette-brand-kit",
+        name: "Logodan Çıkarılan Marka Paleti",
+        primary: resolvedTokens.palette.primary,
+        primaryDark: resolvedTokens.palette.primaryDark,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        bg: resolvedTokens.palette.background,
+        text: resolvedTokens.palette.text,
+      },
+      colorTheme: {
+        ...(baseConfig as any).colorTheme,
+        id: newBrandKit.id || "palette-brand-kit",
+        primary: resolvedTokens.palette.primary,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        palette: {
+          ...((baseConfig as any).colorTheme?.palette || {}),
+          primary: resolvedTokens.palette.primary,
+          primaryDark: resolvedTokens.palette.primaryDark,
+          secondary: resolvedTokens.palette.secondary,
+          accent: resolvedTokens.palette.accent,
+          text: resolvedTokens.palette.text,
+          textMuted: resolvedTokens.palette.textMuted,
+          surface: resolvedTokens.palette.surface,
+          border: resolvedTokens.palette.border,
+        },
+      },
+    } as SiteConfig;
+
+    onChange(updated);
+    setToastMessage("Logodan çıkarılan marka paleti sitenize uygulandı!");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const applyUploadedLogo = (dataUrl: string, mimeType: string, svgContent?: string): SiteConfig => {
+    const manifest = resolveCanonicalManifestForLegacy(config);
+    const updatedBrandKit = createBrandKit({
+      siteId: (config as any).siteId || (config as any).id || "site-1",
+      logoInput: {
+        sourceType: mimeType.includes("svg") ? "svg" : "upload",
+        url: dataUrl,
+        svgContent,
+        mimeType,
+      },
+      preferredPrimary: config.brandKit?.palette?.primary || selectedColor,
+      preferredSecondary: config.brandKit?.palette?.secondary,
+      preferredAccent: config.brandKit?.palette?.accent,
+      fallbackTemplateTokens: manifest.designTokens,
+    });
+
     const updated: SiteConfig = {
       ...config,
       logo: dataUrl,
@@ -165,38 +428,13 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         logoType: "image",
         logoImage: dataUrl,
       },
-      brandKit: {
-        ...config.brandKit,
-        id: config.brandKit?.id || `brand-kit-${Date.now()}`,
-        siteId: (config as any).siteId || (config as any).id || "site-1",
-        version: 1,
-        sourceColors: config.brandKit?.sourceColors || { extractedFrom: "none" },
-        logo: {
-          source: mimeType.includes("svg") ? "svg" : "upload",
-          mimeType,
-          url: dataUrl,
-          svgContent,
-        },
-        palette: config.brandKit?.palette || {
-          primary: selectedColor,
-          secondary: "#1e293b",
-          accent: selectedColor,
-          primaryDark: "#0f172a",
-          primaryLight: "#f8fafc",
-          text: "#0f172a",
-          textMuted: "#64748b",
-          surface: "#f8fafc",
-          background: "#ffffff",
-          border: "#e2e8f0",
-          buttonTextPrimary: "#ffffff",
-          buttonTextAccent: "#ffffff",
-        },
-      },
+      brandKit: updatedBrandKit,
     };
 
     onChange(updated);
     setToastMessage("Logo başarıyla yüklendi ve kurumsal kimliğinize bağlandı!");
     setTimeout(() => setToastMessage(null), 3000);
+    return updated;
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,7 +443,8 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("Logo dosya boyutu 2MB'tan küçük olmalıdır.");
+      setToastMessage("Logo dosya boyutu 2MB'tan küçük olmalıdır.");
+      setTimeout(() => setToastMessage(null), 3000);
       return;
     }
 
@@ -216,7 +455,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
       reader.onload = async (event) => {
         const svgText = event.target?.result as string;
         const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
-        applyUploadedLogo(dataUrl, "image/svg+xml", svgText);
+        const configWithLogo = applyUploadedLogo(dataUrl, "image/svg+xml", svgText);
 
         setIsColorExtracting(true);
         try {
@@ -227,7 +466,11 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
           });
           setExtractedPalette(result);
           if (result.isExtracted && result.primary) {
-            handleColorChange(result.primary);
+            handleApplyExtractedBrandPalette(result, configWithLogo, {
+              dataUrl,
+              mimeType: "image/svg+xml",
+              svgContent: svgText,
+            });
           }
         } catch {
           // ignore
@@ -239,7 +482,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     } else {
       reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
-        applyUploadedLogo(dataUrl, file.type);
+        const configWithLogo = applyUploadedLogo(dataUrl, file.type);
 
         setIsColorExtracting(true);
         try {
@@ -250,7 +493,10 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
           });
           setExtractedPalette(result);
           if (result.isExtracted && result.primary) {
-            handleColorChange(result.primary);
+            handleApplyExtractedBrandPalette(result, configWithLogo, {
+              dataUrl,
+              mimeType: file.type,
+            });
           }
         } catch {
           // ignore
@@ -507,7 +753,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleColorChange(extractedPalette.primary)}
+                  onClick={() => handleApplyExtractedBrandPalette(extractedPalette)}
                   className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition-colors cursor-pointer"
                 >
                   Otomatik Paleti Kullan

@@ -13,15 +13,806 @@
 import { SiteConfig } from "../../types";
 import { CanonicalSite } from "./site";
 import { BusinessProfile } from "./businessProfile";
-import { ActiveDesignConfig } from "./designTemplate";
+import {
+  ActiveDesignConfig,
+  CustomDesignTokens,
+  DesignTokens,
+  TemplateColorTokens,
+  TemplateGeometryTokens,
+  TemplateTypographyTokens,
+} from "./designTemplate";
 import { SectionConfiguration, SiteSectionItem, CanonicalSectionType } from "./sectionConfiguration";
 import { SiteContent } from "./siteContent";
 import { SiteSettings } from "./siteSettings";
+import {
+  CANONICAL_TEMPLATE_MANIFESTS,
+  resolveTemplate,
+} from "../templates/catalog";
+import { TemplateManifest } from "../templates/types";
+import { BrandKit } from "../brand/types";
+import { resolveDesignTokens } from "../brand/tokenResolver";
+import { darkenColor, normalizeHexColor } from "../brand/colorUtils";
+import { COLOR_PALETTES, TEMPLATES } from "../../data/templates";
+
+export type LegacyTokenSourceClassification =
+  | "none"
+  | "auto_default"
+  | "template_default"
+  | "brandkit_derived"
+  | "explicit_user_override"
+  | "preserved_legacy_custom"
+  | "ambiguous_preserved";
+
+export interface LegacyTokenProvenanceReport {
+  resolvedTemplateId: string;
+  resolvedTemplateSlug: string;
+  classification: LegacyTokenSourceClassification;
+  hasBrandKit: boolean;
+  explicitOverrideKeys: string[];
+  preservedLegacyKeys: string[];
+  ignoredAutoDefaultKeys: string[];
+  ambiguities: string[];
+}
+
+const SECTOR_KEYWORD_TO_TEMPLATE_ID: ReadonlyArray<{ keywords: string[]; templateId: string }> = [
+  { keywords: ["dis", "diş", "klinik", "saglik", "sağlık", "medikal", "hekim", "doktor", "dental"], templateId: "tmpl-clinical-pure" },
+  { keywords: ["hukuk", "avukat", "arabulucu", "danismanlik", "danışmanlık", "mali", "legal"], templateId: "tmpl-formal-legal" },
+  { keywords: ["restoran", "kafe", "gida", "gıda", "firin", "fırın", "hali", "halı", "zanaat", "yemek", "gurme"], templateId: "tmpl-artisan-warm" },
+  { keywords: ["mimar", "tasarim", "tasarım", "studyo", "stüdyo", "insaat", "inşaat", "dekorasyon"], templateId: "tmpl-modern-minimal" },
+  { keywords: ["vip", "luks", "lüks", "guzellik", "güzellik", "kuafor", "kuaför", "estetik", "spa"], templateId: "tmpl-vip-luxury" },
+  { keywords: ["yazilim", "yazılım", "teknoloji", "bilisim", "bilişim", "dijital", "saas", "bilgisayar"], templateId: "tmpl-tech-dynamic" },
+  { keywords: ["oto", "kurtarma", "cekici", "çekici", "tesisat", "sihhi", "sıhhi", "nakliyat", "kombi", "klima", "servis", "acil", "tamir"], templateId: "tmpl-rapid-service" },
+  { keywords: ["kurumsal", "sirket", "şirket", "holding", "finans", "lojistik"], templateId: "tmpl-corporate-prestige" },
+];
+
+/**
+ * Resolves the authoritative Canonical TemplateManifest for a legacy SiteConfig.
+ */
+export function resolveCanonicalManifestForLegacy(legacy: SiteConfig): TemplateManifest {
+  const rawTemplateId = typeof legacy.templateId === "string" ? legacy.templateId.trim() : "";
+  const dtTemplateId = typeof (legacy as any).designTemplate?.templateId === "string"
+    ? (legacy as any).designTemplate.templateId.trim()
+    : "";
+  const dtTemplateSlug = typeof (legacy as any).designTemplate?.templateSlug === "string"
+    ? (legacy as any).designTemplate.templateSlug.trim()
+    : "";
+  const rawTheme = typeof (legacy as any).theme === "string" ? (legacy as any).theme.trim() : "";
+  const rawDesignSet = typeof (legacy as any).designSet === "string" ? (legacy as any).designSet.trim() : "";
+
+  // 1. Explicit canonical/legacy templateId on SiteConfig (unless it is the unconfigured DB mapper fallback "corporate-prestige" while designSet is set)
+  if (rawTemplateId && !(rawTemplateId === "corporate-prestige" && rawDesignSet)) {
+    const byId = resolveTemplate(rawTemplateId);
+    if (byId) return byId;
+  }
+
+  // 2. Active designTemplate.templateId / templateSlug
+  if (dtTemplateId && !(dtTemplateId === "corporate-prestige" && rawDesignSet)) {
+    const byDtId = resolveTemplate(dtTemplateId);
+    if (byDtId) return byDtId;
+  }
+  if (dtTemplateSlug && !(dtTemplateSlug === "corporate-prestige" && rawDesignSet)) {
+    const byDtSlug = resolveTemplate(dtTemplateSlug);
+    if (byDtSlug) return byDtSlug;
+  }
+
+  // 3. Theme slug or QuickStart designSet
+  if (rawTheme) {
+    const byTheme = resolveTemplate(rawTheme);
+    if (byTheme) return byTheme;
+  }
+  if (rawDesignSet) {
+    const byDesignSet = resolveTemplate(rawDesignSet);
+    if (byDesignSet) return byDesignSet;
+  }
+
+  // 4. Sector mapping
+  const rawSector = typeof legacy.sector === "string" ? legacy.sector.trim() : "";
+  if (rawSector) {
+    const directSectorMatch = resolveTemplate(rawSector);
+    if (directSectorMatch) return directSectorMatch;
+
+    const lowerSector = rawSector.toLowerCase();
+    for (const entry of SECTOR_KEYWORD_TO_TEMPLATE_ID) {
+      if (entry.keywords.some((kw) => lowerSector.includes(kw))) {
+        const matched = resolveTemplate(entry.templateId);
+        if (matched) return matched;
+      }
+    }
+  }
+
+  // 5. Fallback if rawTemplateId was "corporate-prestige"
+  if (rawTemplateId) {
+    const byFallbackId = resolveTemplate(rawTemplateId);
+    if (byFallbackId) return byFallbackId;
+  }
+
+  return CANONICAL_TEMPLATE_MANIFESTS[0];
+}
+
+// Known automatically populated system boilerplate palettes
+const SYSTEM_BOILERPLATE_PALETTES: ReadonlyArray<Record<string, string>> = [
+  // 1. Old legacyAdapter hardcoded fallback
+  {
+    primary: "#1e40af",
+    primaryDark: "#1e3a8a",
+    secondary: "#0d9488",
+    accent: "#f59e0b",
+    text: "#0f172a",
+    textMuted: "#64748b",
+    background: "#ffffff",
+    surface: "#f8fafc",
+    border: "#e2e8f0",
+  },
+  // 2. toLegacySiteConfig / onboardingService default blue
+  {
+    primary: "#2563eb",
+    primaryDark: "#1d4ed8",
+    secondary: "#0f172a",
+    accent: "#f59e0b",
+    text: "#0f172a",
+    textMuted: "#64748b",
+    background: "#ffffff",
+    surface: "#ffffff",
+    border: "#e2e8f0",
+  },
+  {
+    primary: "#2563eb",
+    primaryDark: "#1d4ed8",
+    secondary: "#f8fafc",
+    accent: "#f59e0b",
+    text: "#0f172a",
+    textMuted: "#64748b",
+    background: "#ffffff",
+    surface: "#ffffff",
+    border: "#e2e8f0",
+  },
+  // 3. DB mapper default fallback (mappers.ts)
+  {
+    primary: "#1e3a8a",
+    primaryDark: "#172554",
+    secondary: "#0f172a",
+    accent: "#3b82f6",
+    text: "#1e293b",
+    textMuted: "#64748b",
+    background: "#ffffff",
+    surface: "#ffffff",
+    border: "#e2e8f0",
+  },
+];
+
+// QuickStartDesignSets stock palettes (from QuickStartDesignSets.tsx)
+const QUICKSTART_DESIGN_SET_PALETTES: Readonly<Record<string, Record<string, string>>> = {
+  "emergency-speed-orange": {
+    primary: "#ea580c",
+    primaryDark: "#c2410c",
+    secondary: "#fff7ed",
+    accent: "#facc15",
+    text: "#1c1917",
+    textMuted: "#57534e",
+    surface: "#ffffff",
+    border: "#fed7aa",
+  },
+  "corporate-prestige-navy": {
+    primary: "#1e3a8a",
+    primaryDark: "#172554",
+    secondary: "#f8fafc",
+    accent: "#d97706",
+    text: "#0f172a",
+    textMuted: "#475569",
+    surface: "#ffffff",
+    border: "#e2e8f0",
+  },
+  "medical-pure-emerald": {
+    primary: "#059669",
+    primaryDark: "#047857",
+    secondary: "#ecfdf5",
+    accent: "#0284c7",
+    text: "#064e3b",
+    textMuted: "#475569",
+    surface: "#ffffff",
+    border: "#a7f3d0",
+  },
+  "gourmet-warm-crimson": {
+    primary: "#b91c1c",
+    primaryDark: "#7f1d1d",
+    secondary: "#fef2f2",
+    accent: "#d97706",
+    text: "#1c1917",
+    textMuted: "#57534e",
+    surface: "#ffffff",
+    border: "#fecaca",
+  },
+  "architecture-dark-minimal": {
+    primary: "#18181b",
+    primaryDark: "#09090b",
+    secondary: "#f4f4f5",
+    accent: "#a1a1aa",
+    text: "#09090b",
+    textMuted: "#52525b",
+    surface: "#ffffff",
+    border: "#e4e4e7",
+  },
+  "luxury-gold-vip": {
+    primary: "#b45309",
+    primaryDark: "#78350f",
+    secondary: "#fffbeb",
+    accent: "#1c1917",
+    text: "#1c1917",
+    textMuted: "#57534e",
+    surface: "#ffffff",
+    border: "#fde68a",
+  },
+  "tech-cyan-modern": {
+    primary: "#0284c7",
+    primaryDark: "#0369a1",
+    secondary: "#f0f9ff",
+    accent: "#6366f1",
+    text: "#0f172a",
+    textMuted: "#475569",
+    surface: "#ffffff",
+    border: "#bae6fd",
+  },
+  "legal-prestige-purple": {
+    primary: "#4c1d95",
+    primaryDark: "#2e1065",
+    secondary: "#f5f3ff",
+    accent: "#b45309",
+    text: "#1e1b4b",
+    textMuted: "#475569",
+    surface: "#ffffff",
+    border: "#ddd6fe",
+  },
+};
+
+function sameHex(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  const na = normalizeHexColor(a) || a.trim().toLowerCase();
+  const nb = normalizeHexColor(b) || b.trim().toLowerCase();
+  return na === nb;
+}
+
+function isOldAdapterHardcodedCustomTokens(customTokens: CustomDesignTokens | Partial<DesignTokens> | undefined): boolean {
+  if (!customTokens) return false;
+  const p = customTokens.palette;
+  const t = customTokens.typography;
+  const g = customTokens.geometry;
+  if (!p || !t || !g) return false;
+  return (
+    sameHex(p.primary, "#1e40af") &&
+    sameHex(p.primaryDark, "#1e3a8a") &&
+    sameHex(p.secondary, "#0d9488") &&
+    sameHex(p.accent, "#f59e0b") &&
+    t.fontHeading === "Inter, sans-serif" &&
+    g.containerMaxWidth === "wide" &&
+    g.cardStyle === "subtle-shadow"
+  );
+}
+
+function normalizeLegacyBorderRadius(
+  raw?: string
+): TemplateGeometryTokens["borderRadius"] | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const trimmed = raw.trim().toLowerCase();
+  if (
+    trimmed === "none" ||
+    trimmed === "sm" ||
+    trimmed === "md" ||
+    trimmed === "lg" ||
+    trimmed === "xl" ||
+    trimmed === "2xl" ||
+    trimmed === "full"
+  ) {
+    return trimmed;
+  }
+  if (trimmed === "0" || trimmed === "0px" || trimmed === "0rem") return "none";
+  if (trimmed === "4px" || trimmed === "0.25rem") return "sm";
+  if (trimmed === "8px" || trimmed === "0.5rem") return "md";
+  if (trimmed === "12px" || trimmed === "0.75rem") return "lg";
+  if (trimmed === "16px" || trimmed === "1rem") return "xl";
+  if (trimmed === "24px" || trimmed === "1.5rem") return "2xl";
+  if (trimmed === "9999px" || trimmed === "50%") return "full";
+  return undefined;
+}
+
+const AUTO_POPULATED_FONT_FAMILIES = new Set([
+  "inter",
+  "inter, sans-serif",
+  "'inter', sans-serif",
+  "plus jakarta sans",
+  "'plus jakarta sans', sans-serif",
+]);
+
+const AUTO_POPULATED_BORDER_RADII = new Set([
+  "16px",
+  "0.5rem",
+  "0.75rem",
+  "md",
+]);
+
+/**
+ * Inspects a legacy SiteConfig and determines which token values are:
+ * - automatically populated legacy/template defaults (ignored so TemplateManifest & BrandKit govern)
+ * - BrandKit-derived tokens (preserved on BrandKit at Priority 2, not duplicated into Priority 3 customTokens)
+ * - explicit user overrides or genuinely customized legacy site tokens (preserved in Priority 3 customTokens)
+ * - ambiguous legacy values (preserved safely and reported in provenance.ambiguities)
+ */
+export function inspectLegacyTokenProvenance(
+  legacy: SiteConfig,
+  manifestArg?: TemplateManifest
+): {
+  customTokens?: CustomDesignTokens;
+  provenance: LegacyTokenProvenanceReport;
+} {
+  const manifest = manifestArg || resolveCanonicalManifestForLegacy(legacy);
+  const brandKit: BrandKit | undefined =
+    (legacy as any).brandKit || (legacy as any).businessProfile?.branding?.brandKit;
+
+  const report: LegacyTokenProvenanceReport = {
+    resolvedTemplateId: manifest.id,
+    resolvedTemplateSlug: manifest.slug,
+    classification: "none",
+    hasBrandKit: Boolean(brandKit),
+    explicitOverrideKeys: [],
+    preservedLegacyKeys: [],
+    ignoredAutoDefaultKeys: [],
+    ambiguities: [],
+  };
+
+  const customPalette: Partial<TemplateColorTokens> = {};
+  const customTypography: Partial<TemplateTypographyTokens> = {};
+  const customGeometry: Partial<TemplateGeometryTokens> = {};
+
+  const rawDesignTemplateCustom: CustomDesignTokens | undefined = (legacy as any).designTemplate?.customTokens;
+  const isExplicitCustomOverrideId =
+    (legacy as any).colorTheme?.id === "custom-override" ||
+    legacy.palette?.id === "custom-override";
+
+  // 1. Check explicit designTemplate.customTokens (if not the old adapter's hardcoded boilerplate dump)
+  if (rawDesignTemplateCustom && !isOldAdapterHardcodedCustomTokens(rawDesignTemplateCustom)) {
+    const dtPalette = rawDesignTemplateCustom.palette;
+    if (dtPalette) {
+      const paletteKeys: Array<keyof TemplateColorTokens> = [
+        "primary",
+        "primaryDark",
+        "secondary",
+        "accent",
+        "text",
+        "textMuted",
+        "background",
+        "surface",
+        "border",
+      ];
+      for (const k of paletteKeys) {
+        const val = dtPalette[k];
+        if (!val) continue;
+        // If BrandKit exists and this value is identical to BrandKit's token (and not marked custom-override), let BrandKit govern at Priority 2
+        if (brandKit?.palette && sameHex(val, brandKit.palette[k]) && !isExplicitCustomOverrideId) {
+          report.ignoredAutoDefaultKeys.push(`designTemplate.customTokens.palette.${k}`);
+          continue;
+        }
+        // If no BrandKit and identical to manifest default (and not marked custom-override), let TemplateManifest govern at Priority 1
+        if (!brandKit && sameHex(val, manifest.designTokens.palette[k]) && !isExplicitCustomOverrideId) {
+          report.ignoredAutoDefaultKeys.push(`designTemplate.customTokens.palette.${k}`);
+          continue;
+        }
+        customPalette[k] = val;
+        report.explicitOverrideKeys.push(`palette.${k}`);
+      }
+    }
+
+    if (rawDesignTemplateCustom.typography) {
+      const dtTypo = rawDesignTemplateCustom.typography;
+      if (dtTypo.fontHeading && dtTypo.fontHeading !== manifest.designTokens.typography.fontHeading) {
+        customTypography.fontHeading = dtTypo.fontHeading;
+        report.explicitOverrideKeys.push("typography.fontHeading");
+      }
+      if (dtTypo.fontBody && dtTypo.fontBody !== manifest.designTokens.typography.fontBody) {
+        customTypography.fontBody = dtTypo.fontBody;
+        report.explicitOverrideKeys.push("typography.fontBody");
+      }
+      if (dtTypo.headingWeight && dtTypo.headingWeight !== manifest.designTokens.typography.headingWeight) {
+        customTypography.headingWeight = dtTypo.headingWeight;
+        report.explicitOverrideKeys.push("typography.headingWeight");
+      }
+      if (dtTypo.baseFontSize && dtTypo.baseFontSize !== manifest.designTokens.typography.baseFontSize) {
+        customTypography.baseFontSize = dtTypo.baseFontSize;
+        report.explicitOverrideKeys.push("typography.baseFontSize");
+      }
+    }
+
+    if (rawDesignTemplateCustom.geometry) {
+      const dtGeom = rawDesignTemplateCustom.geometry;
+      const normBr = normalizeLegacyBorderRadius(dtGeom.borderRadius);
+      if (normBr && normBr !== manifest.designTokens.geometry.borderRadius) {
+        customGeometry.borderRadius = normBr;
+        report.explicitOverrideKeys.push("geometry.borderRadius");
+      }
+      if (dtGeom.containerMaxWidth && dtGeom.containerMaxWidth !== manifest.designTokens.geometry.containerMaxWidth) {
+        customGeometry.containerMaxWidth = dtGeom.containerMaxWidth;
+        report.explicitOverrideKeys.push("geometry.containerMaxWidth");
+      }
+      if (dtGeom.sectionSpacing && dtGeom.sectionSpacing !== manifest.designTokens.geometry.sectionSpacing) {
+        customGeometry.sectionSpacing = dtGeom.sectionSpacing;
+        report.explicitOverrideKeys.push("geometry.sectionSpacing");
+      }
+      if (dtGeom.cardStyle && dtGeom.cardStyle !== manifest.designTokens.geometry.cardStyle) {
+        customGeometry.cardStyle = dtGeom.cardStyle;
+        report.explicitOverrideKeys.push("geometry.cardStyle");
+      }
+    }
+  }
+
+  // 2. Inspect legacy.colorTheme & legacy.palette
+  const rawColorTheme = (legacy as any).colorTheme;
+  const rawColorThemePalette = rawColorTheme?.palette;
+  const rawLegacyPalette = legacy.palette;
+
+  // Build candidate legacy colors from colorTheme (higher priority in UI) and legacy.palette
+  const candidatePrimary =
+    rawColorTheme?.primary ||
+    rawColorThemePalette?.primary ||
+    rawLegacyPalette?.primary;
+  const candidatePrimaryDark =
+    rawColorThemePalette?.primaryDark &&
+    (!rawColorTheme?.primary ||
+      sameHex(rawColorTheme.primary, rawColorThemePalette?.primary) ||
+      !sameHex(rawColorThemePalette.primaryDark, rawLegacyPalette?.primaryDark))
+      ? rawColorThemePalette.primaryDark
+      : sameHex(candidatePrimary, rawLegacyPalette?.primary)
+      ? rawLegacyPalette?.primaryDark
+      : undefined;
+  const candidateSecondary =
+    rawColorTheme?.secondary ||
+    rawColorThemePalette?.secondary ||
+    rawLegacyPalette?.secondary;
+  const candidateAccent =
+    rawColorTheme?.accent ||
+    rawColorThemePalette?.accent ||
+    rawLegacyPalette?.accent;
+  const candidateText =
+    rawColorThemePalette?.text ||
+    rawLegacyPalette?.text;
+  const candidateTextMuted = rawColorThemePalette?.textMuted;
+  const candidateBackground = rawLegacyPalette?.bg;
+  const candidateSurface = rawColorThemePalette?.surface;
+  const candidateBorder = rawColorThemePalette?.border;
+
+  const hasAnyLegacyColor = Boolean(
+    candidatePrimary ||
+      candidatePrimaryDark ||
+      candidateSecondary ||
+      candidateAccent ||
+      candidateText ||
+      candidateTextMuted ||
+      candidateBackground ||
+      candidateSurface ||
+      candidateBorder
+  );
+
+  if (hasAnyLegacyColor) {
+    // Identify if the legacy palette/colorTheme matches a known stock/preset source
+    const colorThemeId = typeof rawColorTheme?.id === "string" ? rawColorTheme.id.trim() : "";
+    const paletteId = typeof rawLegacyPalette?.id === "string" ? rawLegacyPalette.id.trim() : "";
+
+    // Find matching stock palette from COLOR_PALETTES, CANONICAL_TEMPLATE_MANIFESTS, QUICKSTART_DESIGN_SET_PALETTES, or SYSTEM_BOILERPLATE_PALETTES
+    const matchedStockColorPalette = COLOR_PALETTES.find(
+      (cp) =>
+        (paletteId && cp.id === paletteId) ||
+        (sameHex(cp.primary, candidatePrimary) &&
+          (!candidatePrimaryDark || sameHex(cp.primaryDark, candidatePrimaryDark)) &&
+          sameHex(cp.secondary, candidateSecondary) &&
+          sameHex(cp.accent, candidateAccent))
+    );
+
+    const matchedCanonicalManifest = CANONICAL_TEMPLATE_MANIFESTS.find(
+      (m) =>
+        colorThemeId === m.id ||
+        colorThemeId === m.slug ||
+        paletteId === m.id ||
+        paletteId === m.slug ||
+        (sameHex(m.designTokens.palette.primary, candidatePrimary) &&
+          sameHex(m.designTokens.palette.secondary, candidateSecondary) &&
+          sameHex(m.designTokens.palette.accent, candidateAccent))
+    );
+
+    const matchedDesignSetPalette =
+      (colorThemeId && QUICKSTART_DESIGN_SET_PALETTES[colorThemeId]) ||
+      ((legacy as any).designSet && QUICKSTART_DESIGN_SET_PALETTES[(legacy as any).designSet]) ||
+      Object.values(QUICKSTART_DESIGN_SET_PALETTES).find(
+        (dsp) =>
+          sameHex(dsp.primary, candidatePrimary) &&
+          sameHex(dsp.secondary, candidateSecondary) &&
+          sameHex(dsp.accent, candidateAccent)
+      );
+
+    const matchedBoilerplate = SYSTEM_BOILERPLATE_PALETTES.find(
+      (bp) =>
+        sameHex(bp.primary, candidatePrimary) &&
+        (!candidateSecondary || sameHex(bp.secondary, candidateSecondary)) &&
+        (!candidateAccent || sameHex(bp.accent, candidateAccent))
+    );
+
+    // Check if candidate colors match BrandKit palette
+    const isBrandKitId =
+      paletteId === "palette-brand-kit" ||
+      paletteId.startsWith("brandkit-") ||
+      paletteId.startsWith("bkit-") ||
+      colorThemeId.startsWith("brandkit-") ||
+      colorThemeId.startsWith("bkit-");
+
+    const matchesBrandKit =
+      Boolean(brandKit?.palette) &&
+      sameHex(candidatePrimary, brandKit!.palette.primary) &&
+      (!candidateSecondary ||
+        sameHex(candidateSecondary, brandKit!.palette.secondary) ||
+        sameHex(candidateSecondary, manifest.designTokens.palette.secondary)) &&
+      (!candidateAccent ||
+        sameHex(candidateAccent, brandKit!.palette.accent) ||
+        sameHex(candidateAccent, manifest.designTokens.palette.accent));
+
+    // Check if this is createNeutralSiteConfig()'s auto-populated COLOR_PALETTES[0] ("navy-modern")
+    const isNeutralConfigDefault =
+      matchedStockColorPalette?.id === "navy-modern" &&
+      !isExplicitCustomOverrideId &&
+      (Boolean(legacy.id?.startsWith("site-fresh-")) ||
+        legacy.companyName === "Yeni Web Sitemiz" ||
+        Boolean(legacy.templateId?.startsWith("tmpl-")) ||
+        Boolean(brandKit));
+
+    // Check if matchedStockColorPalette is the defaultColors of a legacy template in TEMPLATES
+    const legacyTemplateEntry = TEMPLATES.find((t) => t.id === legacy.templateId);
+    const isLegacyTemplateDefaultPalette =
+      Boolean(matchedStockColorPalette) &&
+      !isExplicitCustomOverrideId &&
+      (legacyTemplateEntry?.defaultColors?.id === matchedStockColorPalette!.id ||
+        // Or if template was switched to a canonical tmpl-* that differs from the old stock palette's template
+        Boolean(legacy.templateId?.startsWith("tmpl-")));
+
+    const isAutoOrTemplateDefault =
+      !isExplicitCustomOverrideId &&
+      (isBrandKitId ||
+        colorThemeId === "default" ||
+        Boolean(matchedBoilerplate) ||
+        Boolean(matchedCanonicalManifest) ||
+        Boolean(matchedDesignSetPalette) ||
+        isNeutralConfigDefault ||
+        isLegacyTemplateDefaultPalette);
+
+    // Reference baseline palette if user modified a single field on top of a stock/boilerplate/brandKit palette
+    const baselineSourcePalette: Partial<TemplateColorTokens> | undefined =
+      (isBrandKitId ? brandKit?.palette : undefined) ||
+      matchedCanonicalManifest?.designTokens.palette ||
+      (matchedDesignSetPalette as Partial<TemplateColorTokens> | undefined) ||
+      (matchedStockColorPalette
+        ? {
+            primary: matchedStockColorPalette.primary,
+            primaryDark: matchedStockColorPalette.primaryDark,
+            secondary: matchedStockColorPalette.secondary,
+            accent: matchedStockColorPalette.accent,
+            text: matchedStockColorPalette.text,
+            background: matchedStockColorPalette.bg,
+          }
+        : undefined) ||
+      (matchedBoilerplate as Partial<TemplateColorTokens> | undefined) ||
+      (colorThemeId === "default" ? (SYSTEM_BOILERPLATE_PALETTES[2] as Partial<TemplateColorTokens>) : undefined) ||
+      brandKit?.palette;
+
+    if (isExplicitCustomOverrideId) {
+      // Explicit user override via UI color picker / preset
+      report.classification = "explicit_user_override";
+      if (candidatePrimary && !customPalette.primary) {
+        customPalette.primary = candidatePrimary;
+        customPalette.primaryDark =
+          candidatePrimaryDark && !sameHex(candidatePrimaryDark, baselineSourcePalette?.primaryDark)
+            ? candidatePrimaryDark
+            : darkenColor(normalizeHexColor(candidatePrimary) || "#1e40af", 15);
+        report.explicitOverrideKeys.push("palette.primary");
+      }
+      if (
+        candidateSecondary &&
+        !customPalette.secondary &&
+        !sameHex(candidateSecondary, manifest.designTokens.palette.secondary) &&
+        !sameHex(candidateSecondary, brandKit?.palette?.secondary)
+      ) {
+        customPalette.secondary = candidateSecondary;
+        report.explicitOverrideKeys.push("palette.secondary");
+      }
+      if (
+        candidateAccent &&
+        !customPalette.accent &&
+        !sameHex(candidateAccent, manifest.designTokens.palette.accent) &&
+        !sameHex(candidateAccent, brandKit?.palette?.accent)
+      ) {
+        customPalette.accent = candidateAccent;
+        report.explicitOverrideKeys.push("palette.accent");
+      }
+    } else if (matchesBrandKit) {
+      // Colors match BrandKit (Priority 2) - do not promote into Priority 3 customTokens
+      if (report.explicitOverrideKeys.length === 0) {
+        report.classification = "brandkit_derived";
+      }
+      report.ignoredAutoDefaultKeys.push("palette (matches BrandKit)");
+    } else if (brandKit) {
+      // BrandKit is present on the site.
+      // Only treat a legacy color field as an explicit user override if it was genuinely modified
+      // away from all known stock/boilerplate/template defaults AND differs from BrandKit!
+      if (isAutoOrTemplateDefault && baselineSourcePalette) {
+        // Check if a specific field (like primary) was modified on top of the stock/boilerplate palette
+        if (
+          candidatePrimary &&
+          !sameHex(candidatePrimary, baselineSourcePalette.primary) &&
+          !sameHex(candidatePrimary, brandKit.palette.primary) &&
+          !sameHex(candidatePrimary, manifest.designTokens.palette.primary)
+        ) {
+          customPalette.primary = candidatePrimary;
+          customPalette.primaryDark = darkenColor(normalizeHexColor(candidatePrimary) || "#1e40af", 15);
+          report.explicitOverrideKeys.push("palette.primary");
+          report.classification = "explicit_user_override";
+        } else {
+          report.ignoredAutoDefaultKeys.push("palette (auto/template default ignored in favor of BrandKit)");
+          if (report.explicitOverrideKeys.length === 0) {
+            report.classification = "brandkit_derived";
+          }
+        }
+      } else if (!matchedStockColorPalette && !matchedBoilerplate && !matchedCanonicalManifest && !matchedDesignSetPalette) {
+        // Custom hex color on colorTheme/palette that matches no stock preset and differs from BrandKit
+        if (
+          candidatePrimary &&
+          !sameHex(candidatePrimary, brandKit.palette.primary) &&
+          !sameHex(candidatePrimary, manifest.designTokens.palette.primary) &&
+          // Guard against un-ID'd boilerplate primary colors (#1e40af, #2563eb, #0284c7 default fixture) when rawColorTheme.primary wasn't explicitly set
+          Boolean(rawColorTheme?.primary || rawColorThemePalette?.primary)
+        ) {
+          customPalette.primary = candidatePrimary;
+          customPalette.primaryDark = darkenColor(normalizeHexColor(candidatePrimary) || "#1e40af", 15);
+          report.explicitOverrideKeys.push("palette.primary");
+          report.classification = "explicit_user_override";
+        } else {
+          report.ignoredAutoDefaultKeys.push("palette (legacy unlabelled palette deferred to BrandKit)");
+          if (report.explicitOverrideKeys.length === 0) {
+            report.classification = "brandkit_derived";
+          }
+        }
+      } else {
+        report.ignoredAutoDefaultKeys.push("palette (stock preset ignored in favor of BrandKit)");
+        if (report.explicitOverrideKeys.length === 0) {
+          report.classification = "brandkit_derived";
+        }
+      }
+    } else {
+      // NO BrandKit is present on the site.
+      if (isAutoOrTemplateDefault) {
+        // Check if primary was customized on top of onboarding/default palette (e.g. onboardingService input.brandColor)
+        if (
+          candidatePrimary &&
+          baselineSourcePalette?.primary &&
+          !sameHex(candidatePrimary, baselineSourcePalette.primary) &&
+          !sameHex(candidatePrimary, manifest.designTokens.palette.primary)
+        ) {
+          customPalette.primary = candidatePrimary;
+          customPalette.primaryDark = darkenColor(normalizeHexColor(candidatePrimary) || "#1e40af", 15);
+          report.explicitOverrideKeys.push("palette.primary");
+          report.classification = "explicit_user_override";
+        } else {
+          report.ignoredAutoDefaultKeys.push("palette (auto/template default)");
+          if (report.explicitOverrideKeys.length === 0) {
+            report.classification = matchedCanonicalManifest ? "template_default" : "auto_default";
+          }
+        }
+      } else {
+        // Genuinely customized legacy site palette or ambiguous legacy palette (when no BrandKit exists)
+        const isIntentionalStockSelection =
+          Boolean(matchedStockColorPalette) &&
+          !isNeutralConfigDefault &&
+          !isLegacyTemplateDefaultPalette;
+
+        if (!isIntentionalStockSelection && !paletteId && !colorThemeId) {
+          report.ambiguities.push(
+            "Legacy palette has custom colors without an explicit palette/colorTheme ID; preserving values to avoid silently changing customer branding."
+          );
+          report.classification = "ambiguous_preserved";
+        } else {
+          report.classification = "preserved_legacy_custom";
+        }
+
+        const applyIfDiffersFromManifest = (
+          key: keyof TemplateColorTokens,
+          val: string | undefined,
+          boilerplateVal?: string
+        ) => {
+          if (!val || customPalette[key]) return;
+          if (sameHex(val, manifest.designTokens.palette[key])) return;
+          if (boilerplateVal && sameHex(val, boilerplateVal) && !isIntentionalStockSelection) return;
+          customPalette[key] = val;
+          report.preservedLegacyKeys.push(`palette.${key}`);
+        };
+
+        applyIfDiffersFromManifest("primary", candidatePrimary);
+        if (customPalette.primary) {
+          if (candidatePrimaryDark && !sameHex(candidatePrimaryDark, "#1e3a8a") && !sameHex(candidatePrimaryDark, "#1d4ed8")) {
+            applyIfDiffersFromManifest("primaryDark", candidatePrimaryDark);
+          } else {
+            customPalette.primaryDark = darkenColor(normalizeHexColor(customPalette.primary) || "#1e40af", 15);
+          }
+        }
+        applyIfDiffersFromManifest("secondary", candidateSecondary);
+        applyIfDiffersFromManifest("accent", candidateAccent);
+        applyIfDiffersFromManifest("text", candidateText, "#0f172a");
+        applyIfDiffersFromManifest("textMuted", candidateTextMuted, "#64748b");
+        applyIfDiffersFromManifest("background", candidateBackground, "#ffffff");
+        applyIfDiffersFromManifest("surface", candidateSurface, "#ffffff");
+        applyIfDiffersFromManifest("border", candidateBorder, "#e2e8f0");
+      }
+    }
+  }
+
+  // 3. Inspect legacy fontFamily & borderRadius (ignore auto-populated and manifest defaults!)
+  const rawFont = (rawColorTheme?.fontFamily || legacy.fontFamily || "").trim();
+  if (rawFont) {
+    if (
+      AUTO_POPULATED_FONT_FAMILIES.has(rawFont.toLowerCase()) ||
+      rawFont.toLowerCase() === manifest.designTokens.typography.fontHeading.toLowerCase() ||
+      rawFont.toLowerCase() === manifest.designTokens.typography.fontBody.toLowerCase()
+    ) {
+      report.ignoredAutoDefaultKeys.push("typography.fontFamily");
+    } else if (!customTypography.fontHeading) {
+      customTypography.fontHeading = rawFont;
+      report.preservedLegacyKeys.push("typography.fontHeading");
+      if (report.classification === "none" || report.classification === "auto_default") {
+        report.classification = "preserved_legacy_custom";
+      }
+    }
+  }
+
+  const rawRadius = (rawColorTheme?.borderRadius || legacy.borderRadius || "").trim();
+  if (rawRadius) {
+    if (AUTO_POPULATED_BORDER_RADII.has(rawRadius.toLowerCase())) {
+      report.ignoredAutoDefaultKeys.push("geometry.borderRadius");
+    } else {
+      const normalizedRadius = normalizeLegacyBorderRadius(rawRadius);
+      if (
+        normalizedRadius &&
+        normalizedRadius !== manifest.designTokens.geometry.borderRadius &&
+        !customGeometry.borderRadius
+      ) {
+        customGeometry.borderRadius = normalizedRadius;
+        report.preservedLegacyKeys.push("geometry.borderRadius");
+        if (report.classification === "none" || report.classification === "auto_default") {
+          report.classification = "preserved_legacy_custom";
+        }
+      }
+    }
+  }
+
+  const hasCustomPalette = Object.keys(customPalette).length > 0;
+  const hasCustomTypography = Object.keys(customTypography).length > 0;
+  const hasCustomGeometry = Object.keys(customGeometry).length > 0;
+  const hasCustomHeader = Boolean(rawDesignTemplateCustom?.header);
+  const hasCustomFooter = Boolean(rawDesignTemplateCustom?.footer);
+
+  const customTokens: CustomDesignTokens | undefined =
+    hasCustomPalette || hasCustomTypography || hasCustomGeometry || hasCustomHeader || hasCustomFooter
+      ? {
+          ...(hasCustomPalette ? { palette: customPalette } : {}),
+          ...(hasCustomTypography ? { typography: customTypography } : {}),
+          ...(hasCustomGeometry ? { geometry: customGeometry } : {}),
+          ...(hasCustomHeader ? { header: rawDesignTemplateCustom!.header } : {}),
+          ...(hasCustomFooter ? { footer: rawDesignTemplateCustom!.footer } : {}),
+        }
+      : undefined;
+
+  return { customTokens, provenance: report };
+}
 
 /**
  * Transforms a legacy SiteConfig into the canonical Site aggregate model.
  */
 export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
+  const resolvedManifest = resolveCanonicalManifestForLegacy(legacy);
+  const { customTokens, provenance } = inspectLegacyTokenProvenance(legacy, resolvedManifest);
+  const brandKit: BrandKit | undefined =
+    (legacy as any).brandKit || (legacy as any).businessProfile?.branding?.brandKit;
+
   // 1. Business Profile
   const businessProfile: BusinessProfile = {
     identity: {
@@ -66,11 +857,11 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       logoAlt: legacy.hero?.logoAlt,
       faviconUrl: legacy.favicon,
       brandColors: {
-        primary: legacy.palette?.primary,
-        secondary: legacy.palette?.secondary,
-        accent: legacy.palette?.accent,
+        primary: customTokens?.palette?.primary || brandKit?.palette?.primary || resolvedManifest.designTokens.palette.primary,
+        secondary: customTokens?.palette?.secondary || brandKit?.palette?.secondary || resolvedManifest.designTokens.palette.secondary,
+        accent: customTokens?.palette?.accent || brandKit?.palette?.accent || resolvedManifest.designTokens.palette.accent,
       },
-      brandKit: (legacy as any).brandKit,
+      brandKit,
     },
     workingHours: {
       raw: legacy.workingHours || "Hafta İçi: 09:00 - 18:00",
@@ -78,9 +869,9 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     },
     services: (legacy.services?.items || []).map((srv) => ({
       id: srv.id,
-      title: srv.title,
+      title: srv.title || (srv as any).name || "",
       slug: srv.slug || srv.id,
-      shortDescription: srv.desc || "",
+      shortDescription: srv.desc || (srv as any).description || "",
       fullDescription: srv.longContent || srv.longDesc,
       priceHint: srv.price,
       features: srv.features || [],
@@ -102,36 +893,19 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     },
   };
 
-  // 2. Active Design Config
+  // 2. Active Design Config (Clean Precedence: TemplateManifest < BrandKit < Explicit User Overrides)
+  const explicitVariants = (legacy as any).designTemplate?.sectionVariants || {};
   const designTemplate: ActiveDesignConfig = {
-    templateId: legacy.templateId || "modern",
-    templateSlug: legacy.templateId || "modern",
-    customTokens: {
-      palette: {
-        primary: legacy.palette?.primary || "#1e40af",
-        primaryDark: legacy.palette?.primaryDark || "#1e3a8a",
-        secondary: legacy.palette?.secondary || "#0d9488",
-        accent: legacy.palette?.accent || "#f59e0b",
-        text: legacy.palette?.text || "#0f172a",
-        textMuted: "#64748b",
-        background: legacy.palette?.bg || "#ffffff",
-        surface: "#f8fafc",
-        border: "#e2e8f0",
-      },
-      typography: {
-        fontHeading: legacy.fontFamily || "Inter, sans-serif",
-        fontBody: legacy.fontFamily || "Inter, sans-serif",
-        headingWeight: "700",
-        baseFontSize: "16px",
-      },
-      geometry: {
-        borderRadius: (legacy.borderRadius as any) || "md",
-        containerMaxWidth: "wide",
-        sectionSpacing: "normal",
-        cardStyle: "subtle-shadow",
-      },
+    templateId: resolvedManifest.id,
+    templateSlug: resolvedManifest.slug,
+    templateVersion: resolvedManifest.version || "1.0.0",
+    ...(customTokens ? { customTokens } : {}),
+    sectionVariants: {
+      ...resolvedManifest.sectionRecipe,
+      ...explicitVariants,
     },
   };
+  (designTemplate as any).tokenProvenance = provenance;
 
   // 3. Section Configuration
   const validSectionTypes: Record<string, CanonicalSectionType> = {
@@ -155,13 +929,18 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
   const sections: SiteSectionItem[] = (legacy.homepageSections || []).map((sec, idx) => {
     const rawId = sec.id ? sec.id.replace(/^sec-/, "") : "";
     const resolvedType = validSectionTypes[sec.id] || validSectionTypes[rawId] || "customHtml";
+    const recipeVariant = (designTemplate.sectionVariants as Record<string, string | undefined>)?.[resolvedType];
+    const explicitSecVariant = (sec as any).variant;
     return {
       id: sec.id,
       type: resolvedType,
       label: sec.name || sec.id,
       enabled: sec.enabled ?? true,
       order: sec.order ?? idx,
-      variant: "default",
+      variant:
+        explicitSecVariant && explicitSecVariant !== "default"
+          ? explicitSecVariant
+          : recipeVariant || "default",
       options: {},
     };
   });
@@ -414,7 +1193,7 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     sectionConfiguration,
     content,
     settings,
-    brandKit: (legacy as any).brandKit,
+    brandKit,
   };
 }
 
@@ -425,8 +1204,48 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
   const profile = canonical.businessProfile;
   const content = canonical.content;
   const settings = canonical.settings;
-  const bKit = canonical.brandKit || (profile.branding as any)?.brandKit;
-  const tokens = (bKit?.palette || {}) as any;
+  const dt = canonical.designTemplate;
+  const bKit: BrandKit | undefined = canonical.brandKit || (profile.branding as any)?.brandKit;
+
+  const manifest =
+    resolveTemplate(dt?.templateId) ||
+    resolveTemplate(dt?.templateSlug) ||
+    CANONICAL_TEMPLATE_MANIFESTS[0];
+
+  const resolvedTokens = resolveDesignTokens(
+    manifest.designTokens,
+    bKit,
+    dt?.customTokens
+  );
+  const tokens = resolvedTokens.palette;
+
+  const hasExplicitPaletteOverride = Boolean(
+    dt?.customTokens?.palette && Object.keys(dt.customTokens.palette).length > 0
+  );
+
+  const resolvedPaletteId = hasExplicitPaletteOverride
+    ? "custom-override"
+    : bKit
+    ? bKit.id || "palette-brand-kit"
+    : manifest.id;
+
+  const resolvedPaletteName = hasExplicitPaletteOverride
+    ? "Özel Renk Paleti"
+    : bKit
+    ? "Logodan Çıkarılan Marka Paleti"
+    : manifest.name;
+
+  const borderRadiusCssMap: Record<TemplateGeometryTokens["borderRadius"], string> = {
+    none: "0px",
+    sm: "4px",
+    md: "8px",
+    lg: "12px",
+    xl: "16px",
+    "2xl": "24px",
+    full: "9999px",
+  };
+  const resolvedBorderRadius =
+    borderRadiusCssMap[resolvedTokens.geometry.borderRadius] || "8px";
 
   const resolvedLogo =
     profile.branding.logoUrl ||
@@ -450,7 +1269,11 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     id: canonical.id,
     siteId: canonical.id,
     workspaceId: (canonical as any).workspaceId,
-    templateId: canonical.designTemplate?.templateId || "tmpl-rapid-service",
+    templateId: dt?.templateId || manifest.id,
+    theme: dt?.templateSlug || manifest.slug,
+    designTemplate: dt,
+    fontFamily: resolvedTokens.typography.fontHeading,
+    borderRadius: resolvedBorderRadius,
     siteType: (canonical.settings.siteMode === "MULTI_PAGE" || canonical.settings.structureMode === "multi-page") ? "multi-page" : "single-page",
     siteMode: (canonical.settings.siteMode === "MULTI_PAGE" || canonical.settings.structureMode === "multi-page") ? "MULTI_PAGE" : "LANDING",
     companyName: profile.identity.companyName,
@@ -568,16 +1391,35 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
 
     // Palette & BrandKit
     palette: {
-      id: bKit?.id || "palette-brand-kit",
-      name: bKit ? "Logodan Çıkarılan Marka Paleti" : "Kurumsal Mavi",
-      primary: tokens.primary || "#2563eb",
-      primaryDark: tokens.primaryDark || "#1d4ed8",
-      secondary: tokens.secondary || "#0f172a",
-      accent: tokens.accent || "#f59e0b",
-      text: tokens.text || "#0f172a",
-      bg: tokens.background || "#ffffff",
-      navBg: tokens.surface || "#ffffff",
-      footerBg: tokens.secondary || "#0f172a",
+      id: resolvedPaletteId,
+      name: resolvedPaletteName,
+      primary: tokens.primary,
+      primaryDark: tokens.primaryDark,
+      secondary: tokens.secondary,
+      accent: tokens.accent,
+      text: tokens.text,
+      bg: tokens.background,
+      navBg: tokens.surface,
+      footerBg: tokens.secondary,
+    },
+    colorTheme: {
+      id: resolvedPaletteId,
+      name: resolvedPaletteName,
+      primary: tokens.primary,
+      secondary: tokens.secondary,
+      accent: tokens.accent,
+      fontFamily: resolvedTokens.typography.fontHeading,
+      borderRadius: resolvedBorderRadius,
+      palette: {
+        primary: tokens.primary,
+        primaryDark: tokens.primaryDark,
+        secondary: tokens.secondary,
+        accent: tokens.accent,
+        text: tokens.text,
+        textMuted: tokens.textMuted,
+        surface: tokens.surface,
+        border: tokens.border,
+      },
     },
     brandKit: bKit,
 

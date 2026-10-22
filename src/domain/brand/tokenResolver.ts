@@ -18,9 +18,17 @@
  * 3. CSS Injection Hardening: validates and sanitizes all color, font, and dimension values.
  */
 
-import { DesignTokens } from "../site/designTemplate";
+import { CustomDesignTokens, DesignTokens } from "../site/designTemplate";
 import { BrandKit, ResolvedDesignTokens } from "./types";
 import { validateColorToken, validateDimensionToken, validateFontToken } from "../../utils/staticCssGenerator";
+import { darkenColor, normalizeHexColor } from "./colorUtils";
+import { corporatePrestigeManifest } from "../templates/manifests/corporatePrestige";
+
+export interface ResolveDesignTokensOptions {
+  templateTokens?: DesignTokens;
+  brandKit?: BrandKit | null;
+  siteCustomTokens?: CustomDesignTokens | Partial<DesignTokens> | null;
+}
 
 /**
  * Pure function resolving the final DesignTokens by merging:
@@ -29,10 +37,27 @@ import { validateColorToken, validateDimensionToken, validateFontToken } from ".
  * 3. Explicit Site Custom Token overrides (highest priority)
  */
 export function resolveDesignTokens(
-  templateTokens: DesignTokens,
-  brandKit?: BrandKit | null,
-  customOverrides?: Partial<DesignTokens> | null
+  templateTokensOrOptions: DesignTokens | ResolveDesignTokensOptions,
+  brandKitArg?: BrandKit | null,
+  customOverridesArg?: CustomDesignTokens | Partial<DesignTokens> | null
 ): ResolvedDesignTokens {
+  const isOptionsObject =
+    templateTokensOrOptions &&
+    typeof templateTokensOrOptions === "object" &&
+    !("palette" in templateTokensOrOptions);
+
+  const templateTokens: DesignTokens = isOptionsObject
+    ? (templateTokensOrOptions as ResolveDesignTokensOptions).templateTokens || corporatePrestigeManifest.designTokens
+    : (templateTokensOrOptions as DesignTokens) || corporatePrestigeManifest.designTokens;
+
+  const brandKit: BrandKit | null | undefined = isOptionsObject
+    ? (templateTokensOrOptions as ResolveDesignTokensOptions).brandKit
+    : brandKitArg;
+
+  const customOverrides: CustomDesignTokens | Partial<DesignTokens> | null | undefined = isOptionsObject
+    ? (templateTokensOrOptions as ResolveDesignTokensOptions).siteCustomTokens
+    : customOverridesArg;
+
   const basePalette = templateTokens.palette;
   const brandPalette = brandKit?.palette;
   const customPalette = customOverrides?.palette;
@@ -43,8 +68,17 @@ export function resolveDesignTokens(
     brandPalette?.primary ||
     basePalette.primary;
 
+  const baseOrBrandPrimary = brandPalette?.primary || basePalette.primary;
+  const derivedCustomPrimaryDark =
+    customPalette?.primary &&
+    !customPalette?.primaryDark &&
+    normalizeHexColor(customPalette.primary) !== normalizeHexColor(baseOrBrandPrimary)
+      ? darkenColor(validateColorToken(customPalette.primary, basePalette.primary), 15)
+      : undefined;
+
   const resolvedPrimaryDark =
     customPalette?.primaryDark ||
+    derivedCustomPrimaryDark ||
     brandPalette?.primaryDark ||
     basePalette.primaryDark;
 

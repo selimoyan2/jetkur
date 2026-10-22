@@ -13,7 +13,7 @@
 
 import { CanonicalSite } from "../../domain/site/site";
 import { TemplateManifest } from "../../domain/templates/types";
-import { CANONICAL_TEMPLATE_MANIFESTS } from "../../domain/templates/catalog";
+import { CANONICAL_TEMPLATE_MANIFESTS, resolveTemplate } from "../../domain/templates/catalog";
 import { GeneratedPageFile, SiteConfig } from "../../types";
 import {
   renderHomePage,
@@ -57,11 +57,15 @@ export function generateStaticSite(
 ): GeneratedPageFile[] {
   const manifest =
     explicitManifest ||
-    CANONICAL_TEMPLATE_MANIFESTS.find((m) => m.id === site.designTemplate?.templateId) ||
+    resolveTemplate(site.designTemplate?.templateId) ||
+    resolveTemplate(site.designTemplate?.templateSlug) ||
     CANONICAL_TEMPLATE_MANIFESTS[0];
 
   // Resolve DesignTokens following strict hierarchy: Template < BrandKit < Site Custom
-  const brandKit = site.businessProfile?.branding?.brandKit || site.brandKit;
+  const brandKit =
+    site.businessProfile?.branding?.brandKit ||
+    site.brandKit ||
+    (legacyConfig as any)?.brandKit;
   const customOverrides = site.designTemplate?.customTokens;
   const resolvedDesignTokens = resolveDesignTokens(manifest.designTokens, brandKit, customOverrides);
 
