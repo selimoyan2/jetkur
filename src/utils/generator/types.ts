@@ -51,6 +51,7 @@ export interface SeoMetadata {
 export interface RenderContext {
   site: CanonicalSite;
   legacyConfig?: SiteConfig;
+  config?: SiteConfig;
   manifest: TemplateManifest;
   resolvedDesignTokens?: ResolvedDesignTokens;
   activePageSlug?: string;
@@ -64,9 +65,9 @@ export interface RenderContext {
 }
 
 export interface SectionRenderContext extends RenderContext {
-  sectionId: CanonicalSectionId;
-  variant: string;
-  order: number;
+  sectionId?: CanonicalSectionId;
+  variant?: string;
+  order?: number;
 }
 
 export type SectionRendererFn = (context: SectionRenderContext) => string;

@@ -92,7 +92,12 @@ export function renderProgressiveScripts(
       if (openIcon) openIcon.classList.add('hidden');
       if (closeIcon) closeIcon.classList.remove('hidden');
       if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+      if (backdrop) backdrop.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
+      setTimeout(function() {
+        var closeBtn = drawer ? drawer.querySelector('button[aria-label="Kapat"]') : null;
+        if (closeBtn) closeBtn.focus();
+      }, 50);
     }
 
     function closeMobileMenu() {
@@ -116,7 +121,11 @@ export function renderProgressiveScripts(
       }
       if (openIcon) openIcon.classList.remove('hidden');
       if (closeIcon) closeIcon.classList.add('hidden');
-      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+      if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.focus();
+      }
+      if (backdrop) backdrop.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
     }
 

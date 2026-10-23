@@ -42,23 +42,23 @@ export const rapidServiceManifest: TemplateManifest = {
       cardStyle: "subtle-shadow",
     },
     header: {
-      layout: "standard",
+      layout: "local-service",
       showTopBar: true,
     },
     footer: {
-      layout: "simple-centered",
+      layout: "local-service",
     },
   },
   sectionRecipe: {
-    header: "standard",
+    header: "local-service",
     hero: "urgent-callout",
-    services: "grid-4",
+    services: "compact-service",
     about: "side-by-side",
     whyUs: "cards-3",
     testimonials: "cards-grid",
     faqs: "accordion",
     contact: "emergency-contact-strip",
-    footer: "simple-centered",
+    footer: "local-service",
   },
   sectionDefaults: [
     { sectionId: "header", defaultEnabled: true, recommendedOrder: 0 },

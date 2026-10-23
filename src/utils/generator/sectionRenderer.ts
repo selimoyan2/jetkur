@@ -82,9 +82,159 @@ export function renderHeaderSection(context: SectionRenderContext): string {
   // Shared route resolver for desktop and mobile navigation
   const navLinks = resolveNavigationLinks(site, depth);
 
+  // Determine layout variant category
+  const v = (variant || "").toLowerCase();
+  let variantKey: "corporate" | "local" | "minimal" | "luxury" = "corporate";
+  if (v === "local-service" || v === "urgent-service" || v === "urgent-callout") {
+    variantKey = "local";
+  } else if (v === "modern-minimal" || v === "minimal-sticky" || v === "minimal-split" || v === "minimal") {
+    variantKey = "minimal";
+  } else if (v === "premium-luxury" || v === "centered" || v === "luxury") {
+    variantKey = "luxury";
+  } else {
+    variantKey = "corporate";
+  }
+
+  // Common Mobile Drawer (Progressive Enhancement - Accessible, Escape-to-Close, Focus Managed)
+  const mobileDrawerHtml = `
+    <!-- Mobile Drawer Navigation (Progressive Enhancement) -->
+    <div id="mobileMenuBackdrop" onclick="closeMobileMenu()" class="hidden fixed inset-0 bg-slate-900/60 z-40 backdrop-blur-xs opacity-0 transition-opacity duration-300 md:hidden" aria-hidden="true" style="display: none;"></div>
+    <div id="mobileDrawer" class="fixed top-0 right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100" role="dialog" aria-modal="true" aria-label="Mobil Menü">
+      <div>
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <span class="text-base font-extrabold text-slate-900 truncate">${companyName}</span>
+          <button type="button" onclick="closeMobileMenu()" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200" aria-label="Kapat">✕</button>
+        </div>
+        <nav class="flex flex-col gap-3" aria-label="Mobil Gezinme">
+          ${navLinks.map((l) => `<a href="${l.href}" onclick="closeMobileMenu()" class="py-2.5 px-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-brand transition-colors">${escapeHtml(l.label)}</a>`).join("\n          ")}
+        </nav>
+      </div>
+      <div class="pt-6 border-t border-slate-100 space-y-3">
+        ${phoneClean ? `<a href="tel:${phoneClean}" class="w-full jk-button jk-button-primary text-center text-xs py-2.5 px-4 block">📞 ${phone}</a>` : ""}
+      </div>
+    </div>`;
+
+  // 1. HEADER B: Local Service Conversion
+  if (variantKey === "local") {
+    const callHref = phoneClean ? `tel:${phoneClean}` : "#contact";
+    return `
+  <!-- Structural Header: ${variant} -->
+  <header class="sticky top-0 z-40 bg-white shadow-sm border-b border-slate-200 jk-header jk-header-local">
+    <div class="jk-container flex items-center justify-between h-16 sm:h-20 gap-4">
+      <!-- Logo & Name -->
+      <a href="${homeHref}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
+        ${logoUrl
+          ? `<img src="${logoUrl}" alt="${companyName}" style="height: 44px; width: auto; max-width: 180px;" class="shrink-0 object-contain">`
+          : `<div class="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">${companyName.charAt(0)}</div>
+        <div class="flex flex-col">
+          <span class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight truncate leading-tight">${companyName}</span>
+          <span class="text-xs font-semibold text-brand hidden sm:block">Hızlı Hizmet & Güvenilir Destek</span>
+        </div>`
+        }
+      </a>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden lg:flex items-center gap-6 text-sm font-bold text-slate-700" aria-label="Ana Menü">
+        ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-brand transition-colors">${escapeHtml(l.label)}</a>`).join("\n        ")}
+      </nav>
+
+      <!-- Conversion CTAs: Prominent Phone & Call Now -->
+      <div class="flex items-center gap-3">
+        ${phoneClean ? `
+        <div class="hidden sm:flex flex-col text-right">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hızlı İletişim Hattı</span>
+          <a href="tel:${phoneClean}" class="text-sm sm:text-base font-black text-brand hover:underline tracking-tight">📞 ${phone}</a>
+        </div>` : ""}
+        <a href="${callHref}" class="jk-button jk-button-primary text-xs sm:text-sm py-2 px-4 shadow-sm" aria-label="Hemen Ara${phone ? ': ' + phone : ''}">
+          <span>Hemen Ara</span>
+        </a>
+
+        <!-- Mobile Tap-to-Call + Toggle -->
+        ${phoneClean ? `<a href="tel:${phoneClean}" class="sm:hidden w-10 h-10 rounded-lg bg-brand text-white flex items-center justify-center shadow-xs" aria-label="Hemen Ara">📞</a>` : ""}
+        <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200" aria-label="Menüyü Aç/Kapat" aria-expanded="false" aria-controls="mobileDrawer">
+          <span id="mobileMenuOpenIcon">☰</span>
+          <span id="mobileMenuCloseIcon" class="hidden">✕</span>
+        </button>
+      </div>
+    </div>
+    ${mobileDrawerHtml}
+  </header>`;
+  }
+
+  // 2. HEADER C: Modern Minimal
+  if (variantKey === "minimal") {
+    return `
+  <!-- Structural Header: ${variant} -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 jk-header jk-header-minimal">
+    <div class="jk-container flex items-center justify-between h-16 sm:h-20 gap-6">
+      <!-- Minimal Typographic Logo -->
+      <a href="${homeHref}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
+        ${logoUrl
+          ? `<img src="${logoUrl}" alt="${companyName}" style="height: 38px; width: auto; max-width: 180px;" class="shrink-0 object-contain">`
+          : `<span class="text-lg font-bold text-slate-900 tracking-wider uppercase font-heading">${companyName}</span>`
+        }
+      </a>
+
+      <!-- Minimal Desktop Nav -->
+      <nav class="hidden md:flex items-center gap-8 text-xs uppercase tracking-widest font-semibold text-slate-600" aria-label="Ana Menü">
+        ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-slate-900 transition-colors pb-0.5 border-b border-transparent hover:border-slate-900">${escapeHtml(l.label)}</a>`).join("\n        ")}
+      </nav>
+
+      <!-- Understated Action -->
+      <div class="flex items-center gap-4">
+        <a href="#contact" class="hidden sm:inline-flex text-xs uppercase tracking-widest font-bold text-slate-900 px-4 py-2 rounded border border-slate-300 hover:border-slate-900 transition-colors">İletişim</a>
+        <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-transparent flex items-center justify-center text-slate-800 hover:bg-slate-100" aria-label="Menüyü Aç/Kapat" aria-expanded="false" aria-controls="mobileDrawer">
+          <span id="mobileMenuOpenIcon">☰</span>
+          <span id="mobileMenuCloseIcon" class="hidden">✕</span>
+        </button>
+      </div>
+    </div>
+    ${mobileDrawerHtml}
+  </header>`;
+  }
+
+  // 3. HEADER D: Premium Luxury
+  if (variantKey === "luxury") {
+    return `
+  <!-- Structural Header: ${variant} -->
+  <header class="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md text-white border-b border-amber-500/20 jk-header jk-header-luxury">
+    <div class="jk-container flex items-center justify-between h-20 gap-4">
+      <!-- Centered / Balanced Brand -->
+      <a href="${homeHref}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
+        ${logoUrl
+          ? `<img src="${logoUrl}" alt="${companyName}" style="height: 48px; width: auto; max-width: 200px;" class="shrink-0 object-contain">`
+          : `<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">${companyName.charAt(0)}</div>
+        <div class="flex flex-col">
+          <span class="text-base sm:text-lg font-bold text-white tracking-[0.1em] uppercase font-heading truncate">${companyName}</span>
+          <span class="text-[10px] text-amber-300/80 tracking-[0.2em] uppercase">Seçkin Hizmet Deneyimi</span>
+        </div>`
+        }
+      </a>
+
+      <!-- Refined Desktop Nav -->
+      <nav class="hidden md:flex items-center gap-8 text-xs uppercase tracking-[0.15em] font-medium text-slate-300" aria-label="Ana Menü">
+        ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-amber-300 transition-colors">${escapeHtml(l.label)}</a>`).join("\n        ")}
+      </nav>
+
+      <!-- Luxury Action CTA -->
+      <div class="flex items-center gap-3">
+        <a href="#contact" class="hidden sm:inline-flex text-xs uppercase tracking-[0.15em] font-bold text-slate-950 bg-gradient-to-r from-amber-300 to-amber-500 hover:from-amber-400 hover:to-amber-600 py-2.5 px-5 rounded-lg shadow-md transition-all">
+          Randevu Al
+        </a>
+        <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20" aria-label="Menüyü Aç/Kapat" aria-expanded="false" aria-controls="mobileDrawer">
+          <span id="mobileMenuOpenIcon">☰</span>
+          <span id="mobileMenuCloseIcon" class="hidden">✕</span>
+        </button>
+      </div>
+    </div>
+    ${mobileDrawerHtml}
+  </header>`;
+  }
+
+  // 4. HEADER A: Corporate Classic (Default)
   return `
   <!-- Structural Header: ${variant} -->
-  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-100 jk-header">
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-slate-200 jk-header jk-header-corporate">
     <div class="jk-container flex items-center justify-between h-16 sm:h-20 gap-4">
       <a href="${homeHref}" class="flex items-center gap-3 min-w-0" aria-label="${companyName}">
         ${logoUrl 
@@ -101,33 +251,16 @@ export function renderHeaderSection(context: SectionRenderContext): string {
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-3">
-        ${phoneClean ? `<a href="tel:${phoneClean}" class="hidden sm:inline-flex jk-button jk-button-primary text-xs sm:text-sm py-2 px-4" aria-label="Telefon: ${phone}">Hemen Ara</a>` : ""}
+        ${phoneClean ? `<a href="tel:${phoneClean}" class="hidden sm:inline-flex jk-button jk-button-primary text-xs sm:text-sm py-2 px-4" aria-label="Telefon: ${phone}">Hemen Ara</a>` : `<a href="#contact" class="hidden sm:inline-flex jk-button jk-button-primary text-xs sm:text-sm py-2 px-4">İletişime Geç</a>`}
         <button type="button" id="mobileMenuToggleBtn" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200" aria-label="Menüyü Aç/Kapat" aria-expanded="false" aria-controls="mobileDrawer">
           <span id="mobileMenuOpenIcon">☰</span>
           <span id="mobileMenuCloseIcon" class="hidden">✕</span>
         </button>
       </div>
     </div>
-
-    <!-- Mobile Drawer Navigation (Progressive Enhancement) -->
-    <div id="mobileMenuBackdrop" onclick="closeMobileMenu()" class="hidden fixed inset-0 bg-slate-900/60 z-40 backdrop-blur-xs opacity-0 transition-opacity duration-300 md:hidden" aria-hidden="true" style="display: none;"></div>
-    <div id="mobileDrawer" class="fixed top-0 right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-in-out md:hidden border-l border-slate-100" role="dialog" aria-modal="true" aria-label="Mobil Menü">
-      <div>
-        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-          <span class="text-base font-extrabold text-slate-900 truncate">${companyName}</span>
-          <button type="button" onclick="closeMobileMenu()" class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200" aria-label="Kapat">✕</button>
-        </div>
-        <nav class="flex flex-col gap-3" aria-label="Mobil Gezinme">
-          ${navLinks.map((l) => `<a href="${l.href}" onclick="closeMobileMenu()" class="py-2 px-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-brand transition-colors">${escapeHtml(l.label)}</a>`).join("\n          ")}
-        </nav>
-      </div>
-      <div class="pt-6 border-t border-slate-100 space-y-3">
-        ${phoneClean ? `<a href="tel:${phoneClean}" class="w-full jk-button jk-button-primary text-center text-xs py-2.5 px-4 block">📞 ${phone}</a>` : ""}
-      </div>
-    </div>
+    ${mobileDrawerHtml}
   </header>`;
 }
-
 /**
  * 2. HERO (Primary Welcome Showcase)
  */
@@ -175,8 +308,24 @@ export function renderHeroSection(context: SectionRenderContext): string {
  */
 export function renderServicesSection(context: SectionRenderContext): string {
   const { site, variant } = context;
-  const services = (site.content as any).services || site.businessProfile.services || [];
-  const isMulti = site.settings.structureMode === "multi-page";
+  const bpServices = site.businessProfile.services || [];
+  const contentServices = (site.content as any).services || [];
+  const services = bpServices.length > 0 ? bpServices : contentServices;
+  const isMulti = site.settings.structureMode === "multi-page" || site.settings.siteMode === "MULTI_PAGE";
+
+  const v = (variant || "").toLowerCase();
+  let cardStyle: "standard" | "minimal" | "image" | "bordered" | "compact" = "standard";
+  if (v === "minimal-icon" || v === "minimal" || v === "list") {
+    cardStyle = "minimal";
+  } else if (v === "image-focused" || v === "image-card") {
+    cardStyle = "image";
+  } else if (v === "bordered-premium" || v === "bordered" || v === "cards-3") {
+    cardStyle = "bordered";
+  } else if (v === "compact-service" || v === "compact" || v === "grid-4") {
+    cardStyle = "compact";
+  } else {
+    cardStyle = "standard";
+  }
 
   return `
   <!-- Services Section: ${variant} -->
@@ -188,14 +337,93 @@ export function renderServicesSection(context: SectionRenderContext): string {
         <p class="text-slate-600 text-sm sm:text-base mt-3">İhtiyacınıza uygun kaliteli, garantili ve şeffaf fiyatlı hizmet seçeneklerimiz.</p>
       </div>
 
-      <div class="jk-services-grid">
+      <div class="jk-services-grid ${cardStyle === 'compact' ? 'jk-services-grid-compact' : ''}">
         ${services.map((s: any, idx: number) => {
-          const sTitle = escapeHtml(s.name || s.title || "Hizmet");
-          const sDesc = escapeHtml(s.description || "");
-          const sPrice = s.price || s.priceInfo;
+          const sTitle = escapeHtml(s.title || s.name || "Hizmet");
+          const sDesc = escapeHtml(s.shortDescription || s.description || s.desc || "");
+          const sPrice = s.price || s.priceHint || s.priceInfo;
           const detailUrl = isMulti ? `hizmet-${s.slug || idx + 1}.html` : "#contact";
+          const rawImg = s.imageUrl || s.image;
+          const sImg = rawImg ? sanitizeUrl(rawImg) : "";
+
+          // 1. Minimal icon / text card
+          if (cardStyle === "minimal") {
+            return `
+        <article class="jk-card jk-service-card-minimal flex flex-col justify-between border-l-4 border-l-brand hover:border-l-brand-dark transition-all">
+          <div>
+            <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">0${idx + 1}</div>
+            <h3 class="text-xl font-bold text-slate-900 mb-2">${sTitle}</h3>
+            <p class="text-slate-600 text-sm leading-relaxed mb-4">${sDesc}</p>
+          </div>
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="font-medium text-slate-500">${sPrice ? escapeHtml(sPrice) : ""}</span>
+            <a href="${detailUrl}" class="font-bold text-slate-900 hover:text-brand transition-colors">İncele →</a>
+          </div>
+        </article>`;
+          }
+
+          // 2. Image-focused service card
+          if (cardStyle === "image") {
+            return `
+        <article class="jk-card jk-service-card-image p-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            ${sImg
+              ? `<div class="aspect-video w-full bg-slate-100 overflow-hidden"><img src="${sImg}" alt="${sTitle}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy"></div>`
+              : `<div class="aspect-video w-full bg-gradient-to-br from-brand/20 to-slate-200 flex items-center justify-center text-brand font-black text-2xl">${sTitle.charAt(0)}</div>`
+            }
+            <div class="p-6">
+              <h3 class="text-xl font-bold text-slate-900 mb-2">${sTitle}</h3>
+              <p class="text-slate-600 text-sm leading-relaxed mb-4">${sDesc}</p>
+            </div>
+          </div>
+          <div class="px-6 pb-6 pt-2 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500">${sPrice ? escapeHtml(sPrice) : "Detaylı Bilgi"}</span>
+            <a href="${detailUrl}" class="text-sm font-bold text-brand hover:underline">Hizmeti Gör →</a>
+          </div>
+        </article>`;
+          }
+
+          // 3. Bordered premium card
+          if (cardStyle === "bordered") {
+            return `
+        <article class="jk-card jk-service-card-bordered border-2 border-slate-200 hover:border-brand flex flex-col justify-between shadow-xs hover:shadow-md transition-all">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div class="w-10 h-10 rounded-lg bg-brand text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                ${idx + 1}
+              </div>
+              ${sPrice ? `<span class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">${escapeHtml(sPrice)}</span>` : ""}
+            </div>
+            <h3 class="text-xl font-black text-slate-900 mb-2">${sTitle}</h3>
+            <p class="text-slate-600 text-sm leading-relaxed mb-4">${sDesc}</p>
+          </div>
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <a href="${detailUrl}" class="jk-button jk-button-secondary text-xs py-2 px-3 w-full text-center">Teklif & Detay Al</a>
+          </div>
+        </article>`;
+          }
+
+          // 4. Compact local-service card
+          if (cardStyle === "compact") {
+            return `
+        <article class="jk-card jk-service-card-compact p-4 flex flex-col justify-between bg-white border border-slate-200 hover:border-brand shadow-xs">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded-md bg-brand/10 text-brand flex items-center justify-center font-bold text-xs shrink-0">${idx + 1}</span>
+              <h3 class="text-base font-extrabold text-slate-900 truncate leading-snug">${sTitle}</h3>
+            </div>
+            <p class="text-slate-600 text-xs line-clamp-2 leading-relaxed mb-3">${sDesc}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="font-bold text-brand">${sPrice ? escapeHtml(sPrice) : "Hızlı Servis"}</span>
+            <a href="${detailUrl}" class="font-bold text-slate-700 hover:text-brand">Detay →</a>
+          </div>
+        </article>`;
+          }
+
+          // 5. Standard professional card (Default)
           return `
-        <article class="jk-card flex flex-col justify-between">
+        <article class="jk-card jk-service-card-standard flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-bold text-lg mb-4">
               ${idx + 1}
@@ -213,7 +441,6 @@ export function renderServicesSection(context: SectionRenderContext): string {
     </div>
   </section>`;
 }
-
 /**
  * 4. ABOUT (Corporate Profile & Story)
  */
@@ -597,24 +824,168 @@ export function renderSocialFeedSection(context: SectionRenderContext): string {
 export function renderFooterSection(context: SectionRenderContext): string {
   const { site, variant, depth = 0 } = context;
   const bp = site.businessProfile;
-  const companyName = escapeHtml(bp.identity.companyName);
+  const companyName = escapeHtml(bp.identity.companyName || "JetKur");
+  const slogan = escapeHtml(bp.identity.slogan || bp.identity.shortDescription || "");
   const currentYear = new Date().getFullYear();
   const navLinks = resolveNavigationLinks(site, depth);
+  const services = bp.services?.length ? bp.services : ((site.content as any).services || []);
+  const phone = bp.contact.phone ? escapeHtml(bp.contact.phone) : "";
+  const phoneClean = bp.contact.phone ? bp.contact.phone.replace(/[^0-9+]/g, "") : "";
+  const email = bp.contact.email ? escapeHtml(bp.contact.email) : "";
+  const address = (bp.location?.address || (bp.contact as any)?.address) ? escapeHtml(bp.location?.address || (bp.contact as any)?.address) : "";
+  const city = (bp.location?.city || (bp.contact as any)?.city) ? escapeHtml(bp.location?.city || (bp.contact as any)?.city) : "";
 
-  return `
+  const v = (variant || "").toLowerCase();
+  let variantKey: "corporate" | "local" | "minimal" | "luxury" = "corporate";
+  if (v === "local-service" || v === "urgent-footer") {
+    variantKey = "local";
+  } else if (v === "minimal" || v === "minimal-legal") {
+    variantKey = "minimal";
+  } else if (v === "premium" || v === "simple-centered" || v === "luxury") {
+    variantKey = "luxury";
+  } else {
+    variantKey = "corporate";
+  }
+
+  // 1. FOOTER B: Local Service
+  if (variantKey === "local") {
+    return `
   <!-- Structural Footer: ${variant} -->
-  <footer class="bg-slate-950 text-slate-400 text-xs py-12 border-t border-slate-800 jk-footer">
+  <footer class="bg-slate-900 text-slate-300 py-12 border-t border-slate-800 jk-footer jk-footer-local">
     <div class="jk-container">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+      <!-- High-Conversion Call Card -->
+      <div class="p-6 sm:p-8 rounded-2xl bg-brand text-white flex flex-col sm:flex-row items-center justify-between gap-6 mb-12 shadow-lg">
         <div>
-          <span class="text-sm font-bold text-white block mb-1">${companyName}</span>
-          <p class="text-slate-500">© ${currentYear} ${companyName}. Tüm hakları saklıdır.</p>
+          <h3 class="text-xl sm:text-2xl font-black">Acil Hizmet ve Danışma Hattı</h3>
+          <p class="text-white/80 text-sm mt-1">İhtiyacınız olan her an bir telefon kadar yakınız.</p>
+        </div>
+        ${phoneClean ? `<a href="tel:${phoneClean}" class="w-full sm:w-auto text-center jk-button bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-sm sm:text-base py-3 px-6 shadow-md shrink-0">📞 ${phone}</a>` : ""}
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-slate-800 text-sm">
+        <div>
+          <span class="text-base font-extrabold text-white block mb-2">${companyName}</span>
+          ${slogan ? `<p class="text-slate-400 text-xs mb-3">${slogan}</p>` : ""}
+          ${(address || city) ? `<p class="text-slate-400 text-xs">📍 ${[address, city].filter(Boolean).join(", ")}</p>` : ""}
         </div>
 
-        <nav class="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-400 font-medium" aria-label="Alt Menü">
-          ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-white transition-colors">${escapeHtml(l.label)}</a>`).join("\n          ")}
-        </nav>
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Hızlı Menü</h4>
+          <nav class="flex flex-col gap-2" aria-label="Yerel Alt Menü">
+            ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-white transition-colors text-xs">${escapeHtml(l.label)}</a>`).join("\n            ")}
+          </nav>
+        </div>
 
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">İletişim Bilgileri</h4>
+          <div class="space-y-2 text-xs text-slate-400">
+            ${phone ? `<p>Telefon: <a href="tel:${phoneClean}" class="text-white hover:underline">${phone}</a></p>` : ""}
+            ${email ? `<p>E-posta: <a href="mailto:${email}" class="text-white hover:underline">${email}</a></p>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <p>© ${currentYear} ${companyName}. Tüm hakları saklıdır.</p>
+        <a href="#hero" class="hover:text-white transition-colors">Yukarı Çık ↑</a>
+      </div>
+    </div>
+  </footer>`;
+  }
+
+  // 2. FOOTER C: Minimal
+  if (variantKey === "minimal") {
+    return `
+  <!-- Structural Footer: ${variant} -->
+  <footer class="bg-white text-slate-600 text-xs py-8 border-t border-slate-200 jk-footer jk-footer-minimal">
+    <div class="jk-container flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <span class="font-bold text-slate-900">${companyName}</span>
+        <span class="text-slate-400 ml-2">© ${currentYear}</span>
+      </div>
+
+      <nav class="flex flex-wrap items-center gap-6 font-medium" aria-label="Minimal Alt Menü">
+        ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-slate-900 transition-colors">${escapeHtml(l.label)}</a>`).join("\n        ")}
+      </nav>
+
+      <div>
+        <a href="#hero" class="text-slate-400 hover:text-slate-700 transition-colors">Başa Dön ↑</a>
+      </div>
+    </div>
+  </footer>`;
+  }
+
+  // 3. FOOTER D: Premium Luxury
+  if (variantKey === "luxury") {
+    return `
+  <!-- Structural Footer: ${variant} -->
+  <footer class="bg-slate-950 text-slate-400 text-xs py-16 border-t border-amber-500/20 jk-footer jk-footer-luxury">
+    <div class="jk-container">
+      <div class="flex flex-col items-center text-center max-w-2xl mx-auto mb-12">
+        <span class="text-xl font-bold text-white tracking-[0.15em] uppercase font-heading mb-2">${companyName}</span>
+        ${slogan ? `<p class="text-slate-400 text-sm max-w-md">${slogan}</p>` : ""}
+      </div>
+
+      <nav class="flex flex-wrap items-center justify-center gap-8 text-slate-300 text-xs uppercase tracking-widest font-semibold pb-10 border-b border-slate-800" aria-label="Prestij Alt Menü">
+        ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-amber-300 transition-colors">${escapeHtml(l.label)}</a>`).join("\n        ")}
+      </nav>
+
+      <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+        <p>© ${currentYear} ${companyName}. Tüm hakları saklıdır.</p>
+        ${(phone || email) ? `
+        <div class="flex items-center gap-4 text-xs">
+          ${phone ? `<a href="tel:${phoneClean}" class="hover:text-amber-300 transition-colors">📞 ${phone}</a>` : ""}
+          ${email ? `<a href="mailto:${email}" class="hover:text-amber-300 transition-colors">✉️ ${email}</a>` : ""}
+        </div>` : ""}
+        <a href="#hero" class="hover:text-amber-300 transition-colors">Yukarı Çık ↑</a>
+      </div>
+    </div>
+  </footer>`;
+  }
+
+  // 4. FOOTER A: Corporate Multi-column (Default)
+  return `
+  <!-- Structural Footer: ${variant} -->
+  <footer class="bg-slate-950 text-slate-400 text-xs py-14 border-t border-slate-800 jk-footer jk-footer-corporate">
+    <div class="jk-container">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-800">
+        <!-- Col 1: Brand -->
+        <div class="md:col-span-1">
+          <span class="text-base font-extrabold text-white block mb-2">${companyName}</span>
+          ${slogan ? `<p class="text-slate-400 leading-relaxed mb-4 text-xs">${slogan}</p>` : ""}
+          <p class="text-slate-500 text-[11px]">Güvenilir kurumsal çözümler ve profesyonel hizmet standartları.</p>
+        </div>
+
+        <!-- Col 2: Navigation -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-white mb-3">Hızlı Bağlantılar</h4>
+          <nav class="flex flex-col gap-2" aria-label="Kurumsal Alt Menü">
+            ${navLinks.map((l) => `<a href="${l.href}" class="hover:text-white transition-colors">${escapeHtml(l.label)}</a>`).join("\n            ")}
+          </nav>
+        </div>
+
+        <!-- Col 3: Services -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-white mb-3">Hizmetlerimiz</h4>
+          <ul class="flex flex-col gap-2 text-slate-400">
+            ${services.slice(0, 5).map((s: any) => `<li class="hover:text-white transition-colors truncate">${escapeHtml(s.title || s.name || "Hizmet")}</li>`).join("\n            ")}
+          </ul>
+        </div>
+
+        <!-- Col 4: Contact -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-white mb-3">İletişim</h4>
+          <div class="space-y-2 text-slate-400">
+            ${phone ? `<p>Telefon: <a href="tel:${phoneClean}" class="text-white hover:underline">${phone}</a></p>` : ""}
+            ${email ? `<p>E-posta: <a href="mailto:${email}" class="text-white hover:underline">${email}</a></p>` : ""}
+            ${address ? `<p>Adres: ${[address, city].filter(Boolean).join(", ")}</p>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-slate-500">© ${currentYear} ${companyName}. Tüm hakları saklıdır.</p>
         <div class="flex items-center gap-6">
           <a href="#hero" class="hover:text-white transition-colors">Yukarı Çık ↑</a>
         </div>
@@ -622,7 +993,6 @@ export function renderFooterSection(context: SectionRenderContext): string {
     </div>
   </footer>`;
 }
-
 /**
  * 16. CUSTOM HTML (Experimental Sanitized HTML Container)
  */

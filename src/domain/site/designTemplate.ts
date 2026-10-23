@@ -46,12 +46,12 @@ export interface TemplateGeometryTokens {
 }
 
 export interface TemplateHeaderTokens {
-  layout: "fixed-solid" | "transparent-sticky" | "floating-pill" | "minimal-split" | "standard" | "split-action" | "centered";
+  layout: "fixed-solid" | "transparent-sticky" | "floating-pill" | "minimal-split" | "standard" | "split-action" | "centered" | "corporate-classic" | "local-service" | "modern-minimal" | "premium-luxury";
   showTopBar?: boolean;
 }
 
 export interface TemplateFooterTokens {
-  layout: "simple-centered" | "multi-column-rich" | "stacked-bold" | "corporate-detailed" | "multi-column" | "minimal-legal";
+  layout: "simple-centered" | "multi-column-rich" | "stacked-bold" | "corporate-detailed" | "multi-column" | "minimal-legal" | "corporate-multi" | "local-service" | "minimal" | "premium";
 }
 
 export interface DesignTokens {

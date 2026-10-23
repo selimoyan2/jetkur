@@ -42,23 +42,23 @@ export const corporatePrestigeManifest: TemplateManifest = {
       cardStyle: "flat-bordered",
     },
     header: {
-      layout: "split-action",
+      layout: "corporate-classic",
       showTopBar: true,
     },
     footer: {
-      layout: "corporate-detailed",
+      layout: "corporate-multi",
     },
   },
   sectionRecipe: {
-    header: "split-action",
+    header: "corporate-classic",
     hero: "centered-prestige",
     about: "story-timeline",
-    services: "cards-3",
+    services: "bordered-premium",
     whyUs: "metrics-badges",
     testimonials: "quotes-minimal",
     faqs: "two-column",
     contact: "formal-consultation-form",
-    footer: "corporate-detailed",
+    footer: "corporate-multi",
   },
   sectionDefaults: [
     { sectionId: "header", defaultEnabled: true, recommendedOrder: 0 },

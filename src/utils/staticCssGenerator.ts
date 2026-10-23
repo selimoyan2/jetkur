@@ -391,6 +391,133 @@ ul, ol {
   border: 1px solid var(--jk-color-border);
 }
 
+/* --- JetKur Header Semantic Variants --- */
+.jk-header {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  transition: all 0.2s ease;
+}
+.jk-header-corporate {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid var(--jk-color-border, #e2e8f0);
+}
+.jk-header-local {
+  background-color: #ffffff;
+  border-bottom: 2px solid var(--jk-color-border, #e2e8f0);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+.jk-header-minimal {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+.jk-header-luxury {
+  background-color: rgba(15, 23, 42, 0.95);
+  color: #ffffff;
+  border-bottom: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+/* --- JetKur Footer Semantic Variants --- */
+.jk-footer {
+  width: 100%;
+  position: relative;
+}
+.jk-footer-corporate {
+  background-color: #020617;
+  color: #94a3b8;
+  border-top: 1px solid #1e293b;
+}
+.jk-footer-local {
+  background-color: #0f172a;
+  color: #cbd5e1;
+  border-top: 1px solid #1e293b;
+}
+.jk-footer-minimal {
+  background-color: #ffffff;
+  color: #475569;
+  border-top: 1px solid #e2e8f0;
+}
+.jk-footer-luxury {
+  background-color: #020617;
+  color: #94a3b8;
+  border-top: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+/* --- JetKur Service Card Semantic Variants --- */
+.jk-services-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .jk-services-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .jk-services-grid-compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.jk-service-card-standard {
+  background-color: var(--jk-color-surface, #ffffff);
+  border: 1px solid var(--jk-color-border, #e2e8f0);
+  border-radius: var(--jk-radius, 0.75rem);
+  padding: 1.5rem;
+}
+.jk-service-card-minimal {
+  background-color: var(--jk-color-surface, #ffffff);
+  border: 1px solid var(--jk-color-border, #e2e8f0);
+  border-left-width: 4px;
+  border-left-color: var(--jk-color-primary, #2563eb);
+  border-radius: var(--jk-radius, 0.5rem);
+  padding: 1.5rem;
+}
+.jk-service-card-image {
+  background-color: var(--jk-color-surface, #ffffff);
+  border: 1px solid var(--jk-color-border, #e2e8f0);
+  border-radius: var(--jk-radius, 0.75rem);
+  overflow: hidden;
+}
+.jk-service-card-bordered {
+  background-color: var(--jk-color-surface, #ffffff);
+  border: 2px solid var(--jk-color-border, #cbd5e1);
+  border-radius: var(--jk-radius, 0.75rem);
+  padding: 1.5rem;
+}
+.jk-service-card-bordered:hover {
+  border-color: var(--jk-color-primary, #2563eb);
+}
+.jk-service-card-compact {
+  background-color: var(--jk-color-surface, #ffffff);
+  border: 1px solid var(--jk-color-border, #e2e8f0);
+  border-radius: var(--jk-radius, 0.5rem);
+  padding: 1rem;
+}
+
+/* --- Viewport & Horizontal Overflow Hardening (320px to 1440px) --- */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+#mobileDrawer {
+  max-width: 85vw;
+  width: 18rem;
+}
+@media (max-width: 360px) {
+  .jk-container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .jk-button {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 0.8125rem;
+  }
+}
+
 /* =========================================================================
  * CORE LAYOUT & FLEXBOX / GRID UTILITIES
  * ========================================================================= */

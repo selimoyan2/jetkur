@@ -298,6 +298,8 @@ console.log("\n--- 6. Content & Business Data Immutability Across Theme Switchin
       metaDescription: "7/24 profesyonel sağlık ve klinik çözümleri.",
       keywords: "klinik, sağlık, uzman doktor",
       canonicalUrl: "https://anadoluklinik.com",
+      author: "HızlıWeb Engine",
+      schemaType: "LocalBusiness",
     },
   };
 

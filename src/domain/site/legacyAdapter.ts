@@ -1108,8 +1108,8 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
 
   // 5. Site Settings
   const settings: SiteSettings = {
-    structureMode: legacy.siteType === "multi-page" ? "multi-page" : "single-page",
-    siteMode: (legacy as any).siteMode === "MULTI_PAGE" || legacy.siteType === "multi-page" ? "MULTI_PAGE" : "LANDING",
+    structureMode: (legacy.siteType === "multi-page" || (legacy as any).structureMode === "multi-page" || (legacy as any).siteMode === "MULTI_PAGE") ? "multi-page" : "single-page",
+    siteMode: ((legacy as any).siteMode === "MULTI_PAGE" || legacy.siteType === "multi-page" || (legacy as any).structureMode === "multi-page") ? "MULTI_PAGE" : "LANDING",
     domain: {
       hostname: legacy.customDomain || `${legacy.id}.jetkur.site`,
       isCustom: Boolean(legacy.customDomain),
