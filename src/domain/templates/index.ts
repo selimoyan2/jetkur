@@ -18,3 +18,4 @@ export { artisanWarmManifest } from "./manifests/artisanWarm";
 export { vipLuxuryManifest } from "./manifests/vipLuxury";
 export { techDynamicManifest } from "./manifests/techDynamic";
 export { formalLegalManifest } from "./manifests/formalLegal";
+export * from "./manifests/industryTemplates";

@@ -488,9 +488,9 @@ export function renderWhyUsSection(context: SectionRenderContext): string {
   const { site, variant } = context;
   const whyUs = site.content.whyUs;
   const items = whyUs?.items || [
-    { title: "Hızlı ve Güvenilir", description: "Zamanında müdahale ve kesintisiz destek ile işlerinizi aksatmayın." },
+    { title: "Hızlı ve Güvenilir", description: "Zamanında müdahale ve güvenilir destek ile işlerinizi aksatmayın." },
     { title: "Uzman Kadro", description: "Alanında sertifikalı ve tecrübeli profesyonellerle çalışmanın rahatlığı." },
-    { title: "Garantili Hizmet", description: "Yapılan tüm işlemlerde %100 müşteri memnuniyeti ve resmi işçilik garantisi." },
+    { title: "Garantili Hizmet", description: "Yapılan işlemlerde müşteri memnuniyeti ve titiz işçilik garantisi." },
   ];
 
   return `
@@ -849,6 +849,18 @@ export function renderFooterSection(context: SectionRenderContext): string {
 
   // 1. FOOTER B: Local Service
   if (variantKey === "local") {
+    const isExplicit24x7 = Boolean(
+      bp.workingHours?.is24x7Emergency ||
+      bp.workingHours?.raw?.includes("7/24") ||
+      bp.workingHours?.raw?.toLowerCase().includes("24/7") ||
+      bp.identity?.slogan?.toLowerCase().includes("7/24") ||
+      bp.identity?.slogan?.toLowerCase().includes("24/7")
+    );
+    const callHeading = isExplicit24x7 ? "7/24 Acil Hizmet ve Danışma Hattı" : "Hızlı İletişim ve Danışma Hattı";
+    const callSubtitle = isExplicit24x7
+      ? "İhtiyacınız olan her an bir telefon kadar yakınız."
+      : "Sorularınız ve hizmet talepleriniz için bize ulaşabilirsiniz.";
+
     return `
   <!-- Structural Footer: ${variant} -->
   <footer class="bg-slate-900 text-slate-300 py-12 border-t border-slate-800 jk-footer jk-footer-local">
@@ -856,8 +868,8 @@ export function renderFooterSection(context: SectionRenderContext): string {
       <!-- High-Conversion Call Card -->
       <div class="p-6 sm:p-8 rounded-2xl bg-brand text-white flex flex-col sm:flex-row items-center justify-between gap-6 mb-12 shadow-lg">
         <div>
-          <h3 class="text-xl sm:text-2xl font-black">Acil Hizmet ve Danışma Hattı</h3>
-          <p class="text-white/80 text-sm mt-1">İhtiyacınız olan her an bir telefon kadar yakınız.</p>
+          <h3 class="text-xl sm:text-2xl font-black">${callHeading}</h3>
+          <p class="text-white/80 text-sm mt-1">${callSubtitle}</p>
         </div>
         ${phoneClean ? `<a href="tel:${phoneClean}" class="w-full sm:w-auto text-center jk-button bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-sm sm:text-base py-3 px-6 shadow-md shrink-0">📞 ${phone}</a>` : ""}
       </div>

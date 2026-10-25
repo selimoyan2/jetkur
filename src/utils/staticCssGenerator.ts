@@ -218,6 +218,13 @@ export function compileDesignTokensToCssVariables(tokens: CompiledCssTokens): st
   --jk-radius: ${tokens.borderRadius};
   --jk-container-width: ${tokens.containerMaxWidth};
   --jk-section-spacing: ${tokens.sectionSpacing};
+  --jk-color-foreground: var(--jk-color-text);
+  --jk-color-muted-foreground: var(--jk-color-text-muted);
+  --jk-color-button-bg: var(--jk-color-primary);
+  --jk-color-button-fg: #ffffff;
+  --jk-color-link: var(--jk-color-primary);
+  --jk-color-hover: var(--jk-color-primary-dark);
+  --jk-color-overlay: rgba(15, 23, 42, 0.75);
 
   /* Direct Brand Compatibility Aliases */
   --brand: var(--jk-color-primary);
@@ -1086,5 +1093,25 @@ html, body {
   .xl\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .xl\\:gap-8 { gap: 2rem; }
 }
+
+/* Master Gradients */
+.jk-gradient-royal-purple { background: linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C026D3 100%); }
+.jk-gradient-ocean-blue { background: linear-gradient(140deg, #0C4A6E 0%, #0284C7 60%, #06B6D4 100%); }
+.jk-gradient-emerald-glow { background: linear-gradient(120deg, #064E3B 0%, #059669 50%, #10B981 100%); }
+.jk-gradient-sunset { background: linear-gradient(135deg, #881337 0%, #E11D48 50%, #F97316 100%); }
+.jk-gradient-champagne { background: linear-gradient(150deg, #FEF3C7 0%, #FDE68A 60%, #F59E0B 100%); }
+.jk-gradient-dark-luxury { background: linear-gradient(135deg, #09090B 0%, #18181B 60%, #27272A 100%); }
+
+/* Background Types */
+.jk-bg-solid { background-color: var(--jk-color-background); }
+.jk-bg-surface { background-color: var(--jk-color-surface); }
+.jk-bg-texture-dots { background-image: radial-gradient(rgba(100, 116, 139, 0.15) 1px, transparent 1px); background-size: 20px 20px; }
+.jk-bg-texture-grid { background-image: linear-gradient(to right, rgba(100, 116, 139, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(100, 116, 139, 0.08) 1px, transparent 1px); background-size: 24px 24px; }
+
+/* Typography Archetypes */
+.jk-typo-corporate-sans { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.jk-typo-modern-minimal { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.jk-typo-elegant-serif { font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif; }
+.jk-typo-premium-editorial { font-family: 'Cinzel', 'Playfair Display', Georgia, serif; }
 `;
 }

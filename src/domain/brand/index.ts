@@ -10,3 +10,7 @@ export * from "./paletteEngine";
 export * from "./tokenResolver";
 export * from "./brandKitService";
 export * from "./imageColorExtractor";
+export * from "./palettes";
+export * from "./backgrounds";
+export * from "./typography";
+export * from "./smartDesignEngine";

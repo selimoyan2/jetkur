@@ -153,7 +153,7 @@ console.log("\n--- 2. Footer Layout Variants ---");
   });
   assert(localFooter.includes("Structural Footer: local-service"), "Local Service footer renders variant marker");
   assert(localFooter.includes("jk-footer-local"), "Local Service footer emits jk-footer-local class");
-  assert(localFooter.includes("Acil Hizmet ve Danışma Hattı"), "Local Service footer features prominent call card");
+  assert(localFooter.includes("Danışma Hattı"), "Local Service footer features prominent call card");
 
   // C. Minimal Footer
   const minimalFooter = renderFooterSection({

@@ -15,6 +15,7 @@ import { artisanWarmManifest } from "./manifests/artisanWarm";
 import { vipLuxuryManifest } from "./manifests/vipLuxury";
 import { techDynamicManifest } from "./manifests/techDynamic";
 import { formalLegalManifest } from "./manifests/formalLegal";
+import { INDUSTRY_MANIFESTS } from "./manifests/industryTemplates";
 
 /**
  * All 8 Canonical Platform Template Manifests
@@ -29,16 +30,21 @@ export const CANONICAL_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
   techDynamicManifest,
   formalLegalManifest,
 ];
+export const INDUSTRY_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = INDUSTRY_MANIFESTS;
+export const ALL_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
+  ...CANONICAL_TEMPLATE_MANIFESTS,
+  ...INDUSTRY_TEMPLATE_MANIFESTS,
+];
 
 /**
  * Fast lookup maps by ID and Slug
  */
 const TEMPLATES_BY_ID = new Map<string, TemplateManifest>(
-  CANONICAL_TEMPLATE_MANIFESTS.map((t) => [t.id, t])
+  ALL_TEMPLATE_MANIFESTS.map((t) => [t.id, t])
 );
 
 const TEMPLATES_BY_SLUG = new Map<string, TemplateManifest>(
-  CANONICAL_TEMPLATE_MANIFESTS.map((t) => [t.slug, t])
+  ALL_TEMPLATE_MANIFESTS.map((t) => [t.slug, t])
 );
 
 /**
@@ -121,7 +127,7 @@ export function resolveTemplate(idOrSlugOrLegacy: string): TemplateManifest | nu
 
   // 4. Case-insensitive slug match
   const lower = trimmed.toLowerCase();
-  for (const t of CANONICAL_TEMPLATE_MANIFESTS) {
+  for (const t of ALL_TEMPLATE_MANIFESTS) {
     if (t.slug.toLowerCase() === lower || t.id.toLowerCase() === lower) {
       return t;
     }
