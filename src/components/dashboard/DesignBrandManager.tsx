@@ -1,27 +1,28 @@
 /**
- * JetKur Premium Theme Studio & Brand Manager (Theme Foundation 02D)
+ * JetKur Canonical Template Gallery, Theme Studio & Brand Manager (Sprint 12, 15 & 02D.R)
  *
  * Core Product Principle:
  * "Kullanıcı web sitesi yapmayacak. İşletmesini anlatacak; JetKur web sitesini yapacak."
  *
- * Capabilities:
- * 1. 12 Sektörel + 8 Çekirdek (Toplam 20) Hazır Tasarım Şablonu & Sektör Filtreleme.
- * 2. JetKur Akıllı Tasarım Öneri Motoru (Gerekçe ve dönüşüm vaadiyle akıllı paket önerisi).
- * 3. 16 Profesyonel Renk Paleti (WCAG 2.1 AA kontrast denetimi, özel HEX girişi ve marka rengine dönüş).
- * 4. Arka Plan & Gradyan Stüdyosu (6 usta gradyan hazır seti, düz renk, dokular, opaklık ayarı).
- * 5. Tipografi Stüdyosu (Corporate Sans, Modern Minimal, Elegant Serif, Premium Editorial & Türkçe karakter testi).
- * 6. Layout & Bileşen Varyantları (Header, Footer, Hizmet Kartı seçicileri).
- * 7. Gerçek Müşteri İçeriğiyle Canlı Önizleme (Masaüstü, Tablet 768px, Mobil 375px).
- * 8. Katı Öncelik Sırası: Özel Kullanıcı Seçimi > BrandKit > Şablon Varsayılanı.
- * 9. İçerik Dokunulmazlığı: Şablon değiştiğinde hiçbir müşteri verisi silinmez veya uydurulmaz.
+ * Features:
+ * 1. 8 Canonical Template Cards with human-friendly Turkish titles and layout mockups.
+ * 2. Smart Design Recommendations & 12 Sector Design Presets mapped onto the 8 canonical templates.
+ * 3. 16 Curated WCAG-Compliant Color Palettes, Custom HEX Override, and BrandKit Priority 2 Restoration.
+ * 4. 4 Typography Archetypes with full Turkish character compatibility (`latin-ext`).
+ * 5. 6 Curated Gradient & Section Surface Presets mapped to canonical `DesignSurfaceTokens`.
+ * 6. Component Layout Variant Switchers (Header, Footer, Service Cards).
+ * 7. Real Content Instant Preview Modal (Masaüstü, Tablet, Mobil) powered by `generateCandidatePreviewHtml`.
+ * 8. Content Immutability: BusinessProfile, SiteContent, BrandKit, and MediaAssets are 100% preserved.
  */
 
 import React, { useState, useEffect, useMemo } from "react";
 import { SiteConfig } from "../../types";
+import { CANONICAL_TEMPLATE_MANIFESTS, resolveTemplate } from "../../domain/templates/catalog";
 import {
-  ALL_TEMPLATE_MANIFESTS,
-  resolveTemplate,
-} from "../../domain/templates/catalog";
+  INDUSTRY_DESIGN_PRESETS,
+  IndustryDesignPreset,
+  buildPresetCustomTokens,
+} from "../../domain/templates/manifests/industryTemplates";
 import {
   fromLegacySiteConfig,
   resolveCanonicalManifestForLegacy,
@@ -35,13 +36,17 @@ import {
   darkenColor,
   normalizeHexColor,
   PREMIUM_PALETTES,
+  PremiumPaletteTokens,
   getPaletteById,
   createCustomPaletteFromHex,
   auditPaletteWcagContrast,
-  PremiumPaletteTokens,
+  toCanonicalPaletteTokens,
   GRADIENT_PRESETS,
+  GradientPreset,
+  toCanonicalSurfaceTokens,
   TYPOGRAPHY_PRESETS,
   getTypographyPresetById,
+  toCanonicalTypographyTokens,
   recommendDesignPackages,
   DesignPackageRecommendation,
 } from "../../domain/brand";
@@ -73,20 +78,61 @@ interface DesignBrandManagerProps {
   readOnly?: boolean;
 }
 
-const SECTOR_FILTERS = [
-  { id: "all", label: "Tüm Şablonlar" },
-  { id: "plumbing", label: "Sıhhi Tesisat" },
-  { id: "climate", label: "Kombi & Klima" },
-  { id: "towing", label: "Oto Kurtarma" },
-  { id: "electrical", label: "Elektrikçi" },
-  { id: "dental", label: "Diş & Sağlık" },
-  { id: "legal", label: "Hukuk & Avukat" },
-  { id: "real-estate", label: "Gayrimenkul" },
-  { id: "beauty", label: "Güzellik & Spa" },
-  { id: "hotel", label: "Otel & Konaklama" },
-  { id: "restaurant", label: "Restoran & Kafe" },
-  { id: "construction", label: "İnşaat & Mimarlık" },
-  { id: "consulting", label: "Danışmanlık & B2B" },
+const TEMPLATE_PREVIEW_MOCKUPS: Record<
+  string,
+  { badge: string; accentColor: string; layoutType: string }
+> = {
+  "tmpl-rapid-service": {
+    badge: "Hızlı Servis & Müdahale",
+    accentColor: "#f59e0b",
+    layoutType: "hero-urgent",
+  },
+  "tmpl-corporate-prestige": {
+    badge: "Kurumsal & Güvenilir",
+    accentColor: "#1e3a8a",
+    layoutType: "hero-corporate",
+  },
+  "tmpl-clinical-pure": {
+    badge: "Hijyenik & Klinik",
+    accentColor: "#059669",
+    layoutType: "hero-split",
+  },
+  "tmpl-modern-minimal": {
+    badge: "Sade & Modern",
+    accentColor: "#0f172a",
+    layoutType: "hero-minimal",
+  },
+  "tmpl-artisan-warm": {
+    badge: "Samimi & Usta İşi",
+    accentColor: "#ea580c",
+    layoutType: "hero-warm",
+  },
+  "tmpl-vip-luxury": {
+    badge: "Lüks & Özel Hizmet",
+    accentColor: "#b45309",
+    layoutType: "hero-luxury",
+  },
+  "tmpl-tech-dynamic": {
+    badge: "Teknolojik & Dinamik",
+    accentColor: "#0284c7",
+    layoutType: "hero-tech",
+  },
+  "tmpl-formal-legal": {
+    badge: "Resmi & Prestijli",
+    accentColor: "#4338ca",
+    layoutType: "hero-formal",
+  },
+};
+
+const QUICK_BRAND_COLORS = [
+  { label: "Kehribar Sarısı", color: "#f59e0b" },
+  { label: "Ateş Turuncusu", color: "#ea580c" },
+  { label: "Kurumsal Lacivert", color: "#1e3a8a" },
+  { label: "Kraliyet Mavisi", color: "#2563eb" },
+  { label: "Klinik Zümrüt", color: "#059669" },
+  { label: "Tıbbi Turkuaz", color: "#0d9488" },
+  { label: "Prestij Bordo", color: "#991b1b" },
+  { label: "Lüks Antrasit", color: "#334155" },
 ];
 
 export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
@@ -105,14 +151,13 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     config.colorTheme?.primary ||
     config.palette?.primary ||
     activeManifest.designTokens.palette.primary ||
-    "#1e3a8a";
+    "#f59e0b";
 
   const [selectedColor, setSelectedColor] = useState(effectivePrimaryColor);
   const [customHexInput, setCustomHexInput] = useState(effectivePrimaryColor);
   const [activeTab, setActiveTab] = useState<
-    "templates" | "palettes" | "backgrounds" | "typography" | "layout" | "brand"
+    "templates" | "palettes" | "typography" | "backgrounds" | "layout" | "brand"
   >("templates");
-  const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [extractedPalette, setExtractedPalette] = useState<ExtractedBrandPalette | null>(null);
   const [isColorExtracting, setIsColorExtracting] = useState(false);
@@ -133,20 +178,6 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
   }, [siteSector, config.brandKit]);
 
   const topRecommendation = smartRecommendations[0];
-
-  // Filter templates by sector
-  const filteredTemplates = useMemo(() => {
-    if (sectorFilter === "all") return ALL_TEMPLATE_MANIFESTS;
-    return ALL_TEMPLATE_MANIFESTS.filter((t) => {
-      const rec = t.recommendedIndustries || [];
-      const tags = t.tags || [];
-      return (
-        rec.some((ind) => ind.includes(sectorFilter) || sectorFilter.includes(ind)) ||
-        tags.some((tag) => tag.includes(sectorFilter)) ||
-        t.id.includes(sectorFilter)
-      );
-    });
-  }, [sectorFilter]);
 
   // When preview modal opens for a template, generate ephemeral HTML with real customer draft content
   useEffect(() => {
@@ -174,7 +205,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // One-click template switch (DRAFT only, live preserved!)
+  // One-click canonical template switch (DRAFT only, live preserved!)
   const handleApplyTemplate = (templateId: string) => {
     if (readOnly) return;
 
@@ -253,45 +284,102 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
 
     onChange(updated);
     setPreviewTemplateId(null);
-    setToastMessage(`Tasarım "${manifest.name}" olarak güncellendi. Tüm içerikleriniz eksiksiz korundu.`);
+    setToastMessage(
+      `Tasarım "${manifest.name}" olarak güncellendi. Canlı siteniz siz yayınlayana kadar değişmez.`
+    );
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Applies Smart Recommendation package (Template + Palette + Typography)
+  // Applies a canonical Industry Design Preset (canonical template + curated variants + tokens)
+  const handleApplyIndustryPreset = (preset: IndustryDesignPreset) => {
+    if (readOnly) return;
+
+    const manifest = resolveTemplate(preset.canonicalTemplateId);
+    if (!manifest) return;
+
+    const canonicalCurrent = fromLegacySiteConfig(config);
+    const existingPaletteOverride = config.brandKit?.palette
+      ? undefined
+      : canonicalCurrent.designTemplate?.customTokens?.palette;
+
+    const presetCustomTokens = buildPresetCustomTokens(preset, existingPaletteOverride);
+    const resolvedTokens = resolveDesignTokens(
+      manifest.designTokens,
+      config.brandKit,
+      presetCustomTokens
+    );
+
+    const updated: SiteConfig = {
+      ...config,
+      templateId: manifest.id,
+      theme: manifest.slug as any,
+      fontFamily: resolvedTokens.typography.fontHeading,
+      designTemplate: {
+        ...((config as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        customTokens: presetCustomTokens,
+        sectionVariants: {
+          ...manifest.sectionRecipe,
+          ...preset.sectionVariants,
+        },
+      },
+      palette: {
+        ...(config.palette || { name: preset.name }),
+        id: preset.palettePresetId,
+        name: preset.name,
+        primary: resolvedTokens.palette.primary,
+        primaryDark: resolvedTokens.palette.primaryDark,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        bg: resolvedTokens.palette.background,
+        text: resolvedTokens.palette.text,
+      },
+      colorTheme: {
+        ...config.colorTheme,
+        id: preset.palettePresetId,
+        name: preset.name,
+        primary: resolvedTokens.palette.primary,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        fontFamily: resolvedTokens.typography.fontHeading,
+        palette: {
+          ...(config.colorTheme?.palette || {}),
+          primary: resolvedTokens.palette.primary,
+          primaryDark: resolvedTokens.palette.primaryDark,
+          secondary: resolvedTokens.palette.secondary,
+          accent: resolvedTokens.palette.accent,
+          text: resolvedTokens.palette.text,
+          textMuted: resolvedTokens.palette.textMuted,
+          surface: resolvedTokens.palette.surface,
+          border: resolvedTokens.palette.border,
+        },
+      },
+    } as SiteConfig;
+
+    onChange(updated);
+    setSelectedColor(resolvedTokens.palette.primary);
+    setToastMessage(`Sektör tasarım paketi uygulandı: ${preset.name}`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Applies Smart Design Package Recommendation
   const handleApplySmartRecommendation = (rec: DesignPackageRecommendation) => {
     if (readOnly) return;
+
     const manifest = resolveTemplate(rec.templateId);
     if (!manifest) return;
 
     const pal = getPaletteById(rec.paletteId);
-    const typo = getTypographyPresetById(rec.typographyId as any);
-
+    const typo = getTypographyPresetById(rec.typographyId);
     const canonicalCurrent = fromLegacySiteConfig(config);
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens || {};
+
     const nextCustomTokens = {
-      ...(canonicalCurrent.designTemplate?.customTokens || {}),
-      palette: {
-        primary: pal.primary,
-        primaryDark: pal.primaryDark,
-        secondary: pal.secondary,
-        accent: pal.accent,
-        background: pal.background,
-        surface: pal.surface,
-        border: pal.border,
-        text: pal.text,
-        textMuted: pal.textMuted,
-      },
-      typography: {
-        fontHeading: typo.fontHeading,
-        fontBody: typo.fontBody,
-        headingWeight: typo.headingWeight,
-        baseFontSize: "16px" as const,
-      },
-      header: {
-        layout: rec.headerVariant as any,
-      },
-      footer: {
-        layout: rec.footerVariant as any,
-      },
+      ...existingCustomTokens,
+      palette: config.brandKit?.palette ? undefined : toCanonicalPaletteTokens(pal),
+      typography: toCanonicalTypographyTokens(typo),
     };
 
     const resolvedTokens = resolveDesignTokens(
@@ -304,6 +392,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
       ...config,
       templateId: manifest.id,
       theme: manifest.slug as any,
+      fontFamily: resolvedTokens.typography.fontHeading,
       designTemplate: {
         ...((config as any).designTemplate || {}),
         templateId: manifest.id,
@@ -312,6 +401,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         customTokens: nextCustomTokens,
         sectionVariants: {
           ...manifest.sectionRecipe,
+          ...rec.sectionVariants,
           header: rec.headerVariant,
           footer: rec.footerVariant,
         },
@@ -327,16 +417,15 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         bg: resolvedTokens.palette.background,
         text: resolvedTokens.palette.text,
       },
-      fontFamily: typo.fontHeading,
     } as SiteConfig;
 
     onChange(updated);
-    setSelectedColor(pal.primary);
-    setToastMessage(`JetKur akıllı önerisi uygulandı: ${rec.templateName} (${pal.name})`);
+    setSelectedColor(resolvedTokens.palette.primary);
+    setToastMessage(`JetKur akıllı önerisi uygulandı: ${rec.presetName} (${pal.name})`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Applies one of the 16 Premium Palettes
+  // Applies one of the 16 Curated Premium Palettes
   const handleApplyPremiumPalette = (pal: PremiumPaletteTokens) => {
     if (readOnly) return;
     setSelectedColor(pal.primary);
@@ -348,18 +437,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
 
     const nextCustomTokens = {
       ...existingCustomTokens,
-      palette: {
-        ...(existingCustomTokens.palette || {}),
-        primary: pal.primary,
-        primaryDark: pal.primaryDark,
-        secondary: pal.secondary,
-        accent: pal.accent,
-        background: pal.background,
-        surface: pal.surface,
-        border: pal.border,
-        text: pal.text,
-        textMuted: pal.textMuted,
-      },
+      palette: toCanonicalPaletteTokens(pal),
     };
 
     const resolvedTokens = resolveDesignTokens(
@@ -418,6 +496,81 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Explicit user color override (Priority 3: customTokens.palette.primary)
+  const handleColorChange = (newColor: string, baseConfig: SiteConfig = config) => {
+    if (readOnly) return;
+    const normalized = normalizeHexColor(newColor) || newColor;
+    const darker = darkenColor(normalized, 15);
+    setSelectedColor(normalized);
+    setCustomHexInput(normalized);
+
+    const manifest = resolveCanonicalManifestForLegacy(baseConfig);
+    const canonicalCurrent = fromLegacySiteConfig(baseConfig);
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens || {};
+    const nextCustomTokens = {
+      ...existingCustomTokens,
+      palette: {
+        ...(existingCustomTokens.palette || {}),
+        primary: normalized,
+        primaryDark: darker,
+      },
+    };
+
+    const resolvedTokens = resolveDesignTokens(
+      manifest.designTokens,
+      baseConfig.brandKit,
+      nextCustomTokens
+    );
+
+    const updated: SiteConfig = {
+      ...baseConfig,
+      designTemplate: {
+        ...((baseConfig as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        customTokens: nextCustomTokens,
+        sectionVariants: {
+          ...manifest.sectionRecipe,
+          ...((baseConfig as any).designTemplate?.sectionVariants || {}),
+        },
+      },
+      palette: {
+        ...(baseConfig.palette || { name: "Özel Renk Paleti" }),
+        id: "custom-override",
+        name: "Özel Renk Paleti",
+        primary: resolvedTokens.palette.primary,
+        primaryDark: resolvedTokens.palette.primaryDark,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        bg: resolvedTokens.palette.background,
+        text: resolvedTokens.palette.text,
+      },
+      colorTheme: {
+        ...(baseConfig as any).colorTheme,
+        id: "custom-override",
+        primary: resolvedTokens.palette.primary,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        palette: {
+          ...((baseConfig as any).colorTheme?.palette || {}),
+          primary: resolvedTokens.palette.primary,
+          primaryDark: resolvedTokens.palette.primaryDark,
+          secondary: resolvedTokens.palette.secondary,
+          accent: resolvedTokens.palette.accent,
+          text: resolvedTokens.palette.text,
+          textMuted: resolvedTokens.palette.textMuted,
+          surface: resolvedTokens.palette.surface,
+          border: resolvedTokens.palette.border,
+        },
+      },
+    } as SiteConfig;
+
+    onChange(updated);
+    setToastMessage("Marka rengi güncellendi.");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   // Explicit user color override via Custom HEX
   const handleApplyCustomHex = (hex: string) => {
     if (readOnly) return;
@@ -427,27 +580,21 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
-
     const customPal = createCustomPaletteFromHex(normalized);
     handleApplyPremiumPalette(customPal);
   };
 
-  // Applies Typography Preset
+  // Applies Typography Preset via canonical DesignTypographyTokens
   const handleApplyTypography = (typoId: string) => {
     if (readOnly) return;
-    const typo = getTypographyPresetById(typoId as any);
+    const typo = getTypographyPresetById(typoId);
     const manifest = resolveCanonicalManifestForLegacy(config);
     const canonicalCurrent = fromLegacySiteConfig(config);
     const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens || {};
 
     const nextCustomTokens = {
       ...existingCustomTokens,
-      typography: {
-        fontHeading: typo.fontHeading,
-        fontBody: typo.fontBody,
-        headingWeight: typo.headingWeight,
-        baseFontSize: "16px" as const,
-      },
+      typography: toCanonicalTypographyTokens(typo),
     };
 
     const updated: SiteConfig = {
@@ -467,12 +614,57 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Applies Header / Footer / Card variant layout
-  const handleApplyLayoutVariant = (section: "header" | "footer" | "services", variant: string) => {
+  // Applies Background / Gradient Preset via canonical TemplateGeometryTokens & TemplateColorTokens
+  const handleApplyGradientPreset = (preset: GradientPreset) => {
     if (readOnly) return;
     const manifest = resolveCanonicalManifestForLegacy(config);
     const canonicalCurrent = fromLegacySiteConfig(config);
-    const existingVariants = canonicalCurrent.designTemplate?.sectionVariants || manifest.sectionRecipe;
+    const existingCustomTokens = canonicalCurrent.designTemplate?.customTokens || {};
+
+    const surfaceTokens = toCanonicalSurfaceTokens({
+      type: "linear-gradient",
+      presetId: preset.id,
+      contrastMode: preset.contrastMode,
+    });
+
+    const nextCustomTokens = {
+      ...existingCustomTokens,
+      palette: {
+        ...(existingCustomTokens.palette || {}),
+        ...(surfaceTokens.heroGradient ? { heroGradient: surfaceTokens.heroGradient } : {}),
+      },
+      geometry: {
+        ...(existingCustomTokens.geometry || {}),
+        sectionSurfaceSequence: surfaceTokens.sectionSurfaceSequence,
+      },
+    };
+
+    const updated: SiteConfig = {
+      ...config,
+      designTemplate: {
+        ...((config as any).designTemplate || {}),
+        templateId: manifest.id,
+        templateSlug: manifest.slug,
+        templateVersion: manifest.version || "1.0.0",
+        customTokens: nextCustomTokens,
+      },
+    } as SiteConfig;
+
+    onChange(updated);
+    setToastMessage(`Bölüm yüzey ve gradyan stili "${preset.name}" olarak güncellendi.`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Applies Header / Footer / Service Card variant layout
+  const handleApplyLayoutVariant = (
+    section: "header" | "footer" | "services",
+    variant: string
+  ) => {
+    if (readOnly) return;
+    const manifest = resolveCanonicalManifestForLegacy(config);
+    const canonicalCurrent = fromLegacySiteConfig(config);
+    const existingVariants =
+      canonicalCurrent.designTemplate?.sectionVariants || manifest.sectionRecipe;
 
     const nextVariants = {
       ...existingVariants,
@@ -506,6 +698,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
 
     const brandPrimary = config.brandKit.palette.primary;
     setSelectedColor(brandPrimary);
+    setCustomHexInput(brandPrimary);
 
     const manifest = resolveCanonicalManifestForLegacy(config);
     const canonicalCurrent = fromLegacySiteConfig(config);
@@ -513,7 +706,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
 
     const nextCustomTokens = {
       ...existingCustomTokens,
-      palette: undefined, // Clears Priority 3 override so BrandKit rules Priority 2
+      palette: undefined,
     };
 
     const resolvedTokens = resolveDesignTokens(
@@ -549,7 +742,7 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Applies the logo-extracted BrandKit palette at Priority 2
+  // Applies the logo-extracted BrandKit palette at Priority 2 (clearing any Priority 3 palette override)
   const handleApplyExtractedBrandPalette = (
     extracted: ExtractedBrandPalette,
     baseConfig: SiteConfig = config,
@@ -566,6 +759,14 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
           palette: undefined,
         }
       : undefined;
+    const hasRemainingCustom =
+      cleanedCustomTokens &&
+      Boolean(
+        cleanedCustomTokens.typography ||
+          cleanedCustomTokens.geometry ||
+          cleanedCustomTokens.header ||
+          cleanedCustomTokens.footer
+      );
 
     const newBrandKit = createBrandKit({
       siteId: (baseConfig as any).siteId || baseConfig.id || "site-1",
@@ -592,10 +793,11 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     const resolvedTokens = resolveDesignTokens(
       manifest.designTokens,
       newBrandKit,
-      cleanedCustomTokens
+      hasRemainingCustom ? cleanedCustomTokens : undefined
     );
 
     setSelectedColor(resolvedTokens.palette.primary);
+    setCustomHexInput(resolvedTokens.palette.primary);
 
     const logoDataUrl = logoOverride?.dataUrl || baseConfig.logo || (baseConfig as any).logoUrl;
 
@@ -618,14 +820,15 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         templateId: manifest.id,
         templateSlug: manifest.slug,
         templateVersion: manifest.version || "1.0.0",
-        customTokens: cleanedCustomTokens,
+        customTokens: hasRemainingCustom ? cleanedCustomTokens : undefined,
         sectionVariants: {
           ...manifest.sectionRecipe,
+          ...((baseConfig as any).designTemplate?.sectionVariants || {}),
         },
       },
       palette: {
-        ...(baseConfig.palette || { name: "Marka Paleti" }),
-        id: newBrandKit.id,
+        ...(baseConfig.palette || { name: "Logodan Çıkarılan Marka Paleti" }),
+        id: newBrandKit.id || "palette-brand-kit",
         name: "Logodan Çıkarılan Marka Paleti",
         primary: resolvedTokens.palette.primary,
         primaryDark: resolvedTokens.palette.primaryDark,
@@ -634,11 +837,67 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         bg: resolvedTokens.palette.background,
         text: resolvedTokens.palette.text,
       },
+      colorTheme: {
+        ...(baseConfig as any).colorTheme,
+        id: newBrandKit.id || "palette-brand-kit",
+        primary: resolvedTokens.palette.primary,
+        secondary: resolvedTokens.palette.secondary,
+        accent: resolvedTokens.palette.accent,
+        palette: {
+          ...((baseConfig as any).colorTheme?.palette || {}),
+          primary: resolvedTokens.palette.primary,
+          primaryDark: resolvedTokens.palette.primaryDark,
+          secondary: resolvedTokens.palette.secondary,
+          accent: resolvedTokens.palette.accent,
+          text: resolvedTokens.palette.text,
+          textMuted: resolvedTokens.palette.textMuted,
+          surface: resolvedTokens.palette.surface,
+          border: resolvedTokens.palette.border,
+        },
+      },
     } as SiteConfig;
 
     onChange(updated);
     setToastMessage("Logodan çıkarılan marka paleti sitenize uygulandı!");
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const applyUploadedLogo = (
+    dataUrl: string,
+    mimeType: string,
+    svgContent?: string
+  ): SiteConfig => {
+    const manifest = resolveCanonicalManifestForLegacy(config);
+    const updatedBrandKit = createBrandKit({
+      siteId: (config as any).siteId || (config as any).id || "site-1",
+      logoInput: {
+        sourceType: mimeType.includes("svg") ? "svg" : "upload",
+        url: dataUrl,
+        svgContent,
+        mimeType,
+      },
+      preferredPrimary: config.brandKit?.palette?.primary || selectedColor,
+      preferredSecondary: config.brandKit?.palette?.secondary,
+      preferredAccent: config.brandKit?.palette?.accent,
+      fallbackTemplateTokens: manifest.designTokens,
+    });
+
+    const updated: SiteConfig = {
+      ...config,
+      logo: dataUrl,
+      logoUrl: dataUrl,
+      header: {
+        ...config.header,
+        logoType: "image",
+        logoImage: dataUrl,
+      },
+      brandKit: updatedBrandKit,
+    };
+
+    onChange(updated);
+    setToastMessage("Logo başarıyla yüklendi ve kurumsal kimliğinize bağlandı!");
+    setTimeout(() => setToastMessage(null), 3000);
+    return updated;
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -659,6 +918,8 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
       reader.onload = async (event) => {
         const svgText = event.target?.result as string;
         const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+        const configWithLogo = applyUploadedLogo(dataUrl, "image/svg+xml", svgText);
+
         setIsColorExtracting(true);
         try {
           const result = await extractLogoColors({
@@ -668,14 +929,14 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
           });
           setExtractedPalette(result);
           if (result.isExtracted && result.primary) {
-            handleApplyExtractedBrandPalette(result, config, {
+            handleApplyExtractedBrandPalette(result, configWithLogo, {
               dataUrl,
               mimeType: "image/svg+xml",
               svgContent: svgText,
             });
           }
-        } catch (err) {
-          console.error("Logo analizi hatası:", err);
+        } catch {
+          // ignore
         } finally {
           setIsColorExtracting(false);
         }
@@ -684,22 +945,24 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
     } else {
       reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
+        const configWithLogo = applyUploadedLogo(dataUrl, file.type);
+
         setIsColorExtracting(true);
         try {
           const result = await extractLogoColors({
             dataUrl,
-            mimeType: file.type || "image/png",
+            mimeType: file.type,
             fileName: file.name,
           });
           setExtractedPalette(result);
           if (result.isExtracted && result.primary) {
-            handleApplyExtractedBrandPalette(result, config, {
+            handleApplyExtractedBrandPalette(result, configWithLogo, {
               dataUrl,
-              mimeType: file.type || "image/png",
+              mimeType: file.type,
             });
           }
-        } catch (err) {
-          console.error("Logo analizi hatası:", err);
+        } catch {
+          // ignore
         } finally {
           setIsColorExtracting(false);
         }
@@ -718,107 +981,86 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         </div>
       )}
 
-      {/* JetKur Theme Studio Header & Tab Navigation */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
-              <Paintbrush className="w-5 h-5" />
-            </span>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Premium Theme Studio</h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            İşletmenizin sektörüne en uygun tasarımı seçin, renklerinizi ve tipografinizi anında özelleştirin.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab("templates")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "templates"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Şablonlar</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("palettes")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "palettes"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span>16 Renk Paleti</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("backgrounds")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "backgrounds"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Arka Plan &amp; Gradyan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("typography")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "typography"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Type className="w-3.5 h-3.5" />
-            <span>Tipografi</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("layout")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "layout"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Bileşenler</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("brand")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "brand"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Logo &amp; Kimlik</span>
-          </button>
-        </div>
+      {/* Navigation Tabs */}
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab("templates")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "templates"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Şablon &amp; Sektör Paketleri</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("palettes")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "palettes"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Palette className="w-3.5 h-3.5" />
+          <span>Renk Paletleri (16)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("typography")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "typography"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Type className="w-3.5 h-3.5" />
+          <span>Tipografi</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("backgrounds")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "backgrounds"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Paintbrush className="w-3.5 h-3.5" />
+          <span>Yüzey &amp; Gradyan</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("layout")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "layout"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Bileşen Düzeni</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("brand")}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "brand"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          <span>Logo &amp; Marka Rengi</span>
+        </button>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 1. TEMPLATES & SECTORS TAB                                                */}
-      {/* ========================================================================= */}
+      {/* 1. TEMPLATES & INDUSTRY PRESETS TAB */}
       {activeTab === "templates" && (
-        <div className="space-y-6">
-          {/* JetKur Smart Design Recommendation Banner */}
+        <div className="space-y-8">
+          {/* Smart Design Recommendation Banner */}
           {topRecommendation && (
             <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
               <div className="flex items-start gap-3.5">
@@ -827,16 +1069,18 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
                       JetKur Akıllı Önerisi ({siteSector})
                     </span>
-                    <span className="text-xs font-bold text-slate-600">%98 Eşleşme</span>
                   </div>
-                  <h3 className="text-base font-black text-slate-900 mt-1">{topRecommendation.templateName}</h3>
-                  <p className="text-xs text-slate-600 mt-0.5 max-w-xl">{topRecommendation.rationale}</p>
+                  <h3 className="text-base font-black text-slate-900 mt-1">
+                    {topRecommendation.presetName} ({topRecommendation.templateName})
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-0.5 max-w-xl">
+                    {topRecommendation.rationale}
+                  </p>
                 </div>
               </div>
-
               {!readOnly && (
                 <button
                   type="button"
@@ -849,124 +1093,179 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
             </div>
           )}
 
-          {/* Sector Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
-            {SECTOR_FILTERS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSectorFilter(s.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  sectorFilter === s.id
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {/* 8 Canonical Templates */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                8 Ana Mimari Tasarım Şablonu
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                İşletmenizin tarzına en uygun ana şablonu seçin. Şablonu değiştirdiğinizde tüm metinleriniz, hizmetleriniz, fotoğraflarınız ve telefon bilgileriniz eksiksiz korunur.
+              </p>
+            </div>
 
-          {/* Template Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredTemplates.map((tmpl) => {
-              const isSelected = activeTemplateId === tmpl.id || activeTemplateId === tmpl.slug;
-              const isTopPick = tmpl.id === topRecommendation?.templateId;
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {CANONICAL_TEMPLATE_MANIFESTS.map((tmpl) => {
+                const isSelected = activeTemplateId === tmpl.id || activeTemplateId === tmpl.slug;
+                const mockup = TEMPLATE_PREVIEW_MOCKUPS[tmpl.id] || {
+                  badge: tmpl.category,
+                  accentColor: "#f59e0b",
+                  layoutType: "hero-default",
+                };
+                const isRecommended = tmpl.id === topRecommendation?.templateId;
 
-              return (
-                <div
-                  key={tmpl.id}
-                  className={`bg-white rounded-3xl border transition-all flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
-                    isSelected
-                      ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="relative aspect-16/10 bg-slate-900 p-4 flex flex-col justify-between overflow-hidden">
-                    {tmpl.previewImageUrl && (
-                      <img
-                        src={tmpl.previewImageUrl}
-                        alt={tmpl.name}
-                        className="absolute inset-0 w-full h-full object-cover opacity-60"
-                        loading="lazy"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-
-                    <div className="flex items-center justify-between z-10">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-950/80 text-white backdrop-blur-md">
-                        {tmpl.category}
-                      </span>
-                      {isTopPick && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs">
-                          <Sparkles className="w-3 h-3" />
-                          <span>Önerilen</span>
+                return (
+                  <div
+                    key={tmpl.id}
+                    className={`bg-white rounded-3xl border transition-all flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md ${
+                      isSelected
+                        ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="relative aspect-16/10 bg-slate-900 p-4 flex flex-col justify-between overflow-hidden">
+                      <div className="flex items-center justify-between z-10">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-950/70 text-slate-200 backdrop-blur-md">
+                          {mockup.badge}
                         </span>
-                      )}
+                        {isRecommended && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs">
+                            <Sparkles className="w-3 h-3" />
+                            <span>Önerilen</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="z-10">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: tmpl.designTokens.palette.primary }}
+                          />
+                          <span className="text-[11px] font-bold text-slate-300 truncate">
+                            {tmpl.designTokens.typography.fontHeading}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="z-10">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: tmpl.designTokens.palette.primary }}
-                        />
-                        <span className="text-[11px] font-bold text-slate-300 truncate">
-                          {tmpl.designTokens.typography.fontHeading}
-                        </span>
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 mb-1 leading-snug">
+                          {tmpl.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                          {tmpl.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTemplateId(tmpl.id)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Önizle</span>
+                        </button>
+                        {isSelected ? (
+                          <span className="text-xs font-black text-emerald-600 flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Aktif</span>
+                          </span>
+                        ) : (
+                          !readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTemplate(tmpl.id)}
+                              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              Uygula
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  <div className="p-5 flex-1 flex flex-col justify-between">
+          {/* 12 Curated Sector Design Presets */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                12 Sektörel Hazır Tasarım Paketi
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                Sektörünüze özel hazırlanmış renk paleti, tipografi ve bileşen varyantlarını tek tıkla ana şablonunuza uygulayın.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {INDUSTRY_DESIGN_PRESETS.map((preset) => {
+                const pal = getPaletteById(preset.palettePresetId);
+                return (
+                  <div
+                    key={preset.id}
+                    className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 p-5 flex flex-col justify-between gap-4 shadow-xs"
+                  >
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 mb-1 leading-snug">{tmpl.name}</h4>
-                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{tmpl.description}</p>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          {preset.category}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/10"
+                            style={{ backgroundColor: pal.primary }}
+                          />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/10"
+                            style={{ backgroundColor: pal.accent }}
+                          />
+                        </div>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900">{preset.name}</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        {preset.description}
+                      </p>
                     </div>
-
-                    <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                       <button
                         type="button"
-                        onClick={() => setPreviewTemplateId(tmpl.id)}
-                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        onClick={() => setPreviewTemplateId(preset.canonicalTemplateId)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Canlı İncele</span>
+                        <span>Önizle</span>
                       </button>
-
-                      {isSelected ? (
-                        <span className="text-xs font-black text-emerald-600 flex items-center gap-1">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Aktif</span>
-                        </span>
-                      ) : (
-                        !readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => handleApplyTemplate(tmpl.id)}
-                            className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
-                          >
-                            Seç
-                          </button>
-                        )
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyIndustryPreset(preset)}
+                          className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          Paketi Uygula
+                        </button>
                       )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 2. 16 PREMIUM COLOR PALETTES TAB                                          */}
-      {/* ========================================================================= */}
+      {/* 2. 16 PREMIUM COLOR PALETTES TAB */}
       {activeTab === "palettes" && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">16 Profesyonel Renk Paleti</h3>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">
+                16 Profesyonel Renk Paleti
+              </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-2xl">
                 Tüm renk paletleri WCAG 2.1 AA kontrast kurallarına tam uyumludur. Dilerseniz hazır paletlerden seçin veya işletmenizin özel HEX kodunu girin.
               </p>
@@ -984,9 +1283,11 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
             )}
           </div>
 
-          {/* Custom HEX Color Input */}
+          {/* Custom HEX Input */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
-            <span className="text-xs font-bold text-slate-700 whitespace-nowrap">Özel HEX Rengi Girin:</span>
+            <span className="text-xs font-bold text-slate-700 whitespace-nowrap">
+              Özel HEX Rengi Girin:
+            </span>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <input
                 type="color"
@@ -1001,77 +1302,63 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                 type="text"
                 value={customHexInput}
                 onChange={(e) => setCustomHexInput(e.target.value)}
-                placeholder="#1E40AF"
-                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono w-28 uppercase text-slate-800"
+                placeholder="#1E3A8A"
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono w-32"
               />
-              <button
-                type="button"
-                onClick={() => handleApplyCustomHex(customHexInput)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                Uygula
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyCustomHex(customHexInput)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                >
+                  Uygula
+                </button>
+              )}
             </div>
-            <span className="text-[11px] text-slate-400">
-              Girilen rengin açık/koyu varyasyonları ve WCAG kontrast oranları otomatik türetilir.
-            </span>
           </div>
 
-          {/* 16 Palettes Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {PREMIUM_PALETTES.map((pal) => {
-              const audit = auditPaletteWcagContrast(pal);
-              const isSelected = selectedColor.toLowerCase() === pal.primary.toLowerCase();
-
+              const wcag = auditPaletteWcagContrast(pal);
               return (
                 <div
                   key={pal.id}
-                  onClick={() => handleApplyPremiumPalette(pal)}
-                  className={`p-5 rounded-2xl bg-white border transition-all cursor-pointer flex flex-col justify-between ${
-                    isSelected
-                      ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
+                  className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 flex flex-col justify-between gap-3 shadow-xs"
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-900">{pal.name}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {audit.passesWcag ? "AA Uyumlu" : "Yüksek Kontrast"}
-                      </span>
-                    </div>
-
-                    {/* Color Swatches */}
-                    <div className="flex items-center gap-1.5 mb-3">
+                    <div className="flex items-center gap-1.5 mb-2">
                       <span
-                        className="w-8 h-8 rounded-lg shadow-xs shrink-0"
+                        className="w-5 h-5 rounded-lg border border-black/10"
                         style={{ backgroundColor: pal.primary }}
-                        title={`Primary: ${pal.primary}`}
                       />
                       <span
-                        className="w-8 h-8 rounded-lg shadow-xs shrink-0"
-                        style={{ backgroundColor: pal.secondary }}
-                        title={`Secondary: ${pal.secondary}`}
-                      />
-                      <span
-                        className="w-8 h-8 rounded-lg shadow-xs shrink-0"
+                        className="w-5 h-5 rounded-lg border border-black/10"
                         style={{ backgroundColor: pal.accent }}
-                        title={`Accent: ${pal.accent}`}
                       />
                       <span
-                        className="w-8 h-8 rounded-lg border border-slate-200 shrink-0"
+                        className="w-5 h-5 rounded-lg border border-black/10"
                         style={{ backgroundColor: pal.surface }}
-                        title={`Surface: ${pal.surface}`}
                       />
+                      {wcag.passesWcag && (
+                        <span className="ml-auto text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          WCAG AA
+                        </span>
+                      )}
                     </div>
-
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{pal.description}</p>
+                    <h4 className="text-xs font-bold text-slate-900">{pal.name}</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                      {pal.description}
+                    </p>
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="font-mono text-slate-400">{pal.primary}</span>
-                    {isSelected && <span className="font-bold text-amber-600">✓ Seçili</span>}
-                  </div>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPremiumPalette(pal)}
+                      className="w-full py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-800 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Paleti Seç
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -1079,240 +1366,218 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 3. BACKGROUND & GRADIENT STUDIO TAB                                       */}
-      {/* ========================================================================= */}
-      {activeTab === "backgrounds" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-            <h3 className="text-base font-black text-slate-900 tracking-tight">Arka Plan &amp; Gradyan Stüdyosu</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-              Web sitenizin ana zemin karakterini belirleyin. Usta gradyan setleri ve hafif dokulu mimari seçenekler.
-            </p>
-          </div>
+      {/* 3. TYPOGRAPHY TAB */}
+      {activeTab === "typography" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {TYPOGRAPHY_PRESETS.map((typo) => (
+            <div
+              key={typo.id}
+              className="p-6 rounded-2xl bg-white border border-slate-200 flex flex-col justify-between gap-4 shadow-xs"
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {typo.category}
+                </span>
+                <h4 className="text-base font-black text-slate-900 mt-1">{typo.name}</h4>
+                <p className="text-xs text-slate-500 mt-1">{typo.description}</p>
+                <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700">
+                  <div className="font-bold">
+                    Başlık: {typo.fontHeading} · Gövde: {typo.fontBody}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Türkçe Karakter Desteği: Çağdaş İşletme Çözümleri (ç, ğ, ı, ö, ş, ü, İ)
+                  </div>
+                </div>
+              </div>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyTypography(typo.id)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer w-fit"
+                >
+                  Bu Tipografiyi Uygula
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {GRADIENT_PRESETS.map((preset) => (
-              <div
-                key={preset.id}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-              >
+      {/* 4. BACKGROUNDS & SURFACES TAB */}
+      {activeTab === "backgrounds" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {GRADIENT_PRESETS.map((preset) => (
+            <div
+              key={preset.id}
+              className="p-5 rounded-2xl bg-white border border-slate-200 flex flex-col justify-between gap-4 shadow-xs"
+            >
+              <div>
                 <div
-                  className="h-28 flex items-center justify-center p-4 relative"
+                  className="h-20 rounded-xl mb-3 border border-black/10"
                   style={{
                     background: `linear-gradient(${preset.angle}deg, ${preset.stops
-                      .map((s) => `${s.color} ${s.position || 0}%`)
+                      .map((s) => `${s.color} ${s.position ?? 0}%`)
                       .join(", ")})`,
                   }}
-                >
-                  <span
-                    className={`text-sm font-black tracking-wider uppercase ${
-                      preset.contrastMode === "dark" ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    {preset.name}
-                  </span>
-                </div>
-
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <p className="text-xs text-slate-500 mb-4">{preset.description}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (readOnly) return;
-                      handleApplyCustomHex(preset.stops[0].color);
-                      setToastMessage(`"${preset.name}" gradyanı uygulandı.`);
-                      setTimeout(() => setToastMessage(null), 3000);
-                    }}
-                    className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Bu Gradyanı Kullan
-                  </button>
-                </div>
+                />
+                <h4 className="text-sm font-bold text-slate-900">{preset.name}</h4>
+                <p className="text-xs text-slate-500 mt-1">{preset.description}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 4. TYPOGRAPHY SYSTEM TAB                                                  */}
-      {/* ========================================================================= */}
-      {activeTab === "typography" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-            <h3 className="text-base font-black text-slate-900 tracking-tight">4 Tipografi Karakteri</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-              Başlık ve gövde fontları tam Türkçe karakter seti (ç, ğ, ı, ö, ş, ü, İ) ile kusursuz optimize edilmiştir.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {TYPOGRAPHY_PRESETS.map((typo) => {
-              const isSelected =
-                config.fontFamily?.toLowerCase().includes(typo.fontHeading.toLowerCase()) ||
-                (config as any).designTemplate?.customTokens?.typography?.fontHeading === typo.fontHeading;
-
-              return (
-                <div
-                  key={typo.id}
-                  className={`p-6 rounded-2xl bg-white border transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyGradientPreset(preset)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="text-base font-black text-slate-900">{typo.name}</h4>
-                        <span className="text-[11px] text-slate-400">
-                          Başlık: {typo.fontHeading} • Gövde: {typo.fontBody}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                        {typo.category.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 my-4 space-y-2">
-                      <p className="text-xl font-bold text-slate-900 leading-snug">
-                        Şehir İçi ve Şehirler Arası Güvenilir Profesyonel Çözümler.
-                      </p>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Çınar, çağlayan, ırmak, özenli ve şeffaf hizmet yaklaşımımızla 7/24 yanınızdayız. (Türkçe Karakter Desteği: Ç, Ğ, İ, Ö, Ş, Ü)
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-slate-500">{typo.description}</p>
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-slate-400">Önerilen: {typo.recommendedSectors.join(", ")}</span>
-                    {isSelected ? (
-                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Seçili</span>
-                      </span>
-                    ) : (
-                      !readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => handleApplyTypography(typo.id)}
-                          className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Seç
-                        </button>
-                      )
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  Yüzey Stilini Uygula
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 5. LAYOUT & COMPONENT VARIANTS TAB                                        */}
-      {/* ========================================================================= */}
+      {/* 5. COMPONENT LAYOUT VARIANTS TAB */}
       {activeTab === "layout" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-            <h3 className="text-base font-black text-slate-900 tracking-tight">Layout &amp; Bileşen Varyantları</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-              Header, Footer ve Hizmet Kartlarının sunum varyantlarını seçin. İçeriğiniz değişmeden sadece görsel yerleşim güncellenir.
-            </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Header Variants */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+            <h4 className="text-sm font-black text-slate-900">Üst Menü (Header) Stili</h4>
+            <div className="space-y-2">
+              {[
+                {
+                  id: "corporate-classic",
+                  label: "Kurumsal Klasik",
+                  desc: "Üst bilgi barı ve dengeli kurumsal navigasyon",
+                },
+                {
+                  id: "local-service",
+                  label: "Yerel Servis & Hızlı Arama",
+                  desc: "Telefon ve WhatsApp odaklı dönüşüm barı",
+                },
+                {
+                  id: "modern-minimal",
+                  label: "Modern Minimal",
+                  desc: "Sade ve ferah mimari üst menü",
+                },
+                {
+                  id: "premium-editorial",
+                  label: "Premium Editoryal",
+                  desc: "Seçkin markalar için zarif üst menü",
+                },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleApplyLayoutVariant("header", item.id)}
+                  className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  <div className="text-xs font-bold text-slate-900">{item.label}</div>
+                  <div className="text-[11px] text-slate-500">{item.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Header Variants */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
-              <h4 className="text-sm font-black text-slate-900">Header (Üst Menü)</h4>
-              <div className="space-y-2">
-                {[
-                  { id: "corporate-classic", label: "Kurumsal Klasik", desc: "Logo solda, menü ortada, CTA sağda" },
-                  { id: "local-service", label: "Acil Yerel Servis", desc: "Hızlı ara butonu ve acil çağrı odaklı" },
-                  { id: "modern-minimal", label: "Modern Minimal", desc: "Sade tipografik logo ve yalın eylem" },
-                  { id: "premium-luxury", label: "Prestij Lüks", desc: "Dengeli altın vurgu ve seçkin duruş" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleApplyLayoutVariant("header", item.id)}
-                    className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    <div className="text-xs font-bold text-slate-900">{item.label}</div>
-                    <div className="text-[11px] text-slate-500">{item.desc}</div>
-                  </button>
-                ))}
-              </div>
+          {/* Footer Variants */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+            <h4 className="text-sm font-black text-slate-900">Alt Bilgi (Footer) Stili</h4>
+            <div className="space-y-2">
+              {[
+                {
+                  id: "corporate-multi",
+                  label: "Kurumsal Çok Sütunlu",
+                  desc: "4 sütunlu kapsamlı kurumsal alt bilgi",
+                },
+                {
+                  id: "local-service",
+                  label: "Yerel Servis Dönüşüm",
+                  desc: "Hızlı iletişim şeritli ve hizmet bölgeli alt bilgi",
+                },
+                {
+                  id: "minimal-clean",
+                  label: "Minimal Yalın",
+                  desc: "Kompakt ve modern tek satırlı düzen",
+                },
+                {
+                  id: "premium-editorial",
+                  label: "Premium Editoryal",
+                  desc: "Büyük tipografik marka başlıklı prestij düzeni",
+                },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleApplyLayoutVariant("footer", item.id)}
+                  className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  <div className="text-xs font-bold text-slate-900">{item.label}</div>
+                  <div className="text-[11px] text-slate-500">{item.desc}</div>
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Footer Variants */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
-              <h4 className="text-sm font-black text-slate-900">Footer (Alt Menü)</h4>
-              <div className="space-y-2">
-                {[
-                  { id: "corporate-multi", label: "Kurumsal Çok Sütunlu", desc: "4 sütunlu zengin navigasyon & iletişim" },
-                  { id: "local-service", label: "Yerel Servis Odaklı", desc: "Acil çağrı kartı ve doğrudan telefon" },
-                  { id: "minimal", label: "Yalın Minimal", desc: "Sade tek satırlı altbilgi ve telif şeridi" },
-                  { id: "premium", label: "Prestij Lüks", desc: "Ortalanmış marka, zarif menü ve altın aksan" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleApplyLayoutVariant("footer", item.id)}
-                    className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    <div className="text-xs font-bold text-slate-900">{item.label}</div>
-                    <div className="text-[11px] text-slate-500">{item.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Service Card Variants */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
-              <h4 className="text-sm font-black text-slate-900">Hizmet Kartı Stili</h4>
-              <div className="space-y-2">
-                {[
-                  { id: "standard", label: "Standart Profesyonel", desc: "Numaralı ve ikon rozetli dengeli kart" },
-                  { id: "compact-service", label: "Kompakt Servis", desc: "Hızlı yerel hizmetler için sıkıştırılmış ızgara" },
-                  { id: "bordered-premium", label: "Kenarlıklı Prestij", desc: "Teklif & Detay Al butonlu çerçeveli kart" },
-                  { id: "image-focused", label: "Görsel Odaklı (16:9)", desc: "Fotoğraf vitrinli kart yerleşimi" },
-                  { id: "minimal-icon", label: "Minimal Tipografik", desc: "Sol marka çizgili yalın sunum" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleApplyLayoutVariant("services", item.id)}
-                    className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    <div className="text-xs font-bold text-slate-900">{item.label}</div>
-                    <div className="text-[11px] text-slate-500">{item.desc}</div>
-                  </button>
-                ))}
-              </div>
+          {/* Service Card Variants */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+            <h4 className="text-sm font-black text-slate-900">Hizmet Kartı Stili</h4>
+            <div className="space-y-2">
+              {[
+                {
+                  id: "standard",
+                  label: "Standart Profesyonel",
+                  desc: "Numaralı ve ikon rozetli dengeli kart",
+                },
+                {
+                  id: "compact-service",
+                  label: "Kompakt Servis",
+                  desc: "Hızlı yerel hizmetler için sıkıştırılmış ızgara",
+                },
+                {
+                  id: "bordered-premium",
+                  label: "Kenarlıklı Prestij",
+                  desc: "Teklif & Detay Al butonlu çerçeveli kart",
+                },
+                {
+                  id: "image-focused",
+                  label: "Görsel Odaklı (16:9)",
+                  desc: "Fotoğraf vitrinli kart yerleşimi",
+                },
+                {
+                  id: "minimal-icon",
+                  label: "Minimal Tipografik",
+                  desc: "Sol marka çizgili yalın sunum",
+                },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleApplyLayoutVariant("services", item.id)}
+                  className="w-full text-left p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  <div className="text-xs font-bold text-slate-900">{item.label}</div>
+                  <div className="text-[11px] text-slate-500">{item.desc}</div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 6. LOGO & BRAND KIT TAB                                                   */}
-      {/* ========================================================================= */}
+      {/* 6. LOGO & BRAND KIT TAB */}
       {activeTab === "brand" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-            <h3 className="text-base font-black text-slate-900 tracking-tight">Logo &amp; Kurumsal Marka Kimliği</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-              İşletmenizin logosunu yükleyin. JetKur renk paletinizi logodan otomatik çıkarır ve web sitenizle uyumlar.
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+            <h3 className="text-base font-black text-slate-900 tracking-tight">
+              İşletme Logosu &amp; Kurumsal Kimlik
+            </h3>
+            <p className="text-xs text-slate-500">
+              Logonuzu yüklediğinizde JetKur logonuzdaki kurumsal renkleri otomatik analiz eder.
             </p>
 
-            <div className="mt-6 flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center gap-4 pt-2">
               {config.logo || (config as any).logoUrl ? (
-                <div className="w-24 h-24 rounded-2xl bg-white border border-slate-200 p-2 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-20 h-20 rounded-2xl bg-slate-50 border border-slate-200 p-2 flex items-center justify-center shrink-0">
                   <img
                     src={config.logo || (config as any).logoUrl}
                     alt="Mevcut Logo"
@@ -1320,19 +1585,15 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                   />
                 </div>
               ) : (
-                <div className="w-24 h-24 rounded-2xl bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-500 shrink-0 font-black text-2xl">
+                <div className="w-20 h-20 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 font-black text-xl">
                   {config.companyName?.charAt(0) || "J"}
                 </div>
               )}
 
-              <div className="space-y-2 text-center sm:text-left">
-                <span className="text-xs font-bold text-slate-900 block">Yeni Logo Yükleyin (SVG veya PNG)</span>
-                <p className="text-[11px] text-slate-500 max-w-md">
-                  Şeffaf arka planlı yüksek çözünürlüklü PNG veya SVG formatı önerilir (Maks 2MB).
-                </p>
-                <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-xs">
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors">
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Logo Seç ve Yükle</span>
+                  <span>Logo Yükle (PNG, SVG, JPG)</span>
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/svg+xml,image/webp"
@@ -1341,26 +1602,99 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                     disabled={readOnly || isColorExtracting}
                   />
                 </label>
+                <p className="text-[11px] text-slate-400">Maksimum 2MB boyutunda görsel</p>
               </div>
             </div>
 
             {isColorExtracting && (
-              <div className="mt-4 p-4 rounded-xl bg-amber-50 text-amber-900 text-xs font-bold flex items-center gap-2">
+              <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 text-xs flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                <span>Logo renkleri analiz ediliyor ve kurumsal palet oluşturuluyor...</span>
+                <span>Logo renkleri analiz ediliyor...</span>
               </div>
             )}
+
+            {extractedPalette && extractedPalette.isExtracted && !isColorExtracting && (
+              <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 space-y-3">
+                <div className="text-xs font-bold text-emerald-900">
+                  Logodan Tespit Edilen Marka Renkleri:
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-4 h-4 rounded-full border border-black/10 inline-block shadow-xs"
+                      style={{ backgroundColor: extractedPalette.primary }}
+                    />
+                    <span className="text-xs font-semibold text-slate-800">
+                      Ana:{" "}
+                      <code className="font-mono text-slate-900">{extractedPalette.primary}</code>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-4 h-4 rounded-full border border-black/10 inline-block shadow-xs"
+                      style={{ backgroundColor: extractedPalette.accent }}
+                    />
+                    <span className="text-xs font-semibold text-slate-800">
+                      Yardımcı:{" "}
+                      <code className="font-mono text-slate-900">{extractedPalette.accent}</code>
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyExtractedBrandPalette(extractedPalette)}
+                  className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition-colors cursor-pointer"
+                >
+                  Otomatik Paleti Kullan
+                </button>
+              </div>
+            )}
+
+            {extractedPalette && !extractedPalette.isExtracted && !isColorExtracting && (
+              <div className="p-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  Logodan güvenilir bir marka rengi çıkaramadık. Ana renginizi yan panelden seçebilirsiniz.
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+            <h3 className="text-base font-black text-slate-900 tracking-tight">Ana Marka Rengi</h3>
+            <p className="text-xs text-slate-500">
+              Butonlar, vurgular ve arama simgeleri bu renkle otomatik olarak uyumlu hale getirilir.
+            </p>
+            <div className="grid grid-cols-4 gap-3 pt-2">
+              {QUICK_BRAND_COLORS.map((item) => (
+                <button
+                  key={item.color}
+                  type="button"
+                  onClick={() => handleColorChange(item.color)}
+                  className={`p-2.5 rounded-2xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedColor.toLowerCase() === item.color.toLowerCase()
+                      ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50 shadow-xs"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <span
+                    className="w-7 h-7 rounded-xl shadow-xs border border-black/10"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 7. REAL CONTENT INSTANT PREVIEW MODAL                                     */}
-      {/* ========================================================================= */}
+      {/* 7. REAL CONTENT INSTANT PREVIEW MODAL */}
       {previewTemplateId && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
           <div className="bg-slate-900 rounded-3xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-slate-800">
-            {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-black text-slate-200 uppercase tracking-wider">
@@ -1374,13 +1708,14 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                 </span>
               </div>
 
-              {/* Viewport Controls */}
               <div className="flex items-center bg-slate-800 rounded-xl p-1 gap-1">
                 <button
                   type="button"
                   onClick={() => setPreviewViewport("desktop")}
                   className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                    previewViewport === "desktop" ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    previewViewport === "desktop"
+                      ? "bg-slate-700 text-white"
+                      : "text-slate-400 hover:text-white"
                   }`}
                   title="Masaüstü Görünümü"
                 >
@@ -1391,7 +1726,9 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                   type="button"
                   onClick={() => setPreviewViewport("tablet")}
                   className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                    previewViewport === "tablet" ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    previewViewport === "tablet"
+                      ? "bg-slate-700 text-white"
+                      : "text-slate-400 hover:text-white"
                   }`}
                   title="Tablet Görünümü (768px)"
                 >
@@ -1402,7 +1739,9 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                   type="button"
                   onClick={() => setPreviewViewport("mobile")}
                   className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                    previewViewport === "mobile" ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    previewViewport === "mobile"
+                      ? "bg-slate-700 text-white"
+                      : "text-slate-400 hover:text-white"
                   }`}
                   title="Mobil Görünüm (375px)"
                 >
@@ -1411,7 +1750,6 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
                 </button>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 {!readOnly && (
                   <button
@@ -1434,7 +1772,6 @@ export const DesignBrandManager: React.FC<DesignBrandManagerProps> = ({
               </div>
             </div>
 
-            {/* Modal Iframe Content Area */}
             <div className="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 bg-white rounded-2xl overflow-hidden shadow-2xl ${

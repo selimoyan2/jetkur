@@ -38,7 +38,7 @@ export function renderDocumentShell(options: DocumentShellOptions): string {
     assetPrefix = "",
   } = options;
 
-  const seoHeadHtml = renderSeoHead(config, seo);
+  const seoHeadHtml = renderSeoHead(config, seo, resolvedTokens);
   const staticCssContent = generateStaticCss(config, resolvedTokens);
   const dirAttr = isRtl ? ' dir="rtl"' : "";
   const bodyRtlClass = isRtl ? " rtl-layout" : "";

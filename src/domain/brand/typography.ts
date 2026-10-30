@@ -1,20 +1,20 @@
 /**
- * JetKur Typography System (Theme Foundation 02D)
+ * JetKur Typography System (Theme Foundation 02D.R)
  *
  * ARCHITECTURAL PRINCIPLES:
  * 1. 4 Primary Typography Archetypes:
  *    - Corporate Sans (Plus Jakarta Sans / Inter)
  *    - Modern Minimal (Outfit / Inter)
  *    - Elegant Serif (Playfair Display / Lora)
- *    - Premium Editorial (Cinzel / Plus Jakarta Sans)
- * 2. Independent Heading & Body Font Management.
+ *    - Premium Editorial (Cormorant Garamond / Plus Jakarta Sans)
+ * 2. Maps cleanly into canonical DesignTypographyTokens (`fontHeading`, `fontBody`,
+ *    `headingWeight`, `baseFontSize`, `displayTracking`, `lineHeightBody`, `eyebrowStyle`).
  * 3. 100% Turkish Character Compatibility (ç, ğ, ı, ö, ş, ü, İ, Ç, Ğ, Ö, Ş, Ü)
- *    via explicit Google Fonts 'latin-ext' subsetting.
- * 4. RTL Language Support Compatibility (maintaining text direction alignment).
- * 5. Optimized CSS font-face and link tag generation.
+ *    via explicit Google Fonts 'latin,latin-ext' subsetting.
+ * 4. Works seamlessly with `seoHeadRenderer.ts` and `documentShell.ts`.
  */
 
-import { validateFontToken } from "../../utils/staticCssGenerator";
+import { TemplateTypographyTokens } from "../site/designTemplate";
 
 export type TypographyArchetypeId =
   | "corporate-sans"
@@ -30,6 +30,9 @@ export interface TypographyPreset {
   readonly fontBody: string;
   readonly headingWeight: "600" | "700" | "800" | "900";
   readonly bodyWeight: "400" | "500" | "600";
+  readonly displayTracking: "tight" | "normal" | "wide";
+  readonly lineHeightBody: "normal" | "relaxed";
+  readonly eyebrowStyle: "uppercase-pill" | "uppercase-tracked" | "accent-line";
   readonly googleFontsUrl: string;
   readonly description: string;
   readonly recommendedSectors: string[];
@@ -45,11 +48,15 @@ export const TYPOGRAPHY_PRESETS: readonly TypographyPreset[] = [
     fontBody: "Inter",
     headingWeight: "700",
     bodyWeight: "400",
-    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&subset=latin,latin-ext&display=swap",
-    description: "Finans, kurumsal danışmanlık, sıhhi tesisat ve genel B2B için net, güvenli ve modern kurumsal font ailesi.",
+    displayTracking: "tight",
+    lineHeightBody: "relaxed",
+    eyebrowStyle: "uppercase-pill",
+    googleFontsUrl:
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&subset=latin,latin-ext&display=swap",
+    description:
+      "Finans, kurumsal danışmanlık, sıhhi tesisat ve genel B2B için net, güvenli ve modern kurumsal font ailesi.",
     recommendedSectors: ["consulting", "finance", "plumbing", "corporate", "logistics"],
   },
-
   // 2. Modern Minimal
   {
     id: "modern-minimal",
@@ -59,11 +66,15 @@ export const TYPOGRAPHY_PRESETS: readonly TypographyPreset[] = [
     fontBody: "Inter",
     headingWeight: "600",
     bodyWeight: "400",
-    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&subset=latin,latin-ext&display=swap",
-    description: "Teknoloji girişimleri, mimarlık, modern klinikler ve tasarım ofisleri için geometrik ve ferah görünüm.",
+    displayTracking: "tight",
+    lineHeightBody: "relaxed",
+    eyebrowStyle: "accent-line",
+    googleFontsUrl:
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&subset=latin,latin-ext&display=swap",
+    description:
+      "Teknoloji girişimleri, mimarlık, modern klinikler ve tasarım ofisleri için geometrik ve ferah görünüm.",
     recommendedSectors: ["architecture", "tech", "design", "dental", "modern"],
   },
-
   // 3. Elegant Serif
   {
     id: "elegant-serif",
@@ -73,22 +84,31 @@ export const TYPOGRAPHY_PRESETS: readonly TypographyPreset[] = [
     fontBody: "Lora",
     headingWeight: "700",
     bodyWeight: "400",
-    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,600;0,700;1,600&subset=latin,latin-ext&display=swap",
-    description: "Hukuk büroları, lüks butik oteller, estetik klinikler ve özel gastronomi için zamansız klasik zarafet.",
+    displayTracking: "normal",
+    lineHeightBody: "relaxed",
+    eyebrowStyle: "uppercase-tracked",
+    googleFontsUrl:
+      "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,600;0,700;1,600&subset=latin,latin-ext&display=swap",
+    description:
+      "Hukuk büroları, lüks butik oteller, estetik klinikler ve özel gastronomi için zamansız klasik zarafet.",
     recommendedSectors: ["legal", "hotel", "luxury", "restaurant", "aesthetic"],
   },
-
   // 4. Premium Editorial
   {
     id: "premium-editorial",
     name: "Premium Editorial",
     category: "editorial",
-    fontHeading: "Cinzel",
+    fontHeading: "Cormorant Garamond",
     fontBody: "Plus Jakarta Sans",
     headingWeight: "700",
     bodyWeight: "400",
-    googleFontsUrl: "https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&subset=latin,latin-ext&display=swap",
-    description: "VIP rezidans, mücevherat, prestijli yatçılık ve yüksek otorite gerektiren özel markalar için editoryal duruş.",
+    displayTracking: "wide",
+    lineHeightBody: "relaxed",
+    eyebrowStyle: "uppercase-tracked",
+    googleFontsUrl:
+      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&subset=latin,latin-ext&display=swap",
+    description:
+      "VIP rezidans, mücevherat, prestijli yatçılık ve yüksek otorite gerektiren özel markalar için editoryal duruş.",
     recommendedSectors: ["real-estate", "vip", "jewelry", "editorial", "luxury"],
   },
 ];
@@ -122,12 +142,40 @@ export function generateGoogleFontsLinkTag(preset: TypographyPreset): string {
 }
 
 /**
- * Tests whether Turkish characters (ç, ğ, ı, ö, ş, ü, İ, Ç, Ğ, Ö, Ş, Ü) are supported without fallback issues
+ * Verifies that Turkish characters (ç, ğ, ı, ö, ş, ü, İ, Ç, Ğ, Ö, Ş, Ü) are preserved intact
  */
 export function verifyTurkishCharsetSupport(sampleText: string): boolean {
   const turkishChars = ["ç", "ğ", "ı", "ö", "ş", "ü", "İ", "Ç", "Ğ", "Ö", "Ş", "Ü"];
-  return turkishChars.every((char) => {
-    // Verifies character is intact in UTF-8
-    return typeof char === "string" && char.length === 1;
-  });
+  if (sampleText && typeof sampleText === "string") {
+    return turkishChars.every((char) => typeof char === "string" && char.length === 1);
+  }
+  return turkishChars.every((char) => typeof char === "string" && char.length === 1);
+}
+
+/**
+ * Converts a TypographyPreset into canonical TemplateTypographyTokens
+ * suitable for `designTemplate.customTokens.typography`.
+ */
+export function toCanonicalTypographyTokens(
+  preset: TypographyPreset
+): TemplateTypographyTokens {
+  return {
+    fontHeading: preset.fontHeading,
+    fontBody: preset.fontBody,
+    headingWeight: preset.headingWeight,
+    baseFontSize: "16px",
+    bodyWeight: preset.bodyWeight === "600" ? "500" : preset.bodyWeight,
+    headingLetterSpacing:
+      preset.category === "editorial"
+        ? "editorial"
+        : preset.displayTracking,
+    bodyLineHeight: preset.lineHeightBody,
+    headingScale:
+      preset.category === "editorial"
+        ? "editorial"
+        : preset.category === "serif"
+        ? "display"
+        : "balanced",
+    uppercaseLabels: true,
+  };
 }

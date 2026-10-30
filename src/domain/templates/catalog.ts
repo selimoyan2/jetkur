@@ -15,7 +15,6 @@ import { artisanWarmManifest } from "./manifests/artisanWarm";
 import { vipLuxuryManifest } from "./manifests/vipLuxury";
 import { techDynamicManifest } from "./manifests/techDynamic";
 import { formalLegalManifest } from "./manifests/formalLegal";
-import { INDUSTRY_MANIFESTS } from "./manifests/industryTemplates";
 
 /**
  * All 8 Canonical Platform Template Manifests
@@ -30,26 +29,23 @@ export const CANONICAL_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
   techDynamicManifest,
   formalLegalManifest,
 ];
-export const INDUSTRY_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = INDUSTRY_MANIFESTS;
-export const ALL_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = [
-  ...CANONICAL_TEMPLATE_MANIFESTS,
-  ...INDUSTRY_TEMPLATE_MANIFESTS,
-];
+
+export const ALL_TEMPLATE_MANIFESTS: readonly TemplateManifest[] = CANONICAL_TEMPLATE_MANIFESTS;
 
 /**
  * Fast lookup maps by ID and Slug
  */
 const TEMPLATES_BY_ID = new Map<string, TemplateManifest>(
-  ALL_TEMPLATE_MANIFESTS.map((t) => [t.id, t])
+  CANONICAL_TEMPLATE_MANIFESTS.map((t) => [t.id, t])
 );
 
 const TEMPLATES_BY_SLUG = new Map<string, TemplateManifest>(
-  ALL_TEMPLATE_MANIFESTS.map((t) => [t.slug, t])
+  CANONICAL_TEMPLATE_MANIFESTS.map((t) => [t.slug, t])
 );
 
 /**
- * Legacy Template Compatibility Map
- * Maps the 6 legacy templates from src/data/templates.ts to canonical industry-neutral manifests
+ * Legacy & Industry Preset Compatibility Map
+ * Maps the 6 legacy templates and 12 industry design presets to canonical industry-neutral manifests
  */
 export const LEGACY_TEMPLATE_COMPATIBILITY_MAP: Readonly<Record<string, string>> = {
   // Legacy template ID -> Canonical template ID
@@ -69,6 +65,44 @@ export const LEGACY_TEMPLATE_COMPATIBILITY_MAP: Readonly<Record<string, string>>
   "luxury-gold-vip": "tmpl-vip-luxury",
   "tech-cyan-modern": "tmpl-tech-dynamic",
   "legal-prestige-purple": "tmpl-formal-legal",
+
+  // Industry Design Preset IDs & Slugs -> Canonical template ID
+  "preset-plumbing-pro": "tmpl-rapid-service",
+  "tmpl-plumbing-pro": "tmpl-rapid-service",
+  "plumbing-pro": "tmpl-rapid-service",
+  "preset-climate-service": "tmpl-rapid-service",
+  "tmpl-climate-service": "tmpl-rapid-service",
+  "climate-service": "tmpl-rapid-service",
+  "preset-towing-rescue": "tmpl-rapid-service",
+  "tmpl-towing-rescue": "tmpl-rapid-service",
+  "towing-rescue": "tmpl-rapid-service",
+  "preset-electrician-power": "tmpl-rapid-service",
+  "tmpl-electrician-power": "tmpl-rapid-service",
+  "electrician-power": "tmpl-rapid-service",
+  "preset-dental-care": "tmpl-clinical-pure",
+  "tmpl-dental-care": "tmpl-clinical-pure",
+  "dental-care": "tmpl-clinical-pure",
+  "preset-legal-authority": "tmpl-formal-legal",
+  "tmpl-legal-authority": "tmpl-formal-legal",
+  "legal-authority": "tmpl-formal-legal",
+  "preset-real-estate-prestige": "tmpl-vip-luxury",
+  "tmpl-real-estate-prestige": "tmpl-vip-luxury",
+  "real-estate-prestige": "tmpl-vip-luxury",
+  "preset-beauty-aesthetic": "tmpl-modern-minimal",
+  "tmpl-beauty-aesthetic": "tmpl-modern-minimal",
+  "beauty-aesthetic": "tmpl-modern-minimal",
+  "preset-hotel-resort": "tmpl-vip-luxury",
+  "tmpl-hotel-resort": "tmpl-vip-luxury",
+  "hotel-resort": "tmpl-vip-luxury",
+  "preset-restaurant-gourmet": "tmpl-artisan-warm",
+  "tmpl-restaurant-gourmet": "tmpl-artisan-warm",
+  "restaurant-gourmet": "tmpl-artisan-warm",
+  "preset-construction-architect": "tmpl-modern-minimal",
+  "tmpl-construction-architect": "tmpl-modern-minimal",
+  "construction-architect": "tmpl-modern-minimal",
+  "preset-consulting-advisory": "tmpl-corporate-prestige",
+  "tmpl-consulting-advisory": "tmpl-corporate-prestige",
+  "consulting-advisory": "tmpl-corporate-prestige",
 };
 
 /**
@@ -127,7 +161,7 @@ export function resolveTemplate(idOrSlugOrLegacy: string): TemplateManifest | nu
 
   // 4. Case-insensitive slug match
   const lower = trimmed.toLowerCase();
-  for (const t of ALL_TEMPLATE_MANIFESTS) {
+  for (const t of CANONICAL_TEMPLATE_MANIFESTS) {
     if (t.slug.toLowerCase() === lower || t.id.toLowerCase() === lower) {
       return t;
     }

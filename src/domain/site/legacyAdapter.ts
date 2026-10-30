@@ -320,6 +320,13 @@ const AUTO_POPULATED_FONT_FAMILIES = new Set([
   "'inter', sans-serif",
   "plus jakarta sans",
   "'plus jakarta sans', sans-serif",
+  "outfit",
+  "dm sans",
+  "space grotesk",
+  "playfair display",
+  "cormorant garamond",
+  "libre baskerville",
+  "source sans 3",
 ]);
 
 const AUTO_POPULATED_BORDER_RADII = new Set([
@@ -381,6 +388,11 @@ export function inspectLegacyTokenProvenance(
         "background",
         "surface",
         "border",
+        "surfaceMuted",
+        "surfaceDark",
+        "surfaceAccent",
+        "heroGradient",
+        "sectionGradient",
       ];
       for (const k of paletteKeys) {
         const val = dtPalette[k];
@@ -418,6 +430,32 @@ export function inspectLegacyTokenProvenance(
         customTypography.baseFontSize = dtTypo.baseFontSize;
         report.explicitOverrideKeys.push("typography.baseFontSize");
       }
+      if (dtTypo.bodyWeight && dtTypo.bodyWeight !== manifest.designTokens.typography.bodyWeight) {
+        customTypography.bodyWeight = dtTypo.bodyWeight;
+        report.explicitOverrideKeys.push("typography.bodyWeight");
+      }
+      if (
+        dtTypo.headingLetterSpacing &&
+        dtTypo.headingLetterSpacing !== manifest.designTokens.typography.headingLetterSpacing
+      ) {
+        customTypography.headingLetterSpacing = dtTypo.headingLetterSpacing;
+        report.explicitOverrideKeys.push("typography.headingLetterSpacing");
+      }
+      if (dtTypo.bodyLineHeight && dtTypo.bodyLineHeight !== manifest.designTokens.typography.bodyLineHeight) {
+        customTypography.bodyLineHeight = dtTypo.bodyLineHeight;
+        report.explicitOverrideKeys.push("typography.bodyLineHeight");
+      }
+      if (dtTypo.headingScale && dtTypo.headingScale !== manifest.designTokens.typography.headingScale) {
+        customTypography.headingScale = dtTypo.headingScale;
+        report.explicitOverrideKeys.push("typography.headingScale");
+      }
+      if (
+        dtTypo.uppercaseLabels !== undefined &&
+        dtTypo.uppercaseLabels !== manifest.designTokens.typography.uppercaseLabels
+      ) {
+        customTypography.uppercaseLabels = dtTypo.uppercaseLabels;
+        report.explicitOverrideKeys.push("typography.uppercaseLabels");
+      }
     }
 
     if (rawDesignTemplateCustom.geometry) {
@@ -438,6 +476,34 @@ export function inspectLegacyTokenProvenance(
       if (dtGeom.cardStyle && dtGeom.cardStyle !== manifest.designTokens.geometry.cardStyle) {
         customGeometry.cardStyle = dtGeom.cardStyle;
         report.explicitOverrideKeys.push("geometry.cardStyle");
+      }
+      if (dtGeom.cardShadow && dtGeom.cardShadow !== manifest.designTokens.geometry.cardShadow) {
+        customGeometry.cardShadow = dtGeom.cardShadow;
+        report.explicitOverrideKeys.push("geometry.cardShadow");
+      }
+      if (dtGeom.borderTreatment && dtGeom.borderTreatment !== manifest.designTokens.geometry.borderTreatment) {
+        customGeometry.borderTreatment = dtGeom.borderTreatment;
+        report.explicitOverrideKeys.push("geometry.borderTreatment");
+      }
+      if (dtGeom.buttonRadius && dtGeom.buttonRadius !== manifest.designTokens.geometry.buttonRadius) {
+        customGeometry.buttonRadius = dtGeom.buttonRadius;
+        report.explicitOverrideKeys.push("geometry.buttonRadius");
+      }
+      if (dtGeom.buttonEmphasis && dtGeom.buttonEmphasis !== manifest.designTokens.geometry.buttonEmphasis) {
+        customGeometry.buttonEmphasis = dtGeom.buttonEmphasis;
+        report.explicitOverrideKeys.push("geometry.buttonEmphasis");
+      }
+      if (dtGeom.heroTextWidth && dtGeom.heroTextWidth !== manifest.designTokens.geometry.heroTextWidth) {
+        customGeometry.heroTextWidth = dtGeom.heroTextWidth;
+        report.explicitOverrideKeys.push("geometry.heroTextWidth");
+      }
+      if (dtGeom.sectionDivider && dtGeom.sectionDivider !== manifest.designTokens.geometry.sectionDivider) {
+        customGeometry.sectionDivider = dtGeom.sectionDivider;
+        report.explicitOverrideKeys.push("geometry.sectionDivider");
+      }
+      if (dtGeom.sectionSurfaceSequence) {
+        customGeometry.sectionSurfaceSequence = dtGeom.sectionSurfaceSequence;
+        report.explicitOverrideKeys.push("geometry.sectionSurfaceSequence");
       }
     }
   }
@@ -863,10 +929,12 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       },
       brandKit,
     },
-    workingHours: {
-      raw: legacy.workingHours || "Hafta İçi: 09:00 - 18:00",
-      is24x7Emergency: legacy.workingHours?.toLowerCase().includes("7/24"),
-    },
+    workingHours: legacy.workingHours
+      ? {
+          raw: legacy.workingHours,
+          is24x7Emergency: legacy.workingHours.toLowerCase().includes("7/24"),
+        }
+      : undefined,
     services: (legacy.services?.items || []).map((srv) => ({
       id: srv.id,
       title: srv.title || (srv as any).name || "",
@@ -876,7 +944,8 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       priceHint: srv.price,
       features: srv.features || [],
       icon: srv.icon,
-      imageUrl: srv.image,
+      imageUrl: srv.image || (srv as any).imageUrl,
+      primaryMediaId: (srv as any).primaryMediaId || (srv as any).imageAssetId || (srv as any).mediaId,
       featured: true,
       specs: srv.specs,
     })),
@@ -894,15 +963,28 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
   };
 
   // 2. Active Design Config (Clean Precedence: TemplateManifest < BrandKit < Explicit User Overrides)
-  const explicitVariants = (legacy as any).designTemplate?.sectionVariants || {};
+  const rawDt = (legacy as any).designTemplate;
+  const dtMatchesManifest =
+    !rawDt?.templateId ||
+    rawDt.templateId === resolvedManifest.id ||
+    rawDt.templateId === resolvedManifest.slug ||
+    rawDt.templateSlug === resolvedManifest.slug;
+
+  const explicitVariants = dtMatchesManifest
+    ? rawDt?.sectionVariants || {}
+    : {};
+  const appliedVariantOverrides = rawDt?.appliedVariantOverrides || {};
+
   const designTemplate: ActiveDesignConfig = {
     templateId: resolvedManifest.id,
     templateSlug: resolvedManifest.slug,
     templateVersion: resolvedManifest.version || "1.0.0",
     ...(customTokens ? { customTokens } : {}),
+    ...(Object.keys(appliedVariantOverrides).length > 0 ? { appliedVariantOverrides } : {}),
     sectionVariants: {
       ...resolvedManifest.sectionRecipe,
       ...explicitVariants,
+      ...appliedVariantOverrides,
     },
   };
   (designTemplate as any).tokenProvenance = provenance;
@@ -930,7 +1012,8 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
     const rawId = sec.id ? sec.id.replace(/^sec-/, "") : "";
     const resolvedType = validSectionTypes[sec.id] || validSectionTypes[rawId] || "customHtml";
     const recipeVariant = (designTemplate.sectionVariants as Record<string, string | undefined>)?.[resolvedType];
-    const explicitSecVariant = (sec as any).variant;
+    const explicitSecVariant = dtMatchesManifest ? (sec as any).variant : undefined;
+    const overrideVariant = (appliedVariantOverrides as Record<string, string | undefined>)?.[resolvedType];
     return {
       id: sec.id,
       type: resolvedType,
@@ -938,9 +1021,10 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
       enabled: sec.enabled ?? true,
       order: sec.order ?? idx,
       variant:
-        explicitSecVariant && explicitSecVariant !== "default"
+        overrideVariant ||
+        (explicitSecVariant && explicitSecVariant !== "default"
           ? explicitSecVariant
-          : recipeVariant || "default",
+          : recipeVariant || "default"),
       options: {},
     };
   });
@@ -1108,8 +1192,8 @@ export function fromLegacySiteConfig(legacy: SiteConfig): CanonicalSite {
 
   // 5. Site Settings
   const settings: SiteSettings = {
-    structureMode: (legacy.siteType === "multi-page" || (legacy as any).structureMode === "multi-page" || (legacy as any).siteMode === "MULTI_PAGE") ? "multi-page" : "single-page",
-    siteMode: ((legacy as any).siteMode === "MULTI_PAGE" || legacy.siteType === "multi-page" || (legacy as any).structureMode === "multi-page") ? "MULTI_PAGE" : "LANDING",
+    structureMode: legacy.siteType === "multi-page" ? "multi-page" : "single-page",
+    siteMode: (legacy as any).siteMode === "MULTI_PAGE" || legacy.siteType === "multi-page" ? "MULTI_PAGE" : "LANDING",
     domain: {
       hostname: legacy.customDomain || `${legacy.id}.jetkur.site`,
       isCustom: Boolean(legacy.customDomain),
@@ -1294,12 +1378,12 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
       logoType: resolvedLogo ? "image" : "icon",
       logoImage: resolvedLogo || "",
       logoHeight: 44,
-      showPhoneButton: Boolean(cleanPhone),
+      showPhoneButton: canonical.sectionConfiguration?.header?.showPhoneButton ?? Boolean(cleanPhone),
       phoneButtonText: "Hemen Ara",
-      showWhatsappButton: Boolean(cleanWhatsapp),
+      showWhatsappButton: canonical.sectionConfiguration?.header?.showWhatsAppButton ?? Boolean(cleanWhatsapp),
       whatsappButtonText: "WhatsApp",
-      showQuoteButton: true,
-      quoteButtonText: "Teklif Al",
+      showQuoteButton: canonical.sectionConfiguration?.header?.showCtaButton ?? true,
+      quoteButtonText: canonical.sectionConfiguration?.header?.ctaText || "Teklif Al",
       navItems: [
         { id: "nav-home", label: "Ana Sayfa", target: "home", enabled: true },
         { id: "nav-services", label: "Hizmetlerimiz", target: "services", enabled: true },
@@ -1330,12 +1414,15 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
 
     // About section
     about: {
+      badge: content.about?.badge || "Hakkımızda",
       title: content.about?.title || "Hakkımızda",
       content:
         content.about?.contentHtml ||
         profile.identity.shortDescription ||
         `${profile.identity.companyName} olarak uzman kadromuz ve kaliteli hizmet anlayışımızla yanınızdayız.`,
       image: content.about?.imageUrl || "",
+      yearsExperience: content.about?.yearsExperience || "10+",
+      completedProjects: content.about?.completedProjects || "500+",
       experienceYears: Number(content.about?.yearsExperience || 10),
       completedJobs: Number(content.about?.completedProjects || 500),
       happyClients: 100,
@@ -1353,11 +1440,27 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
       items: (profile.services || []).map((s, idx) => ({
         id: s.id || `srv-${idx + 1}`,
         title: s.title,
+        desc: s.shortDescription || "",
         description: s.shortDescription || "",
         icon: (s.icon as any) || "CheckCircle2",
         price: s.priceHint || "",
         image: s.imageUrl || "",
+        primaryMediaId: (s as any).primaryMediaId,
         featured: s.featured ?? (idx < 3),
+      })),
+    },
+
+    // WhyUs
+    whyUs: {
+      badge: content.whyUs?.badge || "Neden Biz?",
+      title: content.whyUs?.title || "Neden Bizi Seçmelisiniz?",
+      subtitle: content.whyUs?.subtitle || "",
+      items: (content.whyUs?.items || []).map((w, idx) => ({
+        id: w.id || `w-${idx + 1}`,
+        title: w.title,
+        desc: w.description || "",
+        description: w.description || "",
+        icon: (w.icon as any) || "CheckCircle2",
       })),
     },
 
@@ -1384,6 +1487,7 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
         id: t.id || `t-${idx + 1}`,
         name: t.name,
         role: t.role || "Müşteri",
+        comment: t.comment,
         content: t.comment,
         rating: t.rating || 5,
       })),
@@ -1423,7 +1527,40 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     },
     brandKit: bKit,
 
-    workingHours: profile.workingHours?.raw || "Pazartesi - Cumartesi: 08:30 - 19:30",
+    workingHours: profile.workingHours?.raw || "",
+    socialMedia: profile.social
+      ? {
+          instagram: profile.social.instagram || "",
+          facebook: profile.social.facebook || "",
+          twitter: profile.social.twitter || "",
+          linkedin: profile.social.linkedin || "",
+          youtube: profile.social.youtube || "",
+          showInHeader: Boolean(canonical.sectionConfiguration?.footer?.showSocialIcons),
+          showInFooter: Boolean(canonical.sectionConfiguration?.footer?.showSocialIcons),
+        }
+      : undefined,
+
+    // Products
+    products: {
+      enabled: (content.catalogProducts?.length || 0) > 0,
+      title: "Ürün & Hizmet Kataloğumuz",
+      subtitle: "Garantili ürün ve hizmet seçeneklerimiz",
+      items: (content.catalogProducts || []).map((p) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug || p.id,
+        category: p.category,
+        price: p.price,
+        oldPrice: p.oldPrice,
+        shortDescription: p.shortDescription,
+        description: p.descriptionHtml,
+        images: p.images || [],
+        featuredImage: p.images?.[0] || "",
+        inStock: p.inStock ?? true,
+        badge: p.badge,
+        specs: p.specs,
+      })),
+    },
 
     // FAQs
     faqs: {
@@ -1456,10 +1593,11 @@ export function toLegacySiteConfig(canonical: CanonicalSite): SiteConfig {
     // Footer
     footer: {
       aboutText:
+        canonical.sectionConfiguration?.footer?.customDisclaimer ||
         profile.identity.shortDescription ||
         `${profile.identity.companyName} olarak kaliteli ve güvenilir hizmet sunuyoruz.`,
       copyrightText: `© ${new Date().getFullYear()} ${profile.identity.companyName}. Tüm Hakları Saklıdır.`,
-      showSocials: false,
+      showSocials: canonical.sectionConfiguration?.footer?.showSocialIcons ?? false,
     },
 
     // SEO

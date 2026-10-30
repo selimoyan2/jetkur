@@ -7,6 +7,7 @@
 
 import { SiteConfig, ProductItem } from "../../types";
 import { CanonicalSite } from "../../domain/site/site";
+import { DesignTokens } from "../../domain/site/designTemplate";
 import { generateCompositeSchemaGraph, getEffectiveSchemaConfig } from "../schemaOrgGenerator";
 import { escapeHtml, escapeHtmlAttr, safeJsonLd, sanitizeUrl } from "./security";
 
@@ -51,12 +52,82 @@ export function resolvePageSeo(
   };
 }
 
+const CURATED_GOOGLE_FONT_SPECS: Record<string, string> = {
+  "plus jakarta sans": "Plus+Jakarta+Sans:wght@400;500;600;700;800",
+  "inter": "Inter:wght@400;500;600;700",
+  "outfit": "Outfit:wght@500;600;700;800",
+  "dm sans": "DM+Sans:wght@400;500;600;700",
+  "space grotesk": "Space+Grotesk:wght@500;600;700",
+  "playfair display": "Playfair+Display:wght@600;700",
+  "cormorant garamond": "Cormorant+Garamond:wght@600;700",
+  "libre baskerville": "Libre+Baskerville:wght@400;700",
+  "source sans 3": "Source+Sans+3:wght@400;600;700",
+};
+
+const SYSTEM_FONT_NAMES = new Set([
+  "arial",
+  "helvetica",
+  "georgia",
+  "times new roman",
+  "times",
+  "verdana",
+  "tahoma",
+  "trebuchet ms",
+  "system-ui",
+  "sans-serif",
+  "serif",
+  "monospace",
+]);
+
+function extractPrimaryFontName(rawFont: string | undefined, fallback: string): string {
+  if (!rawFont || typeof rawFont !== "string") return fallback;
+  const primary = rawFont.split(",")[0].replace(/['"]/g, "").trim();
+  if (!primary || !/^[a-zA-Z0-9\s\-]+$/.test(primary)) return fallback;
+  return primary;
+}
+
+/**
+ * Builds a minimal Google Fonts CSS2 URL containing only the heading and body
+ * font families required by the active design, with font-display: swap.
+ */
+export function buildGoogleFontsStylesheetUrl(
+  resolvedTokens?: Partial<DesignTokens>,
+  fallbackHeadingFont?: string
+): string {
+  const headingName = extractPrimaryFontName(
+    resolvedTokens?.typography?.fontHeading || fallbackHeadingFont,
+    "Plus Jakarta Sans"
+  );
+  const bodyName = extractPrimaryFontName(
+    resolvedTokens?.typography?.fontBody,
+    "Inter"
+  );
+
+  const uniqueNames = Array.from(
+    new Set([headingName, bodyName].filter((n) => !SYSTEM_FONT_NAMES.has(n.toLowerCase())))
+  );
+
+  if (uniqueNames.length === 0) {
+    return "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap";
+  }
+
+  const familyParams = uniqueNames.map((name) => {
+    const curated = CURATED_GOOGLE_FONT_SPECS[name.toLowerCase()];
+    if (curated) return `family=${curated}`;
+    const encoded = name.trim().replace(/\s+/g, "+");
+    return `family=${encoded}:wght@400;600;700`;
+  });
+
+  return `https://fonts.googleapis.com/css2?${familyParams.join("&")}&display=swap`;
+}
+
 /**
  * Renders complete SEO, OpenGraph, Twitter Card, and Schema.org JSON-LD tags.
  */
 export function renderSeoHead(
   config: SiteConfig,
-  options: PageSeoOptions
+  options: PageSeoOptions,
+  resolvedTokens?: Partial<DesignTokens>
 ): string {
   const {
     pageTitle,
@@ -81,6 +152,7 @@ export function renderSeoHead(
   const effectiveCanonical = pageCanonicalUrl || config.seo?.canonicalUrl;
   const effectiveOgTitle = pageOgTitle || pageTitle;
   const effectiveOgDesc = pageOgDescription || pageDesc;
+  const googleFontsUrl = buildGoogleFontsStylesheetUrl(resolvedTokens, config.fontFamily);
 
   // Schema.org Structured Data
   const schemaConfig = getEffectiveSchemaConfig(config);
@@ -134,7 +206,7 @@ export function renderSeoHead(
   <!-- Global Anycast Edge & High Speed Static Assets -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="${googleFontsUrl}" rel="stylesheet">
 
   <!-- Schema.org JSON-LD (Automatic Structured Business Data) -->
   ${resolvedSchema ? `<script type="application/ld+json">

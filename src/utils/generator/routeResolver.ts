@@ -285,14 +285,30 @@ export function resolveNavigationLinks(
     return links;
   }
 
-  // LANDING MODE: Preserve section anchors
+  // LANDING MODE: Preserve section anchors, omitting any section explicitly disabled in sectionConfiguration
   const homeHref = currentDepth > 0 ? `${prefix}index.html` : "#hero";
   const anchorPrefix = currentDepth > 0 ? `${prefix}index.html` : "";
 
-  return [
+  const isSectionEnabled = (secId: string): boolean => {
+    const sections = site.sectionConfiguration?.sections;
+    if (!Array.isArray(sections) || sections.length === 0) return true;
+    const match = sections.find((s) => (s.type || s.id) === secId || s.id === `sec-${secId}`);
+    if (!match) return true;
+    return match.enabled !== false;
+  };
+
+  const landingLinks: NavigationLink[] = [
     { label: "Ana Sayfa", href: homeHref, active: true, isHome: true },
-    { label: "Hizmetlerimiz", href: `${anchorPrefix}#services`, active: true },
-    { label: "Hakkımızda", href: `${anchorPrefix}#about`, active: true },
-    { label: "İletişim", href: `${anchorPrefix}#contact`, active: true },
   ];
+  if (isSectionEnabled("services")) {
+    landingLinks.push({ label: "Hizmetlerimiz", href: `${anchorPrefix}#services`, active: true });
+  }
+  if (isSectionEnabled("about")) {
+    landingLinks.push({ label: "Hakkımızda", href: `${anchorPrefix}#about`, active: true });
+  }
+  if (isSectionEnabled("contact")) {
+    landingLinks.push({ label: "İletişim", href: `${anchorPrefix}#contact`, active: true });
+  }
+
+  return landingLinks;
 }

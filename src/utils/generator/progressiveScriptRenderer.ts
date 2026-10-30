@@ -66,24 +66,30 @@ export function renderProgressiveScripts(
 
   const scripts: string[] = [];
 
-  // 1. Mobile Drawer Navigation Controller
+  // 1. Mobile Drawer Navigation Controller (Accessible, Keyboard & Focus Safe)
   if (reqs.mobileNav) {
     scripts.push(`
     // Mobile Drawer Navigation
+    var isMobileMenuOpen = false;
+
     function openMobileMenu() {
       var drawer = document.getElementById('mobileDrawer');
       var backdrop = document.getElementById('mobileMenuBackdrop');
       var openIcon = document.getElementById('mobileMenuOpenIcon');
       var closeIcon = document.getElementById('mobileMenuCloseIcon');
       var toggleBtn = document.getElementById('mobileMenuToggleBtn');
+      var closeBtn = document.getElementById('mobileMenuCloseBtn');
+      isMobileMenuOpen = true;
       if (drawer) {
         drawer.style.transform = 'translateX(0)';
         drawer.classList.remove('translate-x-full');
         drawer.classList.add('translate-x-0');
+        drawer.setAttribute('aria-hidden', 'false');
       }
       if (backdrop) {
         backdrop.style.display = 'block';
         backdrop.classList.remove('hidden');
+        backdrop.setAttribute('aria-hidden', 'false');
         setTimeout(function() {
           backdrop.classList.remove('opacity-0');
           backdrop.classList.add('opacity-100');
@@ -92,28 +98,30 @@ export function renderProgressiveScripts(
       if (openIcon) openIcon.classList.add('hidden');
       if (closeIcon) closeIcon.classList.remove('hidden');
       if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
-      if (backdrop) backdrop.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
-      setTimeout(function() {
-        var closeBtn = drawer ? drawer.querySelector('button[aria-label="Kapat"]') : null;
-        if (closeBtn) closeBtn.focus();
-      }, 50);
+      if (closeBtn && typeof closeBtn.focus === 'function') {
+        setTimeout(function() { closeBtn.focus(); }, 20);
+      }
     }
 
-    function closeMobileMenu() {
+    function closeMobileMenu(restoreFocus) {
       var drawer = document.getElementById('mobileDrawer');
       var backdrop = document.getElementById('mobileMenuBackdrop');
       var openIcon = document.getElementById('mobileMenuOpenIcon');
       var closeIcon = document.getElementById('mobileMenuCloseIcon');
       var toggleBtn = document.getElementById('mobileMenuToggleBtn');
+      var wasOpen = isMobileMenuOpen || Boolean(drawer && (drawer.classList.contains('translate-x-0') || drawer.style.transform === 'translateX(0px)' || drawer.style.transform === 'translateX(0)'));
+      isMobileMenuOpen = false;
       if (drawer) {
         drawer.style.transform = 'translateX(100%)';
         drawer.classList.add('translate-x-full');
         drawer.classList.remove('translate-x-0');
+        drawer.setAttribute('aria-hidden', 'true');
       }
       if (backdrop) {
         backdrop.classList.add('opacity-0');
         backdrop.classList.remove('opacity-100');
+        backdrop.setAttribute('aria-hidden', 'true');
         setTimeout(function() {
           backdrop.classList.add('hidden');
           backdrop.style.display = 'none';
@@ -123,21 +131,56 @@ export function renderProgressiveScripts(
       if (closeIcon) closeIcon.classList.add('hidden');
       if (toggleBtn) {
         toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.focus();
+        if (wasOpen && restoreFocus !== false && typeof toggleBtn.focus === 'function') {
+          toggleBtn.focus();
+        }
       }
-      if (backdrop) backdrop.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
     }
 
     function toggleMobileMenu() {
       var drawer = document.getElementById('mobileDrawer');
-      var isOpened = drawer && (drawer.classList.contains('translate-x-0') || drawer.style.transform === 'translateX(0px)' || drawer.style.transform === 'translateX(0)');
-      if (isOpened) closeMobileMenu();
+      var isOpened = isMobileMenuOpen || Boolean(drawer && (drawer.classList.contains('translate-x-0') || drawer.style.transform === 'translateX(0px)' || drawer.style.transform === 'translateX(0)'));
+      if (isOpened) closeMobileMenu(true);
       else openMobileMenu();
     }
 
+    if (typeof window !== 'undefined') {
+      window.openMobileMenu = openMobileMenu;
+      window.closeMobileMenu = closeMobileMenu;
+      window.toggleMobileMenu = toggleMobileMenu;
+    }
+
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeMobileMenu();
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        e.preventDefault();
+        closeMobileMenu(true);
+        return;
+      }
+      if (e.key === 'Tab' && isMobileMenuOpen) {
+        var drawer = document.getElementById('mobileDrawer');
+        if (!drawer) return;
+        var focusable = drawer.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        if (!focusable || focusable.length === 0) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    document.addEventListener('click', function(e) {
+      var target = e.target;
+      if (!target || !target.closest) return;
+      var navLink = target.closest('#mobileDrawer a');
+      if (navLink) {
+        closeMobileMenu(false);
+      }
     });`);
   }
 

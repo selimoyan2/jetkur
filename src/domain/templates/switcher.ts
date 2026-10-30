@@ -106,7 +106,10 @@ export function applyTemplateManifest(
       templateVersion: manifest.version,
       appliedAt: now,
       customTokens: options.customTokens || site.designTemplate?.customTokens,
-    },
+      sectionVariants: {
+        ...manifest.sectionRecipe,
+      },
+    } as any,
     sectionConfiguration: updatedSectionConfiguration,
     // CRITICAL INVARIANTS: Content, Business Profile, Industry Pack, Settings are 100% UNTOUCHED
     businessProfile: site.businessProfile,

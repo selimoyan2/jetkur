@@ -11,6 +11,7 @@
 
 import { CanonicalSite } from "../site/site";
 import { resolveTemplate, CANONICAL_TEMPLATE_MANIFESTS } from "./catalog";
+import { applyTemplateManifest } from "./switcher";
 import { toSiteConfig } from "../site/legacyAdapter";
 import { generateProductionPreviewHtml } from "../../utils/productionGeneratorBridge";
 import { computeSiteFingerprint } from "../lifecycle/fingerprint";
@@ -41,13 +42,9 @@ export function generateCandidatePreviewHtml(
     return { html: cached.html, cached: true, manifestName: manifest.name };
   }
 
-  // Deep clone draft to strictly prevent any mutation to in-memory state
-  const candidateDraft: CanonicalSite = JSON.parse(JSON.stringify(site));
-  candidateDraft.designTemplate = {
-    templateId: manifest.id,
-    templateSlug: manifest.slug,
-    customTokens: {},
-  };
+  // Deep clone draft and apply candidate template manifest without mutating input state
+  const clonedSite: CanonicalSite = JSON.parse(JSON.stringify(site));
+  const candidateDraft = applyTemplateManifest(clonedSite, manifest);
 
   // Convert to SiteConfig bridge and generate canonical HTML
   const bridgeConfig = toSiteConfig(candidateDraft);

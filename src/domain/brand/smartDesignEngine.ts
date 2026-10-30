@@ -1,48 +1,58 @@
 /**
- * JetKur Smart Design Recommendation Engine (Theme Foundation 02D)
- *
- * PRODUCT PRINCIPLE:
- * "Kullanıcı web sitesi yapmayacak. İşletmesini anlatacak; JetKur web sitesini yapacak."
+ * JetKur Smart Design Recommendation Engine (Theme Foundation 02D.R)
  *
  * ARCHITECTURAL PRINCIPLES:
- * 1. 100% Deterministic & Instant (Zero external LLM API latency/cost).
- * 2. Multi-factor heuristic matching based on:
- *    - Industry / Sector taxonomy
- *    - Business profile keywords
- *    - BrandKit logo colors (if available)
- * 3. Returns ranked top 3 complete design packages with human-readable rationale & conversion benefits.
- * 4. Never overwrites explicit customer selections (Strict Priority 3 preservation).
+ * 1. Recommends canonical `templateId`s from the 8 canonical `TemplateManifest`s
+ *    paired with curated Industry Design Presets, Palette Presets, Typography Presets,
+ *    and supported canonical section variants.
+ * 2. 100% deterministic keyword matching across 12 industry sectors + corporate fallback.
+ * 3. Pure read-only recommendation function: never mutates saved site content.
+ * 4. Truthful & Claim-Safe: never invents marketing multipliers, conversion percentages,
+ *    or unverified performance claims.
  */
 
 import { BrandKit } from "./types";
-import { getPaletteById, PREMIUM_PALETTES } from "./palettes";
-import { getTypographyPresetById } from "./typography";
+import { getPaletteById } from "./palettes";
+import { TypographyArchetypeId, getTypographyPresetById } from "./typography";
 import { resolveTemplate } from "../templates/catalog";
+import {
+  CanonicalTemplateId,
+  getIndustryPresetById,
+} from "../templates/manifests/industryTemplates";
+import { CanonicalSectionId } from "../sections/types";
 
 export interface DesignPackageRecommendation {
   readonly rank: number;
-  readonly templateId: string;
+  /** Always one of the 8 canonical TemplateManifest IDs */
+  readonly templateId: CanonicalTemplateId;
   readonly templateName: string;
+  /** Matched IndustryDesignPreset ID (e.g. 'preset-plumbing-pro') */
+  readonly presetId: string;
+  readonly presetName: string;
   readonly paletteId: string;
   readonly paletteName: string;
-  readonly typographyId: string;
+  readonly typographyId: TypographyArchetypeId;
   readonly typographyName: string;
+  readonly backgroundPresetId: string;
   readonly headerVariant: string;
   readonly footerVariant: string;
   readonly serviceCardStyle: string;
-  readonly matchScore: number; // 0 - 100
+  readonly sectionVariants: Partial<Record<CanonicalSectionId, string>>;
   readonly rationale: string;
   readonly conversionBenefit: string;
   readonly isPrimaryMatch: boolean;
 }
 
-interface SectorProfileRule {
+export interface SectorProfileRule {
+  readonly sectorKey: string;
   readonly keywords: readonly string[];
-  readonly primaryTemplateId: string;
-  readonly secondaryTemplateId: string;
-  readonly tertiaryTemplateId: string;
+  readonly presetId: string;
+  readonly primaryTemplateId: CanonicalTemplateId;
+  readonly secondaryTemplateId: CanonicalTemplateId;
+  readonly tertiaryTemplateId: CanonicalTemplateId;
   readonly primaryPaletteId: string;
-  readonly typographyId: "corporate-sans" | "modern-minimal" | "elegant-serif" | "premium-editorial";
+  readonly typographyId: TypographyArchetypeId;
+  readonly backgroundPresetId: string;
   readonly rationale: string;
   readonly conversionBenefit: string;
 }
@@ -50,166 +60,216 @@ interface SectorProfileRule {
 const SECTOR_RULES: readonly SectorProfileRule[] = [
   // 1. Sıhhi Tesisat
   {
-    keywords: ["tesisat", "su", "musluk", "kaçak", "tıkanıklık", "klozet", "lavabo", "boru", "plumbing"],
-    primaryTemplateId: "tmpl-plumbing-pro",
-    secondaryTemplateId: "tmpl-rapid-service",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
-    primaryPaletteId: "ocean-teal",
-    typographyId: "corporate-sans",
-    rationale: "Su tesisatı arıza ve montaj taleplerinde müşteriler doğrudan arama yapmak ister. Güven veren okyanus mavisi ve doğrudan arama butonları seçildi.",
-    conversionBenefit: "Mobil kullanıcıların işletmeye hızla ulaşmasını sağlayan belirgin doğrudan arama butonu sunar.",
-  },
-
-  // 2. Kombi & Klima
-  {
-    keywords: ["kombi", "klima", "petek", "ısıtma", "soğutma", "iklimlendirme", "termostat", "hvac"],
-    primaryTemplateId: "tmpl-climate-service",
-    secondaryTemplateId: "tmpl-rapid-service",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    sectorKey: "plumbing",
+    keywords: ["tesisat", "su kaçağı", "tıkanıklık", "musluk", "boru", "petek", "sıhhi", "plumbing"],
+    presetId: "preset-plumbing-pro",
+    primaryTemplateId: "tmpl-rapid-service",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-modern-minimal",
     primaryPaletteId: "modern-blue",
     typographyId: "corporate-sans",
-    rationale: "Teknik servis ve bakım hizmetleri için ferah camgöbeği mavisi ve hızlı çağrı kartı tasarlandı.",
-    conversionBenefit: "Yetkili servis ve bakım hizmetlerini öne çıkararak müşterilerin doğrudan arama veya mesaj ile iletişime geçmesini kolaylaştırır.",
+    backgroundPresetId: "ocean-blue",
+    rationale:
+      "Sıhhi tesisat ve arıza taleplerinde ziyaretçiler hızlı telefon ve WhatsApp bağlantısı arar. Net servis kartları ve doğrudan iletişim üst barı önceliklendirildi.",
+    conversionBenefit:
+      "Doğrudan telefon ve WhatsApp butonlarını üst bölümde erişilebilir tutarak ziyaretçinin hızlıca ulaşmasını kolaylaştırır.",
   },
-
+  // 2. Kombi & Klima Servisi
+  {
+    sectorKey: "climate",
+    keywords: ["kombi", "klima", "petek", "ısıtma", "soğutma", "kazan", "servis", "hvac", "climate"],
+    presetId: "preset-climate-service",
+    primaryTemplateId: "tmpl-rapid-service",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-tech-dynamic",
+    primaryPaletteId: "ocean-cyan",
+    typographyId: "corporate-sans",
+    backgroundPresetId: "ocean-blue",
+    rationale:
+      "Kombi ve klima bakım-onarım süreçlerinde net hizmet kapsamı ve kolay servis kaydı önemlidir. Kompakt servis kartları ve yerel servis üst barı seçildi.",
+    conversionBenefit:
+      "Bakım ve arıza hizmet başlıklarını düzenli kartlarla sunarak müşterilerin doğrudan arama veya mesaj ile iletişime geçmesini kolaylaştırır.",
+  },
   // 3. Oto Kurtarma & Çekici
   {
+    sectorKey: "towing",
     keywords: ["çekici", "kurtarma", "yol yardım", "oto", "akü", "lastik", "araba", "towing"],
-    primaryTemplateId: "tmpl-towing-rescue",
-    secondaryTemplateId: "tmpl-rapid-service",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    presetId: "preset-towing-rescue",
+    primaryTemplateId: "tmpl-rapid-service",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-tech-dynamic",
     primaryPaletteId: "copper-industrial",
     typographyId: "corporate-sans",
-    rationale: "Yolda kalan sürücüler için yüksek kontrastlı uyarı turuncusu ve hızlı iletişim eylemi öne çıkarıldı.",
-    conversionBenefit: "Yol yardım ihtiyacı olan sürücülerin tek dokunuşla doğrudan telefon bağlantısı kurabilmesini sağlar.",
+    backgroundPresetId: "dark-luxury",
+    rationale:
+      "Yol yardım ve çekici hizmetlerinde yüksek kontrastlı başlıklar ve doğrudan arama eylemi kritik önem taşır.",
+    conversionBenefit:
+      "Yol yardım ihtiyacı olan sürücülerin tek dokunuşla doğrudan telefon bağlantısı kurabilmesini sağlar.",
   },
-
   // 4. Elektrikçi
   {
+    sectorKey: "electrical",
     keywords: ["elektrik", "pano", "kablo", "aydınlatma", "sigorta", "kaçak akım", "avize", "electrician"],
-    primaryTemplateId: "tmpl-electrician-power",
-    secondaryTemplateId: "tmpl-rapid-service",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    presetId: "preset-electrician-power",
+    primaryTemplateId: "tmpl-rapid-service",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-tech-dynamic",
     primaryPaletteId: "copper-industrial",
     typographyId: "corporate-sans",
-    rationale: "Elektrik arızalarında güvenlik ve sertifikalı ustalık ön plandadır. Endüstriyel sarı/bakır tonları ve net servis kartları kurgulandı.",
-    conversionBenefit: "Hizmet alanlarını ve uzmanlık sertifikalarını belirgin kartlarla sunarak müşterinin güvenle iletişim kurmasını sağlar.",
+    backgroundPresetId: "champagne",
+    rationale:
+      "Elektrik tesisatı ve arıza çözümlerinde güvenlik ve uzmanlık ön plandadır. Yüksek okunabilirlikli tipografi ve düzenli servis kartları kurgulandı.",
+    conversionBenefit:
+      "Hizmet alanlarını ve uzmanlık bilgilerini belirgin kartlarla sunarak müşterinin güvenle iletişim kurmasını sağlar.",
   },
-
   // 5. Diş Kliniği & Sağlık
   {
+    sectorKey: "dental",
     keywords: ["diş", "klinik", "implant", "hekim", "ortodonti", "zirkonyum", "gülüş", "sağlık", "dental"],
-    primaryTemplateId: "tmpl-dental-care",
-    secondaryTemplateId: "tmpl-clinical-pure",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    presetId: "preset-dental-care",
+    primaryTemplateId: "tmpl-clinical-pure",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-modern-minimal",
     primaryPaletteId: "emerald-green",
     typographyId: "modern-minimal",
-    rationale: "Klinik hijyen, huzur ve uzman hekim kadrosunu yansıtan taze zümrüt yeşili ve modern minimal tipografi eşleştirildi.",
-    conversionBenefit: "Tedavi alanlarını ve klinik bilgilerini düzenli kartlarla sunarak hastaların randevu talebinde bulunmasını kolaylaştırır.",
+    backgroundPresetId: "emerald-glow",
+    rationale:
+      "Klinik hijyen, huzur ve uzman hekim kadrosunu yansıtan ferah zümrüt yeşili ve modern minimal tipografi eşleştirildi.",
+    conversionBenefit:
+      "Tedavi alanlarını ve klinik bilgilerini düzenli kartlarla sunarak hastaların randevu talebinde bulunmasını kolaylaştırır.",
   },
-
   // 6. Hukuk Bürosu & Avukat
   {
-    keywords: ["hukuk", "avukat", "dava", "arabulucu", "icra", "ceza", "danışmanlık", "baro", "legal"],
-    primaryTemplateId: "tmpl-legal-authority",
-    secondaryTemplateId: "tmpl-formal-legal",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    sectorKey: "legal",
+    keywords: ["hukuk", "avukat", "dava", "arabulucu", "icra", "ceza", "baro", "legal"],
+    presetId: "preset-legal-authority",
+    primaryTemplateId: "tmpl-formal-legal",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-vip-luxury",
     primaryPaletteId: "royal-purple",
     typographyId: "elegant-serif",
-    rationale: "Yargıtay ve mahkeme süreçlerinde kurumsal ağırlık gereklidir. Serif editoryal tipografi ve prestijli mor/altın hiyerarşisi uygulandı.",
-    conversionBenefit: "Uzmanlık alanlarını ve kurumsal deneyimi net hiyerarşiyle sunarak müvekkillerin doğrudan danışma talebi iletmesini sağlar.",
+    backgroundPresetId: "royal-purple",
+    rationale:
+      "Hukuki süreçlerde kurumsal ağırlık ve ciddiyet esastır. Klasik serif tipografi ve prestijli renk hiyerarşisi uygulandı.",
+    conversionBenefit:
+      "Uzmanlık alanlarını ve kurumsal deneyimi net hiyerarşiyle sunarak müvekkillerin doğrudan danışma talebi iletmesini sağlar.",
   },
-
   // 7. Gayrimenkul Danışmanlığı
   {
+    sectorKey: "real-estate",
     keywords: ["gayrimenkul", "emlak", "arsa", "villa", "konut", "daire", "kiralık", "satılık", "realtor", "property"],
-    primaryTemplateId: "tmpl-real-estate-prestige",
-    secondaryTemplateId: "tmpl-vip-luxury",
-    tertiaryTemplateId: "tmpl-corporate-prestige",
+    presetId: "preset-real-estate-prestige",
+    primaryTemplateId: "tmpl-vip-luxury",
+    secondaryTemplateId: "tmpl-corporate-prestige",
+    tertiaryTemplateId: "tmpl-modern-minimal",
     primaryPaletteId: "corporate-navy",
     typographyId: "corporate-sans",
-    rationale: "Portföy sunumu için geniş 16:9 görsel kartlar, seçkin koyu detaylar ve danışmanla doğrudan iletişim.",
-    conversionBenefit: "Geniş görsel odaklı kart düzeniyle portföydeki gayrimenkullerin ve danışman iletişim butonunun öne çıkmasını sağlar.",
+    backgroundPresetId: "dark-luxury",
+    rationale:
+      "Portföy sunumu için geniş görsel odaklı kartlar, seçkin kurumsal detaylar ve danışmanla doğrudan iletişim yapısı seçildi.",
+    conversionBenefit:
+      "Görsel odaklı kart düzeniyle portföydeki gayrimenkullerin ve danışman iletişim butonunun öne çıkmasını sağlar.",
   },
-
   // 8. Güzellik & Estetik
   {
+    sectorKey: "beauty",
     keywords: ["güzellik", "estetik", "cilt", "lazer", "spa", "kuaför", "tırnak", "masaj", "beauty"],
-    primaryTemplateId: "tmpl-beauty-aesthetic",
-    secondaryTemplateId: "tmpl-modern-minimal",
-    tertiaryTemplateId: "tmpl-vip-luxury",
+    presetId: "preset-beauty-aesthetic",
+    primaryTemplateId: "tmpl-modern-minimal",
+    secondaryTemplateId: "tmpl-vip-luxury",
+    tertiaryTemplateId: "tmpl-clinical-pure",
     primaryPaletteId: "botanical-sage",
     typographyId: "elegant-serif",
-    rationale: "Ferahlık ve kişisel bakım zarafetini hissettiren organik adaçayı yeşili, yumuşak kart sınırları ve dingin tipografi.",
-    conversionBenefit: "Hizmet menüsü ve salon görsellerini zarif bir düzenle sunarak müşterilerin randevu talebini kolaylaştırır.",
+    backgroundPresetId: "champagne",
+    rationale:
+      "Ferahlık ve kişisel bakım zarafetini hissettiren doğal adaçayı yeşili, yumuşak kart sınırları ve dingin tipografi bir araya getirildi.",
+    conversionBenefit:
+      "Hizmet menüsü ve salon görsellerini zarif bir düzenle sunarak müşterilerin randevu talebini kolaylaştırır.",
   },
-
   // 9. Butik Otel & Konaklama
   {
+    sectorKey: "hotel",
     keywords: ["otel", "butik otel", "pansiyon", "tatil", "rezervasyon", "oda", "resort", "hotel"],
-    primaryTemplateId: "tmpl-hotel-resort",
-    secondaryTemplateId: "tmpl-vip-luxury",
+    presetId: "preset-hotel-resort",
+    primaryTemplateId: "tmpl-vip-luxury",
+    secondaryTemplateId: "tmpl-artisan-warm",
     tertiaryTemplateId: "tmpl-modern-minimal",
     primaryPaletteId: "black-gold",
     typographyId: "premium-editorial",
-    rationale: "Fotoğraf odaklı tam ekran hero, seçkin altın detaylar ve doğrudan rezervasyon çağrısı.",
-    conversionBenefit: "Oda detaylarını, konaklama olanaklarını ve doğrudan iletişim kanallarını öne çıkarır.",
+    backgroundPresetId: "dark-luxury",
+    rationale:
+      "Atmosferik vitrin sunumu, seçkin altın detaylar ve doğrudan rezervasyon iletişim çağrısı ön plana alındı.",
+    conversionBenefit:
+      "Oda detaylarını, konaklama olanaklarını ve doğrudan iletişim kanallarını öne çıkarır.",
   },
-
   // 10. Restoran & Kafe
   {
+    sectorKey: "restaurant",
     keywords: ["restoran", "kafe", "yemek", "menü", "gurme", "şef", "ızgara", "lezzet", "restaurant"],
-    primaryTemplateId: "tmpl-restaurant-gourmet",
-    secondaryTemplateId: "tmpl-artisan-warm",
+    presetId: "preset-restaurant-gourmet",
+    primaryTemplateId: "tmpl-artisan-warm",
+    secondaryTemplateId: "tmpl-vip-luxury",
     tertiaryTemplateId: "tmpl-corporate-prestige",
     primaryPaletteId: "terracotta",
     typographyId: "elegant-serif",
-    rationale: "İştah açıcı sıcak pişmiş toprak tonları, zengin yemek fotoğrafları ve kolay masa ayırtma eylemi.",
-    conversionBenefit: "Menü içeriğini, şefin spesiyallerini ve masa rezervasyonu iletişim butonunu belirgin şekilde sunar.",
+    backgroundPresetId: "sunset",
+    rationale:
+      "İştah açıcı sıcak pişmiş toprak tonları, görsel odaklı kartlar ve kolay masa rezervasyonu eylemi birleştirildi.",
+    conversionBenefit:
+      "Menü içeriğini, özel lezzetleri ve masa rezervasyonu iletişim butonunu belirgin şekilde sunar.",
   },
-
   // 11. İnşaat & Mimarlık
   {
+    sectorKey: "construction",
     keywords: ["inşaat", "müteahhit", "mimarlık", "şantiye", "proje", "yapı", "çelik", "tadilat", "construction"],
-    primaryTemplateId: "tmpl-construction-architect",
+    presetId: "preset-construction-architect",
+    primaryTemplateId: "tmpl-modern-minimal",
     secondaryTemplateId: "tmpl-corporate-prestige",
-    tertiaryTemplateId: "tmpl-modern-minimal",
-    primaryPaletteId: "copper-industrial",
+    tertiaryTemplateId: "tmpl-tech-dynamic",
+    primaryPaletteId: "slate-modern",
     typographyId: "corporate-sans",
-    rationale: "Sağlamlık, mühendislik disiplini ve biten projeleri sergileyen antrasit ve bakır ızgara tasarımı.",
-    conversionBenefit: "Tamamlanan projeleri ve kurumsal mühendislik referanslarını organize görsel bloklarla sergiler.",
+    backgroundPresetId: "dark-luxury",
+    rationale:
+      "Sağlamlık, mühendislik disiplini ve tamamlanan projeleri sergileyen mimari ızgara tasarımı seçildi.",
+    conversionBenefit:
+      "Tamamlanan projeleri ve kurumsal mühendislik referanslarını organize görsel bloklarla sergiler.",
   },
-
   // 12. Kurumsal Danışmanlık & Finans
   {
+    sectorKey: "consulting",
     keywords: ["danışmanlık", "finans", "mali müşavir", "muhasebe", "denetim", "b2b", "yönetim", "consulting"],
-    primaryTemplateId: "tmpl-consulting-advisory",
-    secondaryTemplateId: "tmpl-corporate-prestige",
-    tertiaryTemplateId: "tmpl-formal-legal",
+    presetId: "preset-consulting-advisory",
+    primaryTemplateId: "tmpl-corporate-prestige",
+    secondaryTemplateId: "tmpl-formal-legal",
+    tertiaryTemplateId: "tmpl-modern-minimal",
     primaryPaletteId: "corporate-navy",
     typographyId: "corporate-sans",
-    rationale: "Kurumsal otorite, analitik metrik rozetleri ve güven telkin eden derin lacivert profesyonellik.",
-    conversionBenefit: "Hizmet kapsamını ve analitik uzmanlık alanlarını kurumsal bir yapıda sunarak profesyonel danışmanlık taleplerini karşılar.",
+    backgroundPresetId: "ocean-blue",
+    rationale:
+      "Kurumsal otorite, net bilgi mimarisi ve güven telkin eden derin lacivert profesyonellik bir araya getirildi.",
+    conversionBenefit:
+      "Hizmet kapsamını ve uzmanlık alanlarını kurumsal bir yapıda sunarak profesyonel danışmanlık taleplerini karşılar.",
   },
 ];
 
-/**
- * Fallback rule for unclassified businesses
- */
 const DEFAULT_FALLBACK_RULE: SectorProfileRule = {
+  sectorKey: "corporate",
   keywords: [],
+  presetId: "preset-consulting-advisory",
   primaryTemplateId: "tmpl-corporate-prestige",
   secondaryTemplateId: "tmpl-modern-minimal",
   tertiaryTemplateId: "tmpl-rapid-service",
   primaryPaletteId: "corporate-navy",
   typographyId: "corporate-sans",
-  rationale: "Her sektöre kusursuz uyum sağlayan dengeli kurumsal prestij mimarisi ve yüksek okunabilirlik.",
-  conversionBenefit: "Profesyonel kurumsal imaj ile müşteri güvenini ilk temasta oluşturur.",
+  backgroundPresetId: "ocean-blue",
+  rationale:
+    "Her sektöre uyum sağlayan dengeli kurumsal prestij mimarisi ve yüksek okunabilirlik.",
+  conversionBenefit:
+    "Profesyonel kurumsal imaj ile müşteri güvenini ilk temasta oluşturur.",
 };
 
 function matchesKeyword(inputLower: string, kw: string): boolean {
   if (kw.length <= 3) {
-    // Word boundary matching for short Turkish keywords (avoiding matching "su" in "bürosu")
     const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(`(^|[^a-z0-9ğüşıöçİĞÜŞÖÇ])${escaped}([^a-z0-9ğüşıöçİĞÜŞÖÇ]|$)`, "i");
     return regex.test(inputLower);
@@ -218,7 +278,7 @@ function matchesKeyword(inputLower: string, kw: string): boolean {
 }
 
 /**
- * Finds matching sector rule based on sector name, description or keywords
+ * Finds matching sector rule based on sector name, description, or keywords
  */
 export function findMatchingSectorRule(rawInput: string): SectorProfileRule {
   if (!rawInput || typeof rawInput !== "string") return DEFAULT_FALLBACK_RULE;
@@ -234,28 +294,31 @@ export function findMatchingSectorRule(rawInput: string): SectorProfileRule {
 }
 
 /**
- * Generates top 3 smart design recommendations for a business
+ * Generates top 3 canonical smart design recommendations for a business.
+ * Pure & deterministic: never mutates site content.
  */
 export function recommendDesignPackages(
   sectorOrKeywords: string,
   brandKit?: BrandKit | null
 ): readonly DesignPackageRecommendation[] {
   const rule = findMatchingSectorRule(sectorOrKeywords);
+  const preset = getIndustryPresetById(rule.presetId);
 
-  // If BrandKit has dominant color, we prioritize harmony with brand
   let primaryPaletteId = rule.primaryPaletteId;
   if (brandKit?.palette?.primary) {
-    // If brand kit exists, find the palette that closest complements the brand or preserve brand kit
     primaryPaletteId = "corporate-navy";
   }
 
-  const templateIds = [rule.primaryTemplateId, rule.secondaryTemplateId, rule.tertiaryTemplateId];
-  const scores = [98, 91, 84];
+  const templateIds: readonly CanonicalTemplateId[] = [
+    rule.primaryTemplateId,
+    rule.secondaryTemplateId,
+    rule.tertiaryTemplateId,
+  ];
 
   return templateIds.map((tmplId, idx) => {
     const tmpl = resolveTemplate(tmplId);
     const tmplName = tmpl ? tmpl.name : tmplId;
-    const recipe = tmpl ? tmpl.sectionRecipe : {};
+    const recipe = idx === 0 && preset ? preset.sectionVariants : tmpl ? tmpl.sectionRecipe : {};
 
     const palId = idx === 0 ? primaryPaletteId : idx === 1 ? "modern-blue" : "minimal-white";
     const pal = getPaletteById(palId);
@@ -265,14 +328,20 @@ export function recommendDesignPackages(
       rank: idx + 1,
       templateId: tmplId,
       templateName: tmplName,
+      presetId: preset ? preset.id : rule.presetId,
+      presetName: idx === 0 && preset ? preset.name : tmplName,
       paletteId: pal.id,
       paletteName: pal.name,
       typographyId: typo.id,
       typographyName: typo.name,
+      backgroundPresetId: rule.backgroundPresetId,
       headerVariant: recipe.header || "corporate-classic",
       footerVariant: recipe.footer || "corporate-multi",
-      serviceCardStyle: tmpl?.designTokens.geometry.cardStyle || "standard",
-      matchScore: scores[idx],
+      serviceCardStyle:
+        (idx === 0 && preset?.sectionVariants.services) ||
+        tmpl?.sectionRecipe.services ||
+        "standard",
+      sectionVariants: recipe,
       rationale: idx === 0 ? rule.rationale : `Alternatif ${idx + 1}: ${rule.conversionBenefit}`,
       conversionBenefit: rule.conversionBenefit,
       isPrimaryMatch: idx === 0,
